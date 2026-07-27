@@ -1,0 +1,62 @@
+/* ============ 功能页（mock 驱动的真实页面） ============ */
+.feature-page {
+  flex: 1; min-height: 0; overflow: auto; padding: 18px 20px; background: var(--panel);
+  display: flex; flex-direction: column;
+}
+.fp-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.fp-title { margin: 0; font-size: 18px; color: #e6edf3; }
+.fp-sub { margin: 4px 0 0; font-size: 12.5px; color: var(--sub); }
+.fp-count {
+  flex: none; font-size: 12px; color: var(--accent2); background: #16202f;
+  border: 1px solid var(--line); border-radius: 20px; padding: 4px 12px;
+}
+.fp-toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
+.fp-toolbar .search {
+  flex: 1; max-width: 320px; background: #0b111b; border: 1px solid var(--line);
+  color: #d7e2ee; padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none;
+}
+.fp-toolbar .search:focus { border-color: var(--accent); }
+.role-filter {
+  background: #0b111b; border: 1px solid var(--line); color: #d7e2ee;
+  padding: 8px 10px; border-radius: 8px; font-size: 13px; outline: none;
+}
+
+/* 数据表格 */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left; color: var(--sub); font-weight: 600; font-size: 12px;
+  padding: 9px 12px; border-bottom: 1px solid var(--line); background: #111a27; position: sticky; top: 0;
+}
+.data-table td { padding: 9px 12px; border-bottom: 1px solid #1a2433; color: #cfd9e6; }
+.data-table tbody tr:hover { background: #121c2b; }
+.data-table .muted { color: var(--sub); }
+.data-table .abnormal { color: #ff8585; }
+.data-table .clickable { cursor: pointer; }
+.data-table .clickable.active { background: #1c2940; }
+
+.role-chip {
+  display: inline-block; background: #1a2740; color: #9ec1ff; border: 1px solid #2f4a73;
+  border-radius: 12px; padding: 1px 8px; font-size: 11.5px; margin: 1px 4px 1px 0;
+}
+.status-dot { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+.status-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.status-dot.active { color: #4ade80; }
+.status-dot.disabled { color: #ff8585; }
+
+/* 状态：加载 / 错误 / 空 */
+.fp-loading { padding: 18px; color: var(--accent2); font-size: 13px; }
+.fp-error {
+  padding: 12px 14px; color: #ff9a9a; background: #2a1318; border: 1px solid #5b2330;
+  border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.fp-empty { text-align: center; color: var(--sub); padding: 22px; }
+
+/* 分页 */
+.pager { display: flex; align-items: center; gap: 12px; justify-content: flex-end; padding: 12px 4px; color: var(--sub); font-size: 12.5px; }
+.btn.sm { padding: 4px 10px; font-size: 12px; }
+
+/* 数据集：左列表 + 右预览 */
+.ds-layout { display: flex; gap: 16px; flex: 1; min-height: 0; }
+.ds-list { flex: 1.1; min-width: 0; display: flex; flex-direction: column; }
+.ds-detail { flex: 1.3; min-width: 0; background: #0b111b; border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; }
+.ds-detail-title { margin: 0 0 12px; font-size: 14px; color: #e6edf3; }

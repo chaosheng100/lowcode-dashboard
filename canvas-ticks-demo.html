@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Canvas 刻度线绘制 Demo</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: #f5f6f8;
+    color: #1f2329;
+    padding: 24px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #8a9099; font-size: 13px; margin-bottom: 16px; }
+  .layout { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .panel {
+    background: #fff; border: 1px solid #e6e8eb; border-radius: 10px;
+    padding: 16px; width: 320px; flex: 0 0 auto;
+  }
+  .stage {
+    background: #fff; border: 1px solid #e6e8eb; border-radius: 10px;
+    padding: 8px; flex: 1 1 480px; min-width: 480px;
+  }
+  canvas { width: 100%; height: 520px; display: block; border-radius: 6px; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+  .row label { font-size: 13px; color: #4e5969; }
+  .row input[type="number"], .row select {
+    width: 130px; padding: 5px 8px; border: 1px solid #d8dce0;
+    border-radius: 6px; font-size: 13px;
+  }
+  .ticks-row { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+  .ticks-row label { font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+  .btn {
+    margin-top: 8px; width: 100%; padding: 8px; border: none; border-radius: 6px;
+    background: #2f6bff; color: #fff; font-size: 14px; cursor: pointer;
+  }
+  .btn:hover { background: #1f57e0; }
+  .hint { font-size: 12px; color: #8a9099; margin-top: 6px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <h1>Canvas 刻度线绘制（主刻度 + 次刻度）</h1>
+  <div class="sub">刻度沿画布四条边缘绘制，支持主/次刻度、数值标签、方向自定义。拖动右侧参数可实时预览。</div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="row">
+        <label>起始值 start</label>
+        <input id="start" type="number" value="0" />
+      </div>
+      <div class="row">
+        <label>结束值 end</label>
+        <input id="end" type="number" value="100" />
+      </div>
+      <div class="row">
+        <label>主刻度间隔 majorStep</label>
+        <input id="majorStep" type="number" value="10" />
+      </div>
+      <div class="row">
+        <label>每主刻度的次刻度数</label>
+        <input id="minorPerMajor" type="number" value="5" min="1" />
+      </div>
+      <div class="row">
+        <label>主刻度线长</label>
+        <input id="majorLength" type="number" value="10" />
+      </div>
+      <div class="row">
+        <label>次刻度线长</label>
+        <input id="minorLength" type="number" value="5" />
+      </div>
+      <div class="row">
+        <label>标签字号</label>
+        <input id="labelFont" type="number" value="12" min="8" />
+      </div>
+      <div class="row">
+        <label>刻度方向</label>
+        <select id="direction">
+          <option value="outward">向外 (outward)</option>
+          <option value="inward">向内 (inward)</option>
+        </select>
+      </div>
+      <div class="ticks-row">
+        <label><input type="checkbox" id="eTop" checked /> 上</label>
+        <label><input type="checkbox" id="eBottom" checked /> 下</label>
+        <label><input type="checkbox" id="eLeft" checked /> 左</label>
+        <label><input type="checkbox" id="eRight" checked /> 右</label>
+      </div>
+      <button class="btn" id="redraw">重绘</button>
+      <div class="hint">
+        核心函数 <code>drawAxisTicks(ctx, cfg)</code> 已与 UI 解耦，可直接拷入 React 的
+        <code>Canvas.tsx</code> 或任意 Canvas 项目复用。
+      </div>
+    </div>
+
+    <div class="stage">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+<script>
+/* =========================================================================
+ * drawAxisTicks —— 在画布某一条边上绘制刻度（主刻度 + 次刻度 + 数值标签）
+ *
+ * 该函数与具体业务/UI 完全解耦，仅需传入 2D 上下文与配置对象即可调用。
+ * 支持自定义：起始/结束值、主刻度间隔、每条主刻度下的次刻度数、
+ *            线长、线宽、颜色、字体、方向（向内/向外）、标签格式化等。
+ *
+ * @param {CanvasRenderingContext2D} ctx  2D 绘图上下文
+ * @param {Object} cfg  配置项（见下方 defaults）
+ * ========================================================================= */
+function drawAxisTicks(ctx, cfg) {
+  // ---- 默认参数 ----
+  const d = {
+    edge: 'bottom',          // 'top' | 'bottom' | 'left' | 'right'
+    originX: 0,              // 内容区左上角 X
+    originY: 0,              // 内容区左上角 Y
+    width: 0,               // 内容区宽（水平轴使用）
+    height: 0,              // 内容区高（垂直轴使用）
+    start: 0,               // 刻度范围起始值
+    end: 100,               // 刻度范围结束值
+    majorStep: 10,          // 主刻度间隔
+    minorPerMajor: 5,       // 每个主刻度之间的次刻度数量（次刻度间隔 = majorStep / minorPerMajor）
+    majorLength: 10,        // 主刻度线长（像素）
+    minorLength: 5,         // 次刻度线长（像素）
+    majorWidth: 2,          // 主刻度线宽
+    minorWidth: 1,          // 次刻度线宽
+    majorColor: '#333333',  // 主刻度颜色（深）
+    minorColor: '#b0b4ba',  // 次刻度颜色（浅）
+    labelColor: '#333333',  // 数值标签颜色
+    labelFont: '12px sans-serif', // 数值标签字体
+    labelOffset: 4,         // 标签与刻度线外侧的间距（像素）
+    direction: 'outward',   // 'outward' 向外 | 'inward' 向内
+    formatLabel: (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1)),
+  };
+  cfg = Object.assign({}, d, cfg);
+
+  const minorStep = cfg.majorStep / cfg.minorPerMajor;
+  const totalMinor = Math.round((cfg.end - cfg.start) / minorStep);
+
+  // 向外(1) / 向内(-1)
+  const outward = cfg.direction === 'inward' ? -1 : 1;
+
+  // 根据 edge 计算：基准线向量、延伸方向、标签对齐方式
+  let dir, textAlign, textBaseline;
+  switch (cfg.edge) {
+    case 'top':
+      dir = { x: 0, y: -1 }; dir.y *= outward; break;
+    case 'bottom':
+      dir = { x: 0, y: 1 }; dir.y *= outward; break;
+    case 'left':
+      dir = { x: -1, y: 0 }; dir.x *= outward; break;
+    case 'right':
+      dir = { x: 1, y: 0 }; dir.x *= outward; break;
+    default:
+      throw new Error('drawAxisTicks: 未知的 edge -> ' + cfg.edge);
+  }
+  if (cfg.edge === 'top' || cfg.edge === 'bottom') {
+    textAlign = 'center';
+    textBaseline = dir.y < 0 ? 'bottom' : 'top'; // 标签在刻度线外侧
+  } else {
+    textBaseline = 'middle';
+    textAlign = dir.x < 0 ? 'right' : 'left';
+  }
+
+  // 避免小数累积误差：以“次刻度序号”遍历
+  for (let i = 0; i <= totalMinor; i++) {
+    const v = cfg.start + i * minorStep;
+    const isMajor = (i % cfg.minorPerMajor) === 0;
+
+    // 归一化位置 t ∈ [0,1]
+    const t = totalMinor === 0 ? 0 : i / totalMinor;
+
+    // 刻度线起点（落在基准线上）与终点
+    let bx, by;
+    if (cfg.edge === 'top' || cfg.edge === 'bottom') {
+      bx = cfg.originX + t * cfg.width;
+      by = (cfg.edge === 'top') ? cfg.originY : (cfg.originY + cfg.height);
+    } else {
+      bx = (cfg.edge === 'left') ? cfg.originX : (cfg.originX + cfg.width);
+      by = cfg.originY + t * cfg.height;
+    }
+
+    const len = isMajor ? cfg.majorLength : cfg.minorLength;
+    const ex = bx + dir.x * len;
+    const ey = by + dir.y * len;
+
+    // 绘制刻度线
+    ctx.beginPath();
+    ctx.strokeStyle = isMajor ? cfg.majorColor : cfg.minorColor;
+    ctx.lineWidth = isMajor ? cfg.majorWidth : cfg.minorWidth;
+    ctx.moveTo(bx, by);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    // 仅主刻度绘制数值标签，标签居中对齐在刻度线外侧
+    if (isMajor) {
+      ctx.fillStyle = cfg.labelColor;
+      ctx.font = cfg.labelFont;
+      ctx.textAlign = textAlign;
+      ctx.textBaseline = textBaseline;
+      const lx = bx + dir.x * (len + cfg.labelOffset);
+      const ly = by + dir.y * (len + cfg.labelOffset);
+      ctx.fillText(cfg.formatLabel(v), lx, ly);
+    }
+  }
+}
+
+/* =========================================================================
+ * 演示场景：在画布内容区四条边上绘制刻度
+ * ========================================================================= */
+function drawScene(canvas, opt) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // 高清屏适配，保证刻度清晰
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  // 内容区（四周留出边距以容纳标签）
+  const pad = opt.padding ?? 56;
+  const originX = pad;
+  const originY = pad;
+  const width = cssW - pad * 2;
+  const height = cssH - pad * 2;
+
+  // 内容区边框（便于观察刻度依附的画布边缘）
+  ctx.strokeStyle = '#e2e5ea';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(originX + 0.5, originY + 0.5, width, height);
+
+  const base = {
+    originX, originY, width, height,
+    start: opt.start, end: opt.end,
+    majorStep: opt.majorStep,
+    minorPerMajor: opt.minorPerMajor,
+    majorLength: opt.majorLength,
+    minorLength: opt.minorLength,
+    direction: opt.direction,
+    labelColor: opt.labelColor,
+    labelFont: opt.labelFont + 'px sans-serif',
+    labelOffset: 4,
+  };
+
+  if (opt.edges.top)    drawAxisTicks(ctx, Object.assign({}, base, { edge: 'top' }));
+  if (opt.edges.bottom) drawAxisTicks(ctx, Object.assign({}, base, { edge: 'bottom' }));
+  if (opt.edges.left)   drawAxisTicks(ctx, Object.assign({}, base, { edge: 'left' }));
+  if (opt.edges.right)  drawAxisTicks(ctx, Object.assign({}, base, { edge: 'right' }));
+}
+
+/* =========================================================================
+ * UI 绑定（仅用于演示，可删除）
+ * ========================================================================= */
+const canvas = document.getElementById('cv');
+const $ = (id) => document.getElementById(id);
+
+function getOptions() {
+  return {
+    start: Number($('start').value),
+    end: Number($('end').value),
+    majorStep: Number($('majorStep').value),
+    minorPerMajor: Math.max(1, Number($('minorPerMajor').value)),
+    majorLength: Number($('majorLength').value),
+    minorLength: Number($('minorLength').value),
+    labelFont: Number($('labelFont').value),
+    direction: $('direction').value,
+    edges: {
+      top: $('eTop').checked,
+      bottom: $('eBottom').checked,
+      left: $('eLeft').checked,
+      right: $('eRight').checked,
+    },
+  };
+}
+
+function render() { drawScene(canvas, getOptions()); }
+
+['start','end','majorStep','minorPerMajor','majorLength','minorLength','labelFont','direction',
+ 'eTop','eBottom','eLeft','eRight'].forEach(id => {
+  $(id).addEventListener('input', render);
+});
+$('redraw').addEventListener('click', render);
+window.addEventListener('resize', render);
+
+render();
+</script>
+</body>
+</html>

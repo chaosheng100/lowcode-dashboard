@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>路由功能计划书 · 低代码大屏设计平台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2530; --line: #2a3340;
+    --txt: #e6edf3; --sub: #9aa7b4; --accent: #4f8cff; --accent2: #22d3ee;
+  }
+  body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 28px 80px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 28px; }
+  h1 { font-size: 26px; letter-spacing: 1px; }
+  h1 .tag { color: var(--accent2); }
+  .meta { color: var(--sub); font-size: 13px; margin-top: 8px; }
+  .stats { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; min-width: 120px; }
+  .stat .n { font-size: 24px; font-weight: 800; color: var(--accent); }
+  .stat .l { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .note { background: rgba(34,211,238,.08); border: 1px solid rgba(34,211,238,.35); border-radius: 10px; padding: 12px 16px; margin: 18px 0 28px; font-size: 13.5px; color: #cfe9f1; }
+  h2 { font-size: 19px; margin: 34px 0 14px; padding-left: 12px; border-left: 4px solid var(--accent); }
+  .l1 { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+  .l1-head { display: flex; align-items: center; gap: 10px; }
+  .l1-ico { width: 30px; height: 30px; display: grid; place-items: center; background: var(--panel2); border-radius: 8px; font-size: 17px; }
+  .l1-name { font-size: 17px; font-weight: 700; }
+  .l1-path { color: var(--sub); font-size: 12px; margin-left: auto; font-family: Consolas, monospace; }
+  .pos { display: inline-block; background: rgba(79,140,255,.15); color: var(--accent); border-radius: 6px; padding: 2px 9px; font-size: 11px; margin-left: 10px; vertical-align: middle; }
+  .l1-desc { color: var(--sub); font-size: 13.5px; margin: 10px 0 6px; }
+  .children { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .children { grid-template-columns: 1fr; } }
+  .child { background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; }
+  .child h4 { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .child .cp { color: var(--sub); font-size: 11px; font-family: Consolas, monospace; margin-left: auto; }
+  .child ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: #cdd7e1; }
+  .child li { margin-bottom: 3px; }
+  .cfg { margin-top: 8px; font-size: 11.5px; color: var(--sub); }
+  .cfg code { background: #0d1117; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--accent2); font-family: Consolas, monospace; }
+  .leaf { background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; margin-top: 12px; }
+  .leaf h4 { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  footer { margin-top: 50px; border-top: 1px solid var(--line); padding-top: 18px; color: var(--sub); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>可视化平台 · <span class="tag">路由功能计划书</span></h1>
+    <div class="meta">低代码大屏设计平台 · 导航与页面功能规划 · 供评审使用 · 2026-07-27</div>
+    <div class="stats">
+      <div class="stat"><div class="n">11</div><div class="l">一级路由</div></div>
+      <div class="stat"><div class="n">25</div><div class="l">二级路由</div></div>
+      <div class="stat"><div class="n">36</div><div class="l">路由总数</div></div>
+    </div>
+  </header>
+
+  <div class="note">
+    说明：数字以原型截图识别为准 —— 一级 11 个、二级 25 个（生态扩展5 / 数据管理5 / 组件中心2 / AI智能2 / 开发工具2 / 资源管理2 / 系统管理4 / 插件管理2 / 其他系统1）。
+    其中 <b>大屏管理</b>、<b>帮助中心</b> 在原型中未展示二级菜单。每条路由在「低代码设计器」中均对应一个独立页面，
+    可在右侧「页面配置」维护 <code>params / props / state</code>，在「画布设计」中拖拽组件。
+  </div>
+
+  <!-- 1 大屏管理 -->
+  <h2>一级路由清单</h2>
+
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🖥️</span><span class="l1-name">大屏管理</span>
+      <span class="l1-path">/dashboard</span><span class="pos">一级</span>
+    </div>
+    <div class="l1-desc">可视化大屏的集中管理入口，负责大屏的创建、编辑、发布与生命周期管理。</div>
+    <div class="leaf">
+      <h4>🖥️ 大屏管理 <span class="cp">/dashboard</span></h4>
+      <ul>
+        <li>大屏列表（卡片/表格视图），支持按名称、标签、状态筛选与搜索</li>
+        <li>新建大屏（进入设计器）、编辑、复制、删除</li>
+        <li>发布 / 下线、访问链接与嵌入码（iframe）管理</li>
+        <li>缩略图预览、最近编辑时间、负责人字段</li>
+      </ul>
+      <div class="cfg">配置：<code>params:{id}</code> · <code>props:{title}</code> · <code>state:{当前选中大屏}</code></div>
+    </div>
+  </div>
+
+  <!-- 2 生态扩展 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🔌</span><span class="l1-name">生态扩展</span>
+      <span class="l1-path">/extension</span><span class="pos">一级 · 5 二级</span>
+    </div>
+    <div class="l1-desc">大屏能力的向外延伸与生态集成，覆盖报表、轮播、孪生、部署与物联。</div>
+    <div class="children">
+      <div class="child">
+        <h4>报表管理 <span class="cp">/extension/report</span></h4>
+        <ul><li>结构化报表（表格+图表）配置</li><li>导出 PDF / Excel、定时推送</li></ul>
+        <div class="cfg">配置：<code>params:{reportId}</code></div>
+      </div>
+      <div class="child">
+        <h4>轮播管理 <span class="cp">/extension/carousel</span></h4>
+        <ul><li>多张大屏轮播计划</li><li>播放排期、顺序与时间间隔</li></ul>
+        <div class="cfg">配置：<code>state:{playing}</code></div>
+      </div>
+      <div class="child">
+        <h4>数字孪生 <span class="cp">/extension/twin</span></h4>
+        <ul><li>三维场景 / 设备模型接入</li><li>数据到模型的实时可视化映射（预留强能力）</li></ul>
+        <div class="cfg">配置：<code>props:{sceneId}</code></div>
+      </div>
+      <div class="child">
+        <h4>独立部署 <span class="cp">/extension/deploy</span></h4>
+        <ul><li>大屏打包为独立静态站点 / 容器镜像</li><li>部署到指定环境并查看状态</li></ul>
+        <div class="cfg">配置：<code>state:{deployStatus}</code></div>
+      </div>
+      <div class="child">
+        <h4>物联组态 <span class="cp">/extension/iot</span></h4>
+        <ul><li>IoT 设备点位接入</li><li>组态监控画面与告警联动</li></ul>
+        <div class="cfg">配置：<code>params:{deviceGroup}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 数据管理 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🗄️</span><span class="l1-name">数据管理</span>
+      <span class="l1-path">/data</span><span class="pos">一级 · 5 二级</span>
+    </div>
+    <div class="l1-desc">平台的数据接入、加工与流转中枢，支撑大屏的数据来源。</div>
+    <div class="children">
+      <div class="child">
+        <h4>数据源配置 <span class="cp">/data/source</span></h4>
+        <ul><li>数据库 / API / 文件等连接管理</li><li>连通性测试与凭证托管</li></ul>
+        <div class="cfg">配置：<code>params:{sourceId}</code></div>
+      </div>
+      <div class="child">
+        <h4>数据集管理 <span class="cp">/data/dataset</span></h4>
+        <ul><li>基于数据源构建数据集</li><li>字段映射、清洗、建模（已预置示例页）</li></ul>
+        <div class="cfg">配置：<code>params:{datasetId}</code></div>
+      </div>
+      <div class="child">
+        <h4>数据填报 <span class="cp">/data/entry</span></h4>
+        <ul><li>在线表单填报补录</li><li>填报任务与审批流</li></ul>
+        <div class="cfg">配置：<code>state:{draft}</code></div>
+      </div>
+      <div class="child">
+        <h4>消息通道 <span class="cp">/data/channel</span></h4>
+        <ul><li>告警 / 通知通道配置</li><li>邮件、钉钉、企业微信等对接</li></ul>
+        <div class="cfg">配置：<code>params:{channel}</code></div>
+      </div>
+      <div class="child">
+        <h4>数据工作流 <span class="cp">/data/workflow</span></h4>
+        <ul><li>数据同步 / 计算 / 调度编排</li><li>任务依赖与运维监控</li></ul>
+        <div class="cfg">配置：<code>state:{lastRun}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 组件中心 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🧩</span><span class="l1-name">组件中心</span>
+      <span class="l1-path">/components</span><span class="pos">一级 · 2 二级</span>
+    </div>
+    <div class="l1-desc">可复用可视化资产库，统一组件的沉淀与分发。</div>
+    <div class="children">
+      <div class="child">
+        <h4>组件库 <span class="cp">/components/library</span></h4>
+        <ul><li>浏览 / 上传 / 管理组件（含第三方）</li><li>版本与预览（已预置示例页）</li></ul>
+        <div class="cfg">配置：<code>params:{compId}</code></div>
+      </div>
+      <div class="child">
+        <h4>组件菜单 <span class="cp">/components/menu</span></h4>
+        <ul><li>组件分类、标签配置</li><li>权限可见性控制</li></ul>
+        <div class="cfg">配置：<code>props:{category}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 AI智能 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🤖</span><span class="l1-name">AI智能</span>
+      <span class="l1-path">/ai</span><span class="pos">一级 · 2 二级</span>
+    </div>
+    <div class="l1-desc">大模型与算法能力的集成入口。</div>
+    <div class="children">
+      <div class="child">
+        <h4>模型管理 <span class="cp">/ai/models</span></h4>
+        <ul><li>接入与管理大模型 / 算法模型</li><li>密钥、配额与调用审计</li></ul>
+        <div class="cfg">配置：<code>params:{modelId}</code></div>
+      </div>
+      <div class="child">
+        <h4>AI助手 <span class="cp">/ai/assistant</span></h4>
+        <ul><li>对话式辅助</li><li>自然语言生成图表 / 数据问答</li></ul>
+        <div class="cfg">配置：<code>state:{session}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 开发工具 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🛠️</span><span class="l1-name">开发工具</span>
+      <span class="l1-path">/dev</span><span class="pos">一级 · 2 二级</span>
+    </div>
+    <div class="l1-desc">面向开发者的工程化支撑。</div>
+    <div class="children">
+      <div class="child">
+        <h4>代码仓库 <span class="cp">/dev/code</span></h4>
+        <ul><li>自定义组件 / 脚本源码管理</li><li>Git 集成与版本</li></ul>
+        <div class="cfg">配置：<code>params:{repo}</code></div>
+      </div>
+      <div class="child">
+        <h4>全局变量 <span class="cp">/dev/variables</span></h4>
+        <ul><li>定义跨页面复用的全局变量</li><li>表达式与常量管理</li></ul>
+        <div class="cfg">配置：<code>state:{vars}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 资源管理 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">📦</span><span class="l1-name">资源管理</span>
+      <span class="l1-path">/resources</span><span class="pos">一级 · 2 二级</span>
+    </div>
+    <div class="l1-desc">素材与地理资源的统一存储。</div>
+    <div class="children">
+      <div class="child">
+        <h4>静态资源 <span class="cp">/resources/static</span></h4>
+        <ul><li>图片 / 字体 / 视频管理</li><li>上传、引用与回收</li></ul>
+        <div class="cfg">配置：<code>params:{assetId}</code></div>
+      </div>
+      <div class="child">
+        <h4>地图资源 <span class="cp">/resources/map</span></h4>
+        <ul><li>底图、GeoJSON、区域边界</li><li>坐标系与层级配置</li></ul>
+        <div class="cfg">配置：<code>props:{mapType}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 系统管理 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">⚙️</span><span class="l1-name">系统管理</span>
+      <span class="l1-path">/system</span><span class="pos">一级 · 4 二级</span>
+    </div>
+    <div class="l1-desc">平台运行治理与基础配置。</div>
+    <div class="children">
+      <div class="child">
+        <h4>分类标签 <span class="cp">/system/tags</span></h4>
+        <ul><li>全局分类与标签体系</li><li>统一元数据口径</li></ul>
+        <div class="cfg">配置：<code>props:{taxonomy}</code></div>
+      </div>
+      <div class="child">
+        <h4>运行配置 <span class="cp">/system/runtime</span></h4>
+        <ul><li>调度频率、缓存策略</li><li>运行时参数调优</li></ul>
+        <div class="cfg">配置：<code>state:{healthy}</code></div>
+      </div>
+      <div class="child">
+        <h4>用户管理 <span class="cp">/system/users</span></h4>
+        <ul><li>账号、角色与权限</li><li>组织与审计</li></ul>
+        <div class="cfg">配置：<code>params:{userId}</code></div>
+      </div>
+      <div class="child">
+        <h4>大屏分析 <span class="cp">/system/analysis</span></h4>
+        <ul><li>访问量与使用统计</li><li>热度与留存分析（已预置示例页）</li></ul>
+        <div class="cfg">配置：<code>state:{range}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 插件管理 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🔧</span><span class="l1-name">插件管理</span>
+      <span class="l1-path">/plugins</span><span class="pos">一级 · 2 二级</span>
+    </div>
+    <div class="l1-desc">插件生态的承载与分发。</div>
+    <div class="children">
+      <div class="child">
+        <h4>我的插件 <span class="cp">/plugins/mine</span></h4>
+        <ul><li>已安装插件列表</li><li>启用 / 禁用 / 配置</li></ul>
+        <div class="cfg">配置：<code>state:{enabled}</code></div>
+      </div>
+      <div class="child">
+        <h4>插件市场 <span class="cp">/plugins/market</span></h4>
+        <ul><li>浏览 / 安装官方与第三方插件</li><li>版本与评价</li></ul>
+        <div class="cfg">配置：<code>params:{pluginId}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 帮助中心 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">❓</span><span class="l1-name">帮助中心</span>
+      <span class="l1-path">/help</span><span class="pos">一级</span>
+    </div>
+    <div class="l1-desc">文档、FAQ 与工单支持入口（原型中未展示二级）。</div>
+    <div class="leaf">
+      <h4>❓ 帮助中心 <span class="cp">/help</span></h4>
+      <ul>
+        <li>产品文档与使用指南</li>
+        <li>常见问题（FAQ）与搜索</li>
+        <li>提交工单 / 联系支持</li>
+      </ul>
+      <div class="cfg">配置：<code>params:{docId}</code></div>
+    </div>
+  </div>
+
+  <!-- 11 其他系统 -->
+  <div class="l1">
+    <div class="l1-head">
+      <span class="l1-ico">🔗</span><span class="l1-name">其他系统</span>
+      <span class="l1-path">/others</span><span class="pos">一级 · 1 二级</span>
+    </div>
+    <div class="l1-desc">外部系统的统一跳转入口。</div>
+    <div class="children">
+      <div class="child">
+        <h4>AI模型平台 <span class="cp">/others/ai-platform</span></h4>
+        <ul><li>跳转 / 嵌入外部 AI 平台</li><li>跨系统单点登录衔接</li></ul>
+        <div class="cfg">配置：<code>props:{target}</code></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    本计划书由可视化平台原型截图识别生成，共覆盖 <b>36</b> 个路由节点。如需补充某路由的字段口径、权限规则或联动关系，可在评审时标注后由设计器落地。
+  </footer>
+</div>
+</body>
+</html>

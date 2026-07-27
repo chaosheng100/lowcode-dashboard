@@ -1,0 +1,159 @@
+/* 大屏管理层 —— 列表页样式 */
+.mg {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: #0a0d13;
+  overflow: hidden;
+}
+
+.mg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex: none;
+}
+
+.mg-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: 1px;
+}
+
+.mg-search {
+  margin-left: auto;
+  width: 220px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0e131c;
+  color: var(--text);
+  font-size: 13px;
+}
+.mg-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.mg-sort-label {
+  color: #9aa7b4;
+  font-size: 12px;
+}
+.mg-select {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0e131c;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mg-order {
+  padding: 7px 12px;
+}
+.mg-new {
+  padding: 8px 14px;
+  background: var(--accent);
+  color: #06121f;
+  font-weight: 700;
+  border: none;
+}
+.mg-new:hover {
+  filter: brightness(1.08);
+}
+
+.mg-grid {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+  padding: 22px 24px;
+  align-content: start;
+}
+
+.mg-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mg-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.mg-thumb {
+  position: relative;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  padding: 10px;
+}
+.mg-mini {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
+}
+.mg-badge {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #cfe3ff;
+  backdrop-filter: blur(2px);
+}
+
+.mg-info {
+  padding: 12px 14px 14px;
+}
+.mg-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 8px;
+}
+.mg-meta {
+  font-size: 12px;
+  color: #8a97a5;
+  line-height: 1.7;
+}
+.mg-open {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.mg-card:hover .mg-open {
+  opacity: 1;
+}
+
+@media (max-width: 560px) {
+  .mg-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 14px;
+  }
+  .mg-search {
+    width: 130px;
+  }
+  .mg-title {
+    display: none;
+  }
+}

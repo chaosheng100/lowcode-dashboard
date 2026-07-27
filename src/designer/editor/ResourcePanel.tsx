@@ -1,0 +1,181 @@
+import { useEffect, useState } from 'react'
+import { useDesignerStore } from '../../data/store/useDesignerStore'
+import { api } from '../../mock'
+import type { DatasetDTO, AssetDTO, ThemeDTO } from '../../mock/types'
+import type { DataPoint } from '../../data/types'
+
+// 可绑定数据集的组件类型（基础"数据/图表"能力 → 画布数据）
+const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table']
+
+/**
+ * 资源中心：把基础数据路由沉淀的能力转化为画布编辑能力。
+ * - 数据集（/data/dataset）→ 绑定到选中的图表/指标/表格组件
+ * - 素材（/resources/static）→ 设为画布背景 / 插入图片组件
+ * - 主题（/system/runtime）→ 应用到大屏页面配色
+ */
+export default function ResourcePanel() {
+  const selectedId = useDesignerStore((s) => s.selectedId)
+  const route = useDesignerStore((s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0])!
+  const component = route.components.find((c) => c.id === selectedId)
+  const updateProps = useDesignerStore((s) => s.updateComponentProps)
+  const addComponent = useDesignerStore((s) => s.addComponent)
+  const setPage = useDesignerStore((s) => s.setPage)
+
+  const [tab, setTab] = useState<'dataset' | 'asset' | 'theme'>('dataset')
+  const [datasets, setDatasets] = useState<DatasetDTO[]>([])
+  const [assets, setAssets] = useState<AssetDTO[]>([])
+  const [themes, setThemes] = useState<ThemeDTO[]>([])
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    setErr('')
+    const load = async () => {
+      try {
+        if (tab === 'dataset') {
+          const r = await api.listDatasets({ pageSize: 50 })
+          if (alive) setDatasets(r.data.list)
+        } else if (tab === 'asset') {
+          const r = await api.listAssets({ pageSize: 50 })
+          if (alive) setAssets(r.data.list)
+        } else {
+          const r = await api.listThemes()
+          if (alive) setThemes(r.data)
+        }
+      } catch (e) {
+        if (alive) setErr((e as Error).message)
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      alive = false
+    }
+  }, [tab])
+
+  const transform = (rows: Record<string, string | number | boolean>[]): DataPoint[] =>
+    rows.map((row) => ({
+      name: String(row.region ?? row.metric ?? row.name ?? ''),
+      value: Number(row.value)
+    }))
+
+  const bindDataset = async (ds: DatasetDTO) => {
+    setMsg('')
+    if (!component || !DATA_WIDGETS.includes(component.type)) {
+      setMsg('请先在画布中选中一个图表 / 指标卡 / 表格组件')
+      return
+    }
+    setLoading(true)
+    try {
+      const r = await api.queryDataset(ds.id, { pageSize: 12 })
+      updateProps(component.id, {
+        data: transform(r.data.list),
+        title: ds.name,
+        dataSourceId: ds.id,
+        dataSourceName: ds.name
+      })
+      setMsg(`已将「${ds.name}」绑定到 ${component.type} 组件`)
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const setBackground = (url: string) => {
+    setPage({ backgroundImage: url, backgroundImageFit: 'cover', backgroundImageOpacity: 1 })
+    setMsg('已设为画布背景')
+  }
+  const insertImage = (url: string) => {
+    const id = addComponent('image', { w: 320, h: 200, x: 80, y: 80 })
+    if (id) updateProps(id, { src: url })
+    setMsg('已向画布插入图片组件')
+  }
+  const applyTheme = (t: ThemeDTO) => {
+    setPage({ background: t.background })
+    setMsg(`已应用主题「${t.name}」`)
+  }
+
+  return (
+    <div className="dlp-inner">
+      <div style={{ color: '#9aa7b4', fontSize: 12, marginBottom: 10 }}>基础能力 → 画布</div>
+      <div className="dlp-tabs2">
+        <button className={'tab' + (tab === 'dataset' ? ' active' : '')} onClick={() => setTab('dataset')}>
+          数据集
+        </button>
+        <button className={'tab' + (tab === 'asset' ? ' active' : '')} onClick={() => setTab('asset')}>
+          素材
+        </button>
+        <button className={'tab' + (tab === 'theme' ? ' active' : '')} onClick={() => setTab('theme')}>
+          主题
+        </button>
+      </div>
+
+      {msg && <div className="dlp-msg">{msg}</div>}
+      {err && <div className="dlp-err">加载失败：{err}</div>}
+      {loading && <div className="empty-tip">加载中…</div>}
+
+      <div className="dlp-list">
+        {tab === 'dataset' &&
+          datasets.map((d) => (
+            <div className="rp-item" key={d.id}>
+              <div className="rp-main">
+                <strong>{d.name}</strong>
+                <span className="rp-sub">{d.sourceName} · {d.rowCount.toLocaleString()} 行</span>
+              </div>
+              <button className="btn rp-act" onClick={() => bindDataset(d)}>
+                绑定到组件
+              </button>
+            </div>
+          ))}
+
+        {tab === 'asset' &&
+          assets.map((a) => (
+            <div className="rp-item" key={a.id}>
+              <div className="rp-main">
+                <strong>{a.name}</strong>
+                <span className="rp-sub">{a.type} · {a.sizeKb}KB</span>
+              </div>
+              <div className="rp-acts">
+                <button className="btn rp-act" onClick={() => setBackground(a.url)}>
+                  背景
+                </button>
+                <button className="btn rp-act" onClick={() => insertImage(a.url)}>
+                  图片
+                </button>
+              </div>
+            </div>
+          ))}
+
+        {tab === 'theme' &&
+          themes.map((t) => (
+            <div className="rp-item" key={t.id}>
+              <div className="rp-main">
+                <strong>
+                  <span className="rp-dot" style={{ background: t.accent }} /> {t.name}
+                </strong>
+                <span className="rp-sub">{t.desc}</span>
+              </div>
+              <button className="btn rp-act" onClick={() => applyTheme(t)}>
+                应用
+              </button>
+            </div>
+          ))}
+
+        {!loading && !err && tab === 'dataset' && !datasets.length && (
+          <div className="empty-tip">暂无数据集</div>
+        )}
+        {!loading && !err && tab === 'asset' && !assets.length && <div className="empty-tip">暂无素材</div>}
+        {!loading && !err && tab === 'theme' && !themes.length && <div className="empty-tip">暂无主题</div>}
+      </div>
+
+      <div className="dlp-hint">
+        提示：选中画布中的图表/指标卡/表格后，点「绑定到组件」即可把数据集接入画布。
+      </div>
+    </div>
+  )
+}
