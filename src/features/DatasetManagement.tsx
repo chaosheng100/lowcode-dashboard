@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { Alert, Button, Input, Table, type TableProps } from 'antd'
+import { SearchOutlined } from '@ant-design/icons'
 import { api } from '../mock'
 import type { DatasetDTO, DatasetRow, PageResult } from '../mock'
 import { useApi, useDebounced } from './useApi'
+import { Empty } from './common'
 
 export default function DatasetManagement() {
   const [keyword, setKeyword] = useState('')
@@ -23,7 +26,23 @@ export default function DatasetManagement() {
 
   const rows = listState.data?.list ?? []
   const total = listState.data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  // 数据集列表列（纯展示，muted 复用旧次级文字色）
+  const columns: TableProps<DatasetDTO>['columns'] = [
+    { title: '数据集', dataIndex: 'name', key: 'name' },
+    { title: '来源', dataIndex: 'sourceName', key: 'sourceName', render: (v: string) => <span className="muted">{v}</span> },
+    { title: '行数', dataIndex: 'rowCount', key: 'rowCount', render: (v: number) => <span className="muted">{v.toLocaleString()}</span> },
+    { title: '更新', dataIndex: 'updatedAt', key: 'updatedAt', render: (v: string) => <span className="muted">{v}</span> },
+  ]
+
+  // 预览列由所选数据集 schema 动态生成；值为 'true' 的单元格保留 abnormal 标红
+  const previewColumns: TableProps<DatasetRow>['columns'] = (selected?.schema ?? []).map((f) => ({
+    title: f.field,
+    dataIndex: f.field,
+    key: f.field,
+    onCell: (row) => ({ className: String(row[f.field]) === 'true' ? 'abnormal' : '' }),
+    render: (v: string | number | boolean) => String(v),
+  }))
 
   return (
     <div className="feature-page">
@@ -36,98 +55,60 @@ export default function DatasetManagement() {
       </div>
 
       <div className="fp-toolbar">
-        <input
-          className="search"
+        <Input
+          style={{ width: 260 }}
           placeholder="搜索数据集 / 来源"
+          prefix={<SearchOutlined />}
+          allowClear
           value={keyword}
           onChange={(e) => {
             setKeyword(e.target.value)
             setPage(1)
           }}
         />
-        <button className="btn" onClick={() => listState.reload()}>
-          刷新
-        </button>
+        <Button onClick={() => listState.reload()}>刷新</Button>
       </div>
 
       <div className="ds-layout">
         <div className="ds-list">
-          {listState.loading && <div className="fp-loading">加载中…</div>}
-          {listState.error && <div className="fp-error">加载失败：{listState.error}</div>}
-          {!listState.loading && !listState.error && (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>数据集</th>
-                  <th>来源</th>
-                  <th>行数</th>
-                  <th>更新</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="fp-empty">
-                      无匹配数据集
-                    </td>
-                  </tr>
-                )}
-                {rows.map((d) => (
-                  <tr
-                    key={d.id}
-                    className={'clickable' + (d.id === selectedId ? ' active' : '')}
-                    onClick={() => setSelectedId(d.id)}
-                  >
-                    <td>{d.name}</td>
-                    <td className="muted">{d.sourceName}</td>
-                    <td className="muted">{d.rowCount.toLocaleString()}</td>
-                    <td className="muted">{d.updatedAt}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {listState.error && <Alert type="error" showIcon message={`加载失败：${listState.error}`} style={{ marginBottom: 12 }} />}
+          {!listState.error && (
+            <Table<DatasetDTO>
+              columns={columns}
+              dataSource={rows}
+              rowKey="id"
+              size="small"
+              loading={listState.loading}
+              locale={{ emptyText: '无匹配数据集' }}
+              onRow={(d) => ({ onClick: () => setSelectedId(d.id) })}
+              rowClassName={(d) => `clickable${d.id === selectedId ? ' ant-table-row-active' : ''}`}
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                onChange: setPage,
+                showSizeChanger: false,
+                showTotal: (t) => `共 ${t} 个数据集`,
+              }}
+            />
           )}
-          <div className="pager">
-            <button className="btn sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              上一页
-            </button>
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            <button className="btn sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              下一页
-            </button>
-          </div>
         </div>
 
         <div className="ds-detail">
           <h3 className="ds-detail-title">
             {selected ? `数据预览 · ${selected.name}` : '数据预览'}
           </h3>
-          {!selected && <div className="fp-empty">从左侧选择一个数据集查看采样数据</div>}
-          {selected && queryState.loading && <div className="fp-loading">查询中…</div>}
-          {selected && queryState.error && <div className="fp-error">查询失败：{queryState.error}</div>}
-          {selected && !queryState.loading && !queryState.error && (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {selected.schema.map((f) => (
-                    <th key={f.field}>{f.field}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {queryState.data?.list.map((row, i) => (
-                  <tr key={i}>
-                    {selected.schema.map((f) => (
-                      <td key={f.field} className={String(row[f.field]) === 'true' ? 'abnormal' : ''}>
-                        {String(row[f.field])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {!selected && <Empty>从左侧选择一个数据集查看采样数据</Empty>}
+          {selected && queryState.error && <Alert type="error" showIcon message={`查询失败：${queryState.error}`} style={{ marginBottom: 12 }} />}
+          {selected && !queryState.error && (
+            <Table<DatasetRow>
+              columns={previewColumns}
+              dataSource={queryState.data?.list ?? []}
+              rowKey={(_, i) => String(i)}
+              size="small"
+              loading={queryState.loading}
+              pagination={false}
+            />
           )}
         </div>
       </div>

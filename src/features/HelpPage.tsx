@@ -1,3 +1,4 @@
+import { Card, Col, Collapse, Row } from 'antd'
 import { Section } from './common'
 
 const FAQ = [
@@ -8,6 +9,12 @@ const FAQ = [
   { q: '怎样独立部署？', a: '进入「独立部署」导出静态资源 / 数据源配置，或命令行批量构建，独立运行。' }
 ]
 
+const STEPS = [
+  { t: '1 · 配置数据源', d: '数据源配置 / 数据集管理，接入你的业务数据。' },
+  { t: '2 · 拖拽编排', d: '大屏管理进入编辑器，从组件库拖入并绑定数据。' },
+  { t: '3 · 发布部署', d: '独立部署导出，或在线加密分享。' }
+]
+
 /** 帮助中心：平台使用指南与最佳实践 */
 export default function HelpPage() {
   return (
@@ -16,19 +23,22 @@ export default function HelpPage() {
         <div><h2 className="fp-title">帮助中心</h2><p className="fp-sub">平台使用指南、最佳实践与常见问题</p></div>
       </div>
       <Section title="快速上手" desc="三步搭建你的第一个数据大屏">
-        <div className="grid3">
-          <div className="card"><b style={{ color: '#e6edf3' }}>1 · 配置数据源</b><div className="muted2" style={{ marginTop: 6 }}>数据源配置 / 数据集管理，接入你的业务数据。</div></div>
-          <div className="card"><b style={{ color: '#e6edf3' }}>2 · 拖拽编排</b><div className="muted2" style={{ marginTop: 6 }}>大屏管理进入编辑器，从组件库拖入并绑定数据。</div></div>
-          <div className="card"><b style={{ color: '#e6edf3' }}>3 · 发布部署</b><div className="muted2" style={{ marginTop: 6 }}>独立部署导出，或在线加密分享。</div></div>
-        </div>
+        <Row gutter={12}>
+          {STEPS.map((s) => (
+            <Col span={8} key={s.t}>
+              <Card size="small" hoverable>
+                <b>{s.t}</b>
+                <div className="muted2" style={{ marginTop: 6 }}>{s.d}</div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
       </Section>
       <Section title="常见问题" desc="FAQ">
-        {FAQ.map((f) => (
-          <div key={f.q} style={{ padding: '10px 0', borderBottom: '1px solid #1a2433' }}>
-            <b style={{ color: '#e6edf3' }}>Q：{f.q}</b>
-            <div className="muted2" style={{ marginTop: 4 }}>A：{f.a}</div>
-          </div>
-        ))}
+        <Collapse
+          ghost
+          items={FAQ.map((f, i) => ({ key: String(i), label: <b>Q：{f.q}</b>, children: <span className="muted2">A：{f.a}</span> }))}
+        />
       </Section>
     </div>
   )

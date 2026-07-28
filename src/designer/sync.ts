@@ -30,6 +30,10 @@ export function startEditorSync(getSelectedRoute: () => RouteConfig | undefined)
 
   c.onmessage = (e: MessageEvent) => {
     const m = e.data as SyncMsg
+    if (m.t === 'route') {
+      const selectedRouteId = useDesignerStore.getState().selectedRouteId
+      if (m.route.id === selectedRouteId) useDesignerStore.getState().upsertRoute(m.route)
+    }
     if (m.t === 'hello') {
       const r = getSelectedRoute()
       if (r && r.id === m.routeId) c.postMessage({ t: 'route', route: r } as SyncMsg)
@@ -55,6 +59,11 @@ export function startEditorSync(getSelectedRoute: () => RouteConfig | undefined)
     if (timer) clearTimeout(timer)
     c.onmessage = null
   }
+}
+
+/** 从主工作台向已打开的编辑/预览页签推送完整路由快照。 */
+export function broadcastRoute(route: RouteConfig): void {
+  channel()?.postMessage({ t: 'route', route } as SyncMsg)
 }
 
 /** 预览窗口：按 routeId 接收并应用；加入时发 hello 拉取初始状态 */

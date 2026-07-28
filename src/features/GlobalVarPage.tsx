@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, Spin, Table } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Modal, Field, Input, Select, Textarea, Tag } from './common'
@@ -21,28 +22,31 @@ export default function GlobalVarPage() {
           <h2 className="fp-title">全局变量</h2>
           <p className="fp-sub">全局函数 / 变量 / 数据格式化共享，画布组件跨组件绑定与联动</p>
         </div>
-        <button className="btn" onClick={() => setEditing({ name: '', kind: 'variable', value: '', scope: 'global' })}>＋ 新建</button>
+        <Button onClick={() => setEditing({ name: '', kind: 'variable', value: '', scope: 'global' })}>＋ 新建</Button>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
-        <table className="data-table">
-          <thead><tr><th>名称</th><th>类型</th><th>作用域</th><th>值 / 表达式</th><th>操作</th></tr></thead>
-          <tbody>
-            {(data?.list ?? []).map((v) => (
-              <tr key={v.id}>
-                <td>{v.name}</td>
-                <td><Tag>{KIND_LABEL[v.kind]}</Tag></td>
-                <td className="muted">{v.scope === 'global' ? '全局' : '大屏'}</td>
-                <td className="muted" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.value}</td>
-                <td>
-                  <button className="btn sm" onClick={() => setEditing(v)}>编辑</button>{' '}
-                  <button className="btn sm danger" onClick={() => remove(v.id)}>删除</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Table<GlobalVarDTO>
+          size="small"
+          rowKey="id"
+          pagination={false}
+          dataSource={data?.list ?? []}
+          columns={[
+            { title: '名称', dataIndex: 'name' },
+            { title: '类型', key: 'kind', render: (_, v) => <Tag>{KIND_LABEL[v.kind]}</Tag> },
+            { title: '作用域', key: 'scope', render: (_, v) => <span className="muted">{v.scope === 'global' ? '全局' : '大屏'}</span> },
+            { title: '值 / 表达式', dataIndex: 'value', ellipsis: true, render: (val: string) => <span className="muted">{val}</span> },
+            {
+              title: '操作', key: 'actions', render: (_, v) => (
+                <>
+                  <Button size="small" type="link" onClick={() => setEditing(v)}>编辑</Button>
+                  <Button size="small" type="link" danger onClick={() => remove(v.id)}>删除</Button>
+                </>
+              )
+            }
+          ]}
+        />
       )}
       {editing && (
         <Modal title={editing.id ? '编辑变量' : '新建变量'} onClose={() => setEditing(null)}>
@@ -58,7 +62,7 @@ export default function GlobalVarPage() {
             </Select>
           </Field>
           <Field label="值 / 表达式"><Textarea value={editing.value || ''} onChange={(e) => setEditing({ ...editing, value: e.target.value })} /></Field>
-          <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+          <div className="fp-toolbar"><Button onClick={save}>保存</Button></div>
         </Modal>
       )}
     </div>

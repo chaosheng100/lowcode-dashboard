@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Modal, Field, Input, Select, Tag } from './common'
@@ -21,10 +22,10 @@ export default function AIModelPage() {
           <h2 className="fp-title">AI 模型管理</h2>
           <p className="fp-sub">智能生成组件 / 代码加注释 / AI 问答 + 自定义机器人的模型底座</p>
         </div>
-        <button className="btn" onClick={() => setEditing({ name: '', provider: '', type: 'chat', baseUrl: '', status: 'unset' })}>＋ 接入模型</button>
+        <Button onClick={() => setEditing({ name: '', provider: '', type: 'chat', baseUrl: '', status: 'unset' })}>＋ 接入模型</Button>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
         <div className="grid3">
           {(data?.list ?? []).map((m) => (
@@ -36,8 +37,8 @@ export default function AIModelPage() {
               <div className="muted2" style={{ margin: '8px 0' }}>{m.provider} · {TYPE_LABEL[m.type]}</div>
               <div className="muted2" style={{ wordBreak: 'break-all' }}>{m.baseUrl}</div>
               <div className="fp-toolbar" style={{ marginTop: 10 }}>
-                <button className="btn sm" onClick={() => setEditing(m)}>编辑</button>
-                <button className="btn sm danger" onClick={() => remove(m.id)}>删除</button>
+                <Button size="small" onClick={() => setEditing(m)}>编辑</Button>
+                <Button size="small" danger onClick={() => remove(m.id)}>删除</Button>
               </div>
             </div>
           ))}
@@ -53,7 +54,7 @@ export default function AIModelPage() {
             </Select>
           </Field>
           <Field label="Base URL"><Input value={editing.baseUrl || ''} onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })} /></Field>
-          <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+          <div className="fp-toolbar"><Button onClick={save}>保存</Button></div>
         </Modal>
       )}
     </div>

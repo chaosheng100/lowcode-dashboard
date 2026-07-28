@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { App, Button, Form, Input, InputNumber, Select, Tabs } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
 import { api } from '../../mock'
@@ -16,6 +17,7 @@ const dataTypes: WidgetType[] = [
 ]
 
 export default function PropertyPanel() {
+  const { message } = App.useApp()
   const selectedId = useDesignerStore((s) => s.selectedId)
   const route = useDesignerStore(
     (s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0]
@@ -83,7 +85,7 @@ export default function PropertyPanel() {
       const parsed = JSON.parse(dataText)
       updateProps(component.id, { data: parsed })
     } catch (e) {
-      alert('JSON 解析失败：' + (e as Error).message)
+      message.error('JSON 解析失败：' + (e as Error).message)
     }
   }
 
@@ -91,60 +93,54 @@ export default function PropertyPanel() {
     <div className="panel-right">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <strong>属性 · {component.type}</strong>
-        <button className="btn" style={{ padding: '4px 10px' }} onClick={() => removeComponent(component.id)}>
+        <Button danger size="small" onClick={() => removeComponent(component.id)}>
           删除
-        </button>
+        </Button>
       </div>
 
-      <div className="pp-tabs">
-        <div className={'tab' + (tab === 'style' ? ' active' : '')} onClick={() => setTab('style')}>
-          样式
-        </div>
-        <div className={'tab' + (tab === 'data' ? ' active' : '')} onClick={() => setTab('data')}>
-          数据
-        </div>
-        <div className={'tab' + (tab === 'event' ? ' active' : '')} onClick={() => setTab('event')}>
-          交互
-        </div>
-      </div>
+      <Tabs
+        activeKey={tab}
+        onChange={(k) => setTab(k as 'style' | 'data' | 'event')}
+        items={[
+          { key: 'style', label: '样式' },
+          { key: 'data', label: '数据' },
+          { key: 'event', label: '交互' }
+        ]}
+      />
 
       {tab === 'style' && (
         <>
           <div className="row2">
-            <div className="field">
-              <label>X</label>
-              <input
-                type="number"
+            <Form.Item label="X" colon={false} style={{ marginBottom: 11 }}>
+              <InputNumber
+                style={{ width: '100%' }}
                 value={Math.round(component.style.x)}
-                onChange={(e) => updateStyle(component.id, { x: +e.target.value })}
+                onChange={(v) => updateStyle(component.id, { x: v ?? 0 })}
               />
-            </div>
-            <div className="field">
-              <label>Y</label>
-              <input
-                type="number"
+            </Form.Item>
+            <Form.Item label="Y" colon={false} style={{ marginBottom: 11 }}>
+              <InputNumber
+                style={{ width: '100%' }}
                 value={Math.round(component.style.y)}
-                onChange={(e) => updateStyle(component.id, { y: +e.target.value })}
+                onChange={(v) => updateStyle(component.id, { y: v ?? 0 })}
               />
-            </div>
+            </Form.Item>
           </div>
           <div className="row2">
-            <div className="field">
-              <label>宽</label>
-              <input
-                type="number"
+            <Form.Item label="宽" colon={false} style={{ marginBottom: 11 }}>
+              <InputNumber
+                style={{ width: '100%' }}
                 value={Math.round(component.style.w)}
-                onChange={(e) => updateStyle(component.id, { w: +e.target.value })}
+                onChange={(v) => updateStyle(component.id, { w: v ?? 0 })}
               />
-            </div>
-            <div className="field">
-              <label>高</label>
-              <input
-                type="number"
+            </Form.Item>
+            <Form.Item label="高" colon={false} style={{ marginBottom: 11 }}>
+              <InputNumber
+                style={{ width: '100%' }}
                 value={Math.round(component.style.h)}
-                onChange={(e) => updateStyle(component.id, { h: +e.target.value })}
+                onChange={(v) => updateStyle(component.id, { h: v ?? 0 })}
               />
-            </div>
+            </Form.Item>
           </div>
           {styleSchema && (
             <SchemaForm
@@ -168,29 +164,32 @@ export default function PropertyPanel() {
           )}
           {hasData && (
             <>
-              <div className="field">
-                <label>数据集绑定（数据源 → 画布）</label>
-                <select
+              <Form.Item label="数据集绑定（数据源 → 画布）" colon={false} style={{ marginBottom: 11 }}>
+                <Select
+                  style={{ width: '100%' }}
                   value={p.dataSourceId || ''}
-                  onChange={(e) => bindDataset(e.target.value)}
-                >
-                  <option value="">— 手动数据 —</option>
-                  {datasets.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>数据 (JSON: [{'{ name, value }'}])</label>
-                <textarea value={dataText} onChange={(e) => setDataText(e.target.value)} onBlur={applyData} />
-              </div>
+                  onChange={(v) => bindDataset(v)}
+                  options={[
+                    { value: '', label: '— 手动数据 —' },
+                    ...datasets.map((d) => ({ value: d.id, label: d.name }))
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item label="数据 (JSON: [{ name, value }])" colon={false} style={{ marginBottom: 11 }}>
+                <Input.TextArea
+                  style={{ minHeight: 160, fontFamily: 'monospace' }}
+                  value={dataText}
+                  onChange={(e) => setDataText(e.target.value)}
+                  onBlur={applyData}
+                />
+              </Form.Item>
               {isInteractive && (
-                <div className="field">
-                  <label>联动字段 (filterField)</label>
-                  <input value={p.filterField} onChange={(e) => updateProps(component.id, { filterField: e.target.value })} />
-                </div>
+                <Form.Item label="联动字段 (filterField)" colon={false} style={{ marginBottom: 11 }}>
+                  <Input
+                    value={p.filterField}
+                    onChange={(e) => updateProps(component.id, { filterField: e.target.value })}
+                  />
+                </Form.Item>
               )}
             </>
           )}
@@ -202,20 +201,23 @@ export default function PropertyPanel() {
         <>
           {isInteractive ? (
             <>
-              <div className="field">
-                <label>点击行为</label>
-                <select
+              <Form.Item label="点击行为" colon={false} style={{ marginBottom: 11 }}>
+                <Select
+                  style={{ width: '100%' }}
                   value={p.interactive ? 'link' : 'none'}
-                  onChange={(e) => updateProps(component.id, { interactive: e.target.value === 'link' })}
-                >
-                  <option value="none">无</option>
-                  <option value="link">联动（设置全局筛选）</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>联动字段 (filterField)</label>
-                <input value={p.filterField} onChange={(e) => updateProps(component.id, { filterField: e.target.value })} />
-              </div>
+                  onChange={(v) => updateProps(component.id, { interactive: v === 'link' })}
+                  options={[
+                    { value: 'none', label: '无' },
+                    { value: 'link', label: '联动（设置全局筛选）' }
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item label="联动字段 (filterField)" colon={false} style={{ marginBottom: 11 }}>
+                <Input
+                  value={p.filterField}
+                  onChange={(e) => updateProps(component.id, { filterField: e.target.value })}
+                />
+              </Form.Item>
               <div className="empty-tip" style={{ padding: 12 }}>
                 点击该组件的数据元素，将把所有「联动字段」相同的组件筛选为该值。
               </div>

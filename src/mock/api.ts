@@ -69,6 +69,7 @@ export const api = {
   saveReport: (body: Partial<ReportDTO>) =>
     mockFetch<ReportDTO>(body.id ? 'PATCH' : 'POST', `/api/reports${body.id ? '/' + body.id : ''}`, { body }),
   deleteReport: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/reports/${id}`),
+  runReport: (id: string) => mockFetch<ReportDTO>('POST', `/api/reports/${id}/run`),
 
   // 分析
   getAnalytics: (q: Record<string, any> = {}) => mockFetch<AnalyticsDTO[]>('GET', '/api/analytics/summary', { query: q }),
@@ -137,6 +138,9 @@ export const api = {
     mockFetch<IoTDeviceDTO>(body.id ? 'PATCH' : 'POST', `/api/iotDevices${body.id ? '/' + body.id : ''}`, { body }),
   deleteIoTDevice: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/iotDevices/${id}`),
   listIoTAlarms: (q: PageQuery = {}) => mockFetch<PageResult<IoTAlarmRuleDTO>>('GET', '/api/iotAlarms', { query: q }),
+  saveIoTAlarm: (body: Partial<IoTAlarmRuleDTO>) =>
+    mockFetch<IoTAlarmRuleDTO>(body.id ? 'PATCH' : 'POST', `/api/iotAlarms${body.id ? '/' + body.id : ''}`, { body }),
+  deleteIoTAlarm: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/iotAlarms/${id}`),
 
   // —— 填报 / 工作流 / 轮播 / 插件 ——
   listDataEntries: (q: PageQuery = {}) => mockFetch<PageResult<DataEntryDTO>>('GET', '/api/dataEntries', { query: q }),

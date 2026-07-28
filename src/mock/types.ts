@@ -140,12 +140,39 @@ export interface TwinModelDTO {
   builtin: boolean // 预置 91 种 / 用户上传
   thumbnail: string
 }
+export type TwinGeometryType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'torus' | 'plane'
+export interface TwinSceneModel {
+  id: string
+  modelId: string
+  name: string
+  geoType: TwinGeometryType
+  color: string
+  x: number
+  y: number
+  z: number
+  rx: number
+  ry: number
+  rz: number
+  scale: number
+}
+export interface TwinKeyframeDTO {
+  time: number
+  x: number
+  z: number
+  rotationY: number
+}
+export type TwinSceneStatus = 'online' | 'maintenance' | 'offline'
 export interface TwinSceneDTO {
   id: string
   name: string
-  models: { modelId: string; x: number; y: number; z: number; rx: number; ry: number; rz: number }[]
+  models: TwinSceneModel[]
   lighting: 'day' | 'night'
   fog: boolean
+  status: TwinSceneStatus
+  dashboardId?: string
+  lastSyncAt?: string
+  keyframes?: Record<string, TwinKeyframeDTO[]>
+  duration?: number
   updatedAt: string
 }
 
@@ -191,6 +218,8 @@ export interface CarouselDTO {
   name: string
   slides: string[]
   intervalSec: number
+  enabled: boolean
+  updatedAt: string
 }
 export interface PluginDTO {
   id: string
@@ -256,12 +285,30 @@ export interface WidgetDefDTO {
   desc: string
 }
 
+export type ReportStatus = 'enabled' | 'paused'
+export type ReportRunStatus = 'success' | 'failed' | 'never'
+
+export interface ReportDesignDTO {
+  title: string
+  subtitle: string
+  columns: string[]
+  rows: string[][]
+}
+
 export interface ReportDTO {
   id: string
   name: string
+  sourceId: string
   sourceName: string
   format: string[]
   schedule: string
+  status: ReportStatus
+  delivery: string[]
+  lastRunAt: string
+  lastRunStatus: ReportRunStatus
+  design: ReportDesignDTO
+  dashboardId?: string
+  lastSyncAt?: string
   updatedAt: string
 }
 

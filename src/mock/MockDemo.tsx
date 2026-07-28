@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, Modal, Switch } from 'antd'
 import { mockFetch } from '../mock'
 import type { ApiResp } from '../mock'
 
@@ -90,65 +91,65 @@ export default function MockDemo({ onClose }: { onClose: () => void }) {
   const statusClass = !resp ? '' : resp.code === 0 ? 'ok' : 'err'
 
   return (
-    <div className="mock-mask" onClick={onClose}>
-      <div className="mock-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="mock-head">
-          <span>Mock 接口演示</span>
-          <button className="btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="mock-body">
-          <aside className="mock-list">
-            {ENDPOINTS.map((ep) => (
-              <button
-                key={ep.path}
-                className={'mock-ep' + (active.path === ep.path ? ' active' : '')}
-                onClick={() => run(ep)}
-              >
-                <span className={'m-method m-' + ep.method}>{ep.method}</span>
-                {ep.label}
-              </button>
-            ))}
-          </aside>
-          <section className="mock-detail">
-            <div className="mock-req">
-              <code>
-                {active.method} {active.path}
-              </code>
-              <label className="mock-err-toggle">
-                <input
-                  type="checkbox"
-                  checked={injectError}
-                  onChange={(e) => setInjectError(e.target.checked)}
-                />
-                模拟错误
-              </label>
-              <button className="btn" onClick={() => run(active)}>
-                重新请求
-              </button>
-            </div>
-            <div className={'mock-resp ' + statusClass}>
-              {loading && <div className="mock-loading">请求中（模拟网络延迟）…</div>}
-              {!loading && resp && resp.code !== 0 && (
-                <div className="mock-banner err">
-                  错误 code={resp.code}：{resp.message}
-                </div>
-              )}
-              {!loading && resp && resp.code === 0 && (
-                <>
-                  {isPageResult(resp.data) && resp.data.list.length === 0 && (
-                    <div className="mock-banner">无数据（空结果）</div>
-                  )}
-                  <pre>{JSON.stringify(resp.data, null, 2)}</pre>
-                </>
-              )}
-              {!loading && !resp && <div className="mock-banner">点击左侧接口发起请求</div>}
-            </div>
-          </section>
-        </div>
+    <Modal
+      title="Mock 接口演示"
+      open
+      onCancel={onClose}
+      footer={null}
+      width={700}
+    >
+      <div className="mock-body">
+        <aside className="mock-list">
+          {ENDPOINTS.map((ep) => (
+            <button
+              key={ep.path}
+              className={'mock-ep' + (active.path === ep.path ? ' active' : '')}
+              onClick={() => run(ep)}
+            >
+              <span className={'m-method m-' + ep.method}>{ep.method}</span>
+              {ep.label}
+            </button>
+          ))}
+        </aside>
+        <section className="mock-detail">
+          <div className="mock-req">
+            <code>
+              {active.method} {active.path}
+            </code>
+            <label className="mock-err-toggle">
+              <Switch
+                size="small"
+                checked={injectError}
+                onChange={setInjectError}
+              />
+              模拟错误
+            </label>
+            <Button loading={loading} onClick={() => run(active)}>
+              重新请求
+            </Button>
+          </div>
+          <div className={'mock-resp ' + statusClass}>
+            {loading && <div className="mock-loading">请求中（模拟网络延迟）…</div>}
+            {!loading && resp && resp.code !== 0 && (
+              <Alert
+                type="error"
+                showIcon
+                message={`错误 code=${resp.code}：${resp.message}`}
+              />
+            )}
+            {!loading && resp && resp.code === 0 && (
+              <>
+                {isPageResult(resp.data) && resp.data.list.length === 0 && (
+                  <div className="mock-banner">无数据（空结果）</div>
+                )}
+                <pre>{JSON.stringify(resp.data, null, 2)}</pre>
+              </>
+            )}
+            {!loading && !resp && <div className="mock-banner">点击左侧接口发起请求</div>}
+          </div>
+        </section>
       </div>
-    </div>
+    </Modal>
   )
 }
 

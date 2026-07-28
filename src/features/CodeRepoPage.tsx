@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Alert, App, Button, Popconfirm, Select, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Modal, Tag } from './common'
+import { Field, Input, Modal, Tag, Textarea } from './common'
 import type { CodeSnippetDTO, CodeLang } from '../mock/types'
 
 const LANG_LABEL: Record<CodeLang, string> = { vue: 'Vue', html: 'HTML', ts: 'TypeScript', js: 'JavaScript', sql: 'SQL' }
@@ -13,6 +14,7 @@ function blankSnippet(): CodeSnippetDTO {
 
 /** 代码仓库：源码组件 / Vue / HTML / SQL 片段，可封装为画布自定义组件 */
 export default function CodeRepoPage() {
+  const { message } = App.useApp()
   const { data, loading, error, reload } = useApi(() => api.listSnippets({ pageSize: 50 }), [])
   const [editing, setEditing] = useState<CodeSnippetDTO | null>(null)
   const [tagsText, setTagsText] = useState('')
@@ -31,7 +33,7 @@ export default function CodeRepoPage() {
   const save = async () => {
     if (!editing) return
     if (!editing.name.trim() || !editing.code.trim()) {
-      window.alert('名称与代码不能为空')
+      message.warning('名称与代码不能为空')
       return
     }
     setSaving(true)
@@ -46,7 +48,6 @@ export default function CodeRepoPage() {
   }
 
   const remove = async (s: CodeSnippetDTO) => {
-    if (!window.confirm(`确定删除片段「${s.name}」？`)) return
     await api.deleteSnippet(s.id)
     reload()
     setEditing(null)
@@ -61,12 +62,12 @@ export default function CodeRepoPage() {
         </div>
         <span className="fp-count">共 {data?.list.length ?? 0} 个片段</span>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
         <>
           <div className="fp-toolbar" style={{ marginBottom: 12 }}>
-            <button className="btn" onClick={openNew}>＋ 新建片段</button>
+            <Button onClick={openNew}>＋ 新建片段</Button>
           </div>
           <div className="grid3">
             {(data?.list ?? []).map((s) => (
@@ -77,8 +78,10 @@ export default function CodeRepoPage() {
                 <div className="flex" style={{ margin: '8px 0' }}>{s.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
                 <div className="muted2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.code.split('\n')[0]}</div>
                 <div className="fp-toolbar" style={{ marginTop: 8 }}>
-                  <button className="btn sm" onClick={() => openEdit(s)}>查看 / 编辑</button>
-                  <button className="btn sm" onClick={() => remove(s)}>删除</button>
+                  <Button size="small" onClick={() => openEdit(s)}>查看 / 编辑</Button>
+                  <Popconfirm title={`确定删除片段「${s.name}」？`} onConfirm={() => remove(s)}>
+                    <Button size="small">删除</Button>
+                  </Popconfirm>
                 </div>
               </div>
             ))}
@@ -87,30 +90,36 @@ export default function CodeRepoPage() {
       )}
       {editing && (
         <Modal title={editing.id ? `编辑 · ${editing.name}` : '新建片段'} onClose={() => setEditing(null)} width={720}>
-          <div className="field"><label>名称</label>
-            <input className="inp" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-          </div>
+          <Field label="名称">
+            <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+          </Field>
           <div className="row2">
-            <div className="field"><label>语言</label>
-              <select className="inp" value={editing.lang} onChange={(e) => setEditing({ ...editing, lang: e.target.value as CodeLang })}>
-                {LANGS.map((l) => <option key={l} value={l}>{LANG_LABEL[l]}</option>)}
-              </select>
-            </div>
-            <div className="field"><label>标签（逗号分隔）</label>
-              <input className="inp" value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="例如：柱状图, 销售" />
-            </div>
+            <Field label="语言">
+              <Select
+                value={editing.lang}
+                options={LANGS.map((l) => ({ value: l, label: LANG_LABEL[l] }))}
+                onChange={(v) => setEditing({ ...editing, lang: v as CodeLang })}
+                style={{ width: '100%' }}
+              />
+            </Field>
+            <Field label="标签（逗号分隔）">
+              <Input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="例如：柱状图, 销售" />
+            </Field>
           </div>
-          <div className="field"><label>代码</label>
-            <textarea
-              className="inp"
+          <Field label="代码">
+            <Textarea
               style={{ minHeight: 280, fontFamily: 'monospace', fontSize: 12.5 }}
               value={editing.code}
               onChange={(e) => setEditing({ ...editing, code: e.target.value })}
             />
-          </div>
+          </Field>
           <div className="fp-toolbar" style={{ marginTop: 10, justifyContent: 'flex-end' }}>
-            {editing.id && <button className="btn" onClick={() => remove(editing)}>删除</button>}
-            <button className="btn primary" onClick={save} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
+            {editing.id && (
+              <Popconfirm title={`确定删除片段「${editing.name}」？`} onConfirm={() => remove(editing)}>
+                <Button>删除</Button>
+              </Popconfirm>
+            )}
+            <Button type="primary" loading={saving} onClick={save}>{saving ? '保存中…' : '保存'}</Button>
           </div>
         </Modal>
       )}

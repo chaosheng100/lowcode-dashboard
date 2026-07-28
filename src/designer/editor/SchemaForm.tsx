@@ -1,5 +1,7 @@
 import type { PropField } from './propSchemas'
 import type { WidgetProps } from '../../data/types'
+import type { ReactNode } from 'react'
+import { ColorPicker, Form, Input, InputNumber, Select, Switch } from 'antd'
 
 /** 实时数据源动态选项（由 PropertyPanel 从 api.listDataSources 注入） */
 export interface LiveSourceOption {
@@ -26,17 +28,14 @@ export default function SchemaForm({ schema, value, onChange, liveSources }: Pro
         if (f.show && !f.show(value)) return null
         const v = value[f.key]
         const key = String(f.key)
+        const item = (control: ReactNode) => (
+          <Form.Item key={key} label={f.label} colon={false} style={{ marginBottom: 11 }}>
+            {control}
+          </Form.Item>
+        )
 
         if (f.type === 'boolean') {
-          return (
-            <div className="field" key={key}>
-              <label>{f.label}</label>
-              <select className="inp" value={v ? 'yes' : 'no'} onChange={(e) => onChange({ [f.key]: e.target.value === 'yes' } as Partial<WidgetProps>)}>
-                <option value="no">否</option>
-                <option value="yes">是</option>
-              </select>
-            </div>
-          )
+          return item(<Switch checked={!!v} onChange={(c) => onChange({ [f.key]: c } as Partial<WidgetProps>)} />)
         }
 
         if (f.type === 'select') {
@@ -44,64 +43,65 @@ export default function SchemaForm({ schema, value, onChange, liveSources }: Pro
             f.dynamicOptions === 'liveSources'
               ? (liveSources ?? []).map((d) => ({ value: `${d.kind}:${d.id}`, label: `${d.kind} · ${d.name}` }))
               : f.options ?? []
-          return (
-            <div className="field" key={key}>
-              <label>{f.label}</label>
-              <select className="inp" value={v != null ? String(v) : ''} onChange={(e) => onChange({ [f.key]: (e.target.value || undefined) as never } as Partial<WidgetProps>)}>
-                {f.dynamicOptions && <option value="">— 不启用实时 —</option>}
-                {opts.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-                {f.dynamicOptions && !opts.length && (
-                  <>
-                    <option value="sql:orders">SQL · 订单量轮询</option>
-                    <option value="ws:metrics">WebSocket · 系统指标流</option>
-                    <option value="mqtt:sensors">MQTT · 传感器主题</option>
-                  </>
-                )}
-              </select>
-            </div>
+          const options = [
+            ...(f.dynamicOptions ? [{ value: '', label: '— 不启用实时 —' }] : []),
+            ...opts,
+            ...(f.dynamicOptions && !opts.length
+              ? [
+                  { value: 'sql:orders', label: 'SQL · 订单量轮询' },
+                  { value: 'ws:metrics', label: 'WebSocket · 系统指标流' },
+                  { value: 'mqtt:sensors', label: 'MQTT · 传感器主题' },
+                ]
+              : []),
+          ]
+          return item(
+            <Select
+              style={{ width: '100%' }}
+              value={v != null ? String(v) : ''}
+              options={options}
+              onChange={(val) => onChange({ [f.key]: (val || undefined) as never } as Partial<WidgetProps>)}
+            />
           )
         }
 
         if (f.type === 'textarea') {
-          return (
-            <div className="field" key={key}>
-              <label>{f.label}</label>
-              <textarea
-                className="inp"
-                style={{ minHeight: 200, fontFamily: 'monospace' }}
-                value={(v as string) ?? ''}
-                onChange={(e) => onChange({ [f.key]: e.target.value } as Partial<WidgetProps>)}
-              />
-            </div>
+          return item(
+            <Input.TextArea
+              style={{ minHeight: 200, fontFamily: 'monospace' }}
+              value={(v as string) ?? ''}
+              onChange={(e) => onChange({ [f.key]: e.target.value } as Partial<WidgetProps>)}
+            />
           )
         }
 
         if (f.type === 'color') {
-          return (
-            <div className="field" key={key}>
-              <label>{f.label}</label>
-              <input type="color" value={(v as string) || '#4f8cff'} onChange={(e) => onChange({ [f.key]: e.target.value } as Partial<WidgetProps>)} />
-            </div>
+          return item(
+            <ColorPicker
+              value={(v as string) || '#4f8cff'}
+              onChange={(c) => onChange({ [f.key]: c.toHexString() } as Partial<WidgetProps>)}
+            />
           )
         }
 
         if (f.type === 'number') {
-          return (
-            <div className="field" key={key}>
-              <label>{f.label}</label>
-              <input type="number" value={(v as number) ?? 0} min={f.min} step={f.step} onChange={(e) => onChange({ [f.key]: +e.target.value } as Partial<WidgetProps>)} />
-            </div>
+          return item(
+            <InputNumber
+              style={{ width: '100%' }}
+              value={(v as number) ?? 0}
+              min={f.min}
+              step={f.step}
+              onChange={(num) => onChange({ [f.key]: num ?? 0 } as Partial<WidgetProps>)}
+            />
           )
         }
 
         // text
-        return (
-          <div className="field" key={key}>
-            <label>{f.label}</label>
-            <input className="inp" value={(v as string) ?? ''} placeholder={f.placeholder} onChange={(e) => onChange({ [f.key]: e.target.value } as Partial<WidgetProps>)} />
-          </div>
+        return item(
+          <Input
+            value={(v as string) ?? ''}
+            placeholder={f.placeholder}
+            onChange={(e) => onChange({ [f.key]: e.target.value } as Partial<WidgetProps>)}
+          />
         )
       })}
     </>

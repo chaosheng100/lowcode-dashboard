@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Form, Input } from 'antd'
 import { useDesignerStore } from '../store/useDesignerStore'
 import type { RouteConfig } from '../types'
 
@@ -30,11 +31,15 @@ function JsonFieldBlock({
   return (
     <div className="rc-block">
       <h4>{label}</h4>
-      <div className="field">
-        <textarea value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} />
-      </div>
+      <Input.TextArea
+        style={{ minHeight: 110, fontFamily: 'monospace' }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+      />
       {hint && <div className="rc-hint">{hint}</div>}
-      {err && <div className="rc-err">{err}</div>}
+      {/* 错误提示常显直至解析成功，用行内 Alert */}
+      {err && <Alert type="error" message={err} style={{ marginTop: 4 }} />}
     </div>
   )
 }
@@ -46,14 +51,12 @@ export default function RouteConfigPanel({ route }: { route: RouteConfig }) {
     <div className="route-config">
       <div className="rc-block">
         <h4>基本信息</h4>
-        <div className="field">
-          <label>页面名称</label>
-          <input value={route.name} onChange={(e) => updateRoute(route.id, { name: e.target.value })} />
-        </div>
-        <div className="field">
-          <label>路由路径</label>
-          <input value={route.path} onChange={(e) => updateRoute(route.id, { path: e.target.value })} />
-        </div>
+        <Form.Item label="页面名称" colon={false} style={{ marginBottom: 11 }}>
+          <Input value={route.name} onChange={(e) => updateRoute(route.id, { name: e.target.value })} />
+        </Form.Item>
+        <Form.Item label="路由路径" colon={false} style={{ marginBottom: 11 }}>
+          <Input value={route.path} onChange={(e) => updateRoute(route.id, { path: e.target.value })} />
+        </Form.Item>
       </div>
 
       <JsonFieldBlock

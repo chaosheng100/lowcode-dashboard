@@ -1,3 +1,4 @@
+import { Alert, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { getRouteCapability } from '../data/capabilities'
@@ -24,8 +25,8 @@ export default function AssetLibrary() {
         </div>
         <span className="fp-count">共 {data?.list.length ?? 0} 个素材</span>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ textAlign: 'center', padding: '40px 0' }}><Spin /></div>}
+      {error && <Alert type="error" showIcon message={error} />}
       {!loading && !error && (
         <div className="feat-grid">
           {data!.list.map((a) => (

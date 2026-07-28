@@ -79,14 +79,18 @@ function crud(resource: string, store: any[]): Record<string, Handler> {
       paginate(store, query, (it, kw) => JSON.stringify(it).toLowerCase().includes(kw.toLowerCase())),
     [`GET ${base}/:id`]: ({ params }) => store.find((x) => x.id === params.id) ?? null,
     [`POST ${base}`]: ({ body }) => {
-      const item = { id: `${resource}_${Date.now().toString(36)}`, ...(body || {}) }
+      const item = {
+        ...(body || {}),
+        id: `${resource}_${Date.now().toString(36)}`,
+        updatedAt: new Date().toISOString().slice(0, 10)
+      }
       store.push(item)
       return item
     },
     [`PATCH ${base}/:id`]: ({ params, body }) => {
       const it = store.find((x) => x.id === params.id)
       if (!it) return null
-      Object.assign(it, body || {})
+      Object.assign(it, body || {}, { id: params.id, updatedAt: new Date().toISOString().slice(0, 10) })
       return it
     },
     [`DELETE ${base}/:id`]: ({ params }) => {
@@ -163,6 +167,13 @@ const handlers: Record<string, Handler> = {
   'GET /api/widgets': ({ query }) => paginate(widgets, query, (w, kw) => w.name.includes(kw) || w.category.includes(kw)),
 
   'GET /api/reports': ({ query }) => paginate(reports, query, (r, kw) => r.name.includes(kw)),
+  'POST /api/reports/:id/run': ({ params }) => {
+    const report = reports.find((item) => item.id === params.id)
+    if (!report) return null
+    report.lastRunAt = new Date().toISOString()
+    report.lastRunStatus = 'success'
+    return { ...report }
+  },
 
   'GET /api/analytics/summary': () => analytics,
 
@@ -239,7 +250,7 @@ export async function mockFetch<T>(method: string, path: string, opts: RequestOp
   }
 
   try {
-    const data = matched.handler({ params: matched.params, query: q }) as T
+    const data = matched.handler({ params: matched.params, query: q, body: opts.body }) as T
     return { code: 0, message: 'ok', data }
   } catch (e) {
     return { code: 500, message: `Mock 处理异常：${(e as Error).message}`, data: null as unknown as T }

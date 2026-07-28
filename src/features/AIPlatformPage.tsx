@@ -1,3 +1,4 @@
+import { Button } from 'antd'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { Section, Stat } from './common'
 
@@ -21,8 +22,8 @@ export default function AIPlatformPage() {
           <li>接入后在「AI 助手」中生成组件、加注释，或在「模型管理」统一治理</li>
         </ul>
         <div className="fp-toolbar">
-          <button className="btn" onClick={() => selectRoute('/ai/models')}>前往「AI 模型管理」</button>
-          <button className="btn" onClick={() => selectRoute('/ai/assistant')}>前往「AI 助手」</button>
+          <Button onClick={() => selectRoute('/ai/models')}>前往「AI 模型管理」</Button>
+          <Button onClick={() => selectRoute('/ai/assistant')}>前往「AI 助手」</Button>
         </div>
       </Section>
     </div>

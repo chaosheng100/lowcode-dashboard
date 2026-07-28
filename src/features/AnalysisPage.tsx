@@ -1,7 +1,19 @@
+import { Alert, Table, Typography } from 'antd'
+import type { TableProps } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
+import type { AnalyticsDTO } from '../mock'
 import EChartBox from './EChartBox'
 import { Stat } from './common'
+
+/** 明细列：数值列次要色，错误率 >1% 标红（沿用旧 .muted/.abnormal 语义） */
+const columns: TableProps<AnalyticsDTO>['columns'] = [
+  { title: '大屏', dataIndex: 'name' },
+  { title: 'PV', dataIndex: 'pv', render: (v: number) => <Typography.Text type="secondary">{v}</Typography.Text> },
+  { title: '平均时长(s)', dataIndex: 'durationSec', render: (v: number) => <Typography.Text type="secondary">{v}</Typography.Text> },
+  { title: '性能P95(ms)', dataIndex: 'perfP95', render: (v: number) => <Typography.Text type="secondary">{v}</Typography.Text> },
+  { title: '错误率', dataIndex: 'errorRate', render: (v: number) => <Typography.Text type={v > 1 ? 'danger' : 'secondary'}>{v}%</Typography.Text> }
+]
 
 /** 大屏分析：运行态监控（PV / 时长 / 性能 P95 / 错误率） */
 export default function AnalysisPage() {
@@ -33,20 +45,16 @@ export default function AnalysisPage() {
           series: [{ type: 'bar', data: list.map((d) => d.pv), itemStyle: { color: '#4f8cff', borderRadius: [4, 4, 0, 0] } }]
         }} />
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
-      {!loading && !error && (
-        <table className="data-table">
-          <thead><tr><th>大屏</th><th>PV</th><th>平均时长(s)</th><th>性能P95(ms)</th><th>错误率</th></tr></thead>
-          <tbody>
-            {list.map((d) => (
-              <tr key={d.dashboardId}>
-                <td>{d.name}</td><td className="muted">{d.pv}</td><td className="muted">{d.durationSec}</td>
-                <td className="muted">{d.perfP95}</td><td className={d.errorRate > 1 ? 'abnormal' : 'muted'}>{d.errorRate}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}
+      {!error && (
+        <Table<AnalyticsDTO>
+          columns={columns}
+          dataSource={list}
+          rowKey="dashboardId"
+          size="small"
+          loading={loading}
+          pagination={false}
+        />
       )}
     </div>
   )

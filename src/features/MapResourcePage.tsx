@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, InputNumber, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import EChartBox from './EChartBox'
@@ -26,10 +27,10 @@ export default function MapResourcePage() {
           <h2 className="fp-title">地图资源</h2>
           <p className="fp-sub">EChart / 高德 / 百度 / 腾讯 / 任意三方地图底图，画布地理可视化来源</p>
         </div>
-        <button className="btn" onClick={() => setEditing({ name: '', provider: 'echart', center: [104, 35], zoom: 1 })}>＋ 新建地图</button>
+        <Button onClick={() => setEditing({ name: '', provider: 'echart', center: [104, 35], zoom: 1 })}>＋ 新建地图</Button>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
         <div className="grid2">
           <div>
@@ -40,8 +41,8 @@ export default function MapResourcePage() {
                 </div>
                 <div className="muted2" style={{ margin: '6px 0' }}>中心 {m.center.join(', ')} · 缩放 {m.zoom}</div>
                 <div className="fp-toolbar" style={{ marginTop: 6 }}>
-                  <button className="btn sm" onClick={() => setEditing(m)}>编辑</button>
-                  <button className="btn sm danger" onClick={() => remove(m.id)}>删除</button>
+                  <Button size="small" onClick={() => setEditing(m)}>编辑</Button>
+                  <Button size="small" danger onClick={() => remove(m.id)}>删除</Button>
                 </div>
               </div>
             ))}
@@ -73,9 +74,9 @@ export default function MapResourcePage() {
             </Select>
           </Field>
           <Field label="AccessKey"><Input value={editing.key || ''} onChange={(e) => setEditing({ ...editing, key: e.target.value })} placeholder="三方地图 Key（可选）" /></Field>
-          <Field label="经度"><Input type="number" value={editing.center?.[0] ?? 104} onChange={(e) => setEditing({ ...editing, center: [Number(e.target.value), editing.center?.[1] ?? 35] })} /></Field>
-          <Field label="纬度"><Input type="number" value={editing.center?.[1] ?? 35} onChange={(e) => setEditing({ ...editing, center: [editing.center?.[0] ?? 104, Number(e.target.value)] })} /></Field>
-          <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+          <Field label="经度"><InputNumber style={{ width: '100%' }} value={editing.center?.[0] ?? 104} onChange={(v) => setEditing({ ...editing, center: [v ?? 0, editing.center?.[1] ?? 35] })} /></Field>
+          <Field label="纬度"><InputNumber style={{ width: '100%' }} value={editing.center?.[1] ?? 35} onChange={(v) => setEditing({ ...editing, center: [editing.center?.[0] ?? 104, v ?? 0] })} /></Field>
+          <div className="fp-toolbar"><Button onClick={save}>保存</Button></div>
         </Modal>
       )}
     </div>

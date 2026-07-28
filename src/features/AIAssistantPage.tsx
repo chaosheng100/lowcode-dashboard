@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button, Input, Popconfirm, Select, Tabs } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Tag } from './common'
@@ -60,8 +61,8 @@ export default function AIAssistantPage() {
       setBusyBotId(null)
     }
   }
+  // 删除确认由 Popconfirm 承载，这里只做删除与刷新
   const deleteBot = async (b: AIBotDTO) => {
-    if (!window.confirm(`确定删除机器人「${b.name}」？`)) return
     setBusyBotId(b.id)
     try {
       await api.deleteAIBot(b.id)
@@ -79,11 +80,15 @@ export default function AIAssistantPage() {
           <p className="fp-sub">智能问答 · 自定义机器人 · 智能生成 Vue / EChart / HTML 组件 · 代码自动加注释与格式化</p>
         </div>
       </div>
-      <div className="tabs">
-        <span className={'tab' + (tab === 'chat' ? ' active' : '')} onClick={() => setTab('chat')}>智能问答</span>
-        <span className={'tab' + (tab === 'gen' ? ' active' : '')} onClick={() => setTab('gen')}>生成组件</span>
-        <span className={'tab' + (tab === 'bot' ? ' active' : '')} onClick={() => setTab('bot')}>我的机器人</span>
-      </div>
+      <Tabs
+        activeKey={tab}
+        onChange={(k) => setTab(k as 'chat' | 'gen' | 'bot')}
+        items={[
+          { key: 'chat', label: '智能问答' },
+          { key: 'gen', label: '生成组件' },
+          { key: 'bot', label: '我的机器人' },
+        ]}
+      />
 
       {tab === 'chat' && (
         <div className="card" style={{ height: 420, display: 'flex', flexDirection: 'column' }}>
@@ -96,8 +101,8 @@ export default function AIAssistantPage() {
             {chatLoading && <div style={{ textAlign: 'left', margin: '8px 0', color: '#9aa7b4', fontSize: 12 }}>助手正在思考…</div>}
           </div>
           <div className="flex" style={{ marginTop: 8 }}>
-            <input className="inp" style={{ flex: 1 }} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="描述你的大屏需求…" />
-            <button className="btn" onClick={send} disabled={chatLoading}>{chatLoading ? '生成中…' : '发送'}</button>
+            <Input style={{ flex: 1 }} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="描述你的大屏需求…" />
+            <Button onClick={send} disabled={chatLoading}>{chatLoading ? '生成中…' : '发送'}</Button>
           </div>
         </div>
       )}
@@ -107,15 +112,22 @@ export default function AIAssistantPage() {
           <div className="card">
             <div className="field"><span className="field-label">目标语言</span>
               <span className="field-ctrl">
-                <select className="inp" value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-                  <option value="vue">Vue 组件</option><option value="echart">EChart 组件</option><option value="html">HTML 组件</option>
-                </select>
+                <Select<Lang>
+                  style={{ minWidth: 160 }}
+                  value={lang}
+                  onChange={setLang}
+                  options={[
+                    { value: 'vue', label: 'Vue 组件' },
+                    { value: 'echart', label: 'EChart 组件' },
+                    { value: 'html', label: 'HTML 组件' },
+                  ]}
+                />
               </span>
             </div>
             <div className="field"><span className="field-label">需求描述</span>
-              <span className="field-ctrl"><input className="inp" value={genPrompt} onChange={(e) => setGenPrompt(e.target.value)} placeholder="例如：展示月度销售额的柱状图" /></span>
+              <span className="field-ctrl"><Input value={genPrompt} onChange={(e) => setGenPrompt(e.target.value)} placeholder="例如：展示月度销售额的柱状图" /></span>
             </div>
-            <button className="btn" onClick={runGen} disabled={genLoading}>{genLoading ? '生成中…' : '✨ 智能生成'}</button>
+            <Button onClick={runGen} disabled={genLoading}>{genLoading ? '生成中…' : '✨ 智能生成'}</Button>
           </div>
           <div className="card">
             <div className="muted2" style={{ marginBottom: 8 }}>生成结果（可复制进自定义组件）</div>
@@ -134,12 +146,17 @@ export default function AIAssistantPage() {
               <div className="muted2" style={{ margin: '8px 0' }}>{b.prompt}</div>
               <div className="muted2">绑定模型：{b.modelId}</div>
               <div className="fp-toolbar" style={{ marginTop: 10 }}>
-                <button className="btn sm" disabled={busyBotId === b.id} onClick={() => toggleBot(b)}>
+                <Button size="small" disabled={busyBotId === b.id} onClick={() => toggleBot(b)}>
                   {b.enabled ? '停用' : '启用'}
-                </button>
-                <button className="btn sm" disabled={busyBotId === b.id} onClick={() => deleteBot(b)}>
-                  删除
-                </button>
+                </Button>
+                <Popconfirm
+                  title={`确定删除机器人「${b.name}」？`}
+                  okText="删除"
+                  cancelText="取消"
+                  onConfirm={() => deleteBot(b)}
+                >
+                  <Button size="small" danger disabled={busyBotId === b.id}>删除</Button>
+                </Popconfirm>
               </div>
             </div>
           ))}

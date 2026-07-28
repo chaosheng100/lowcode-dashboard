@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { Button, ColorPicker, InputNumber } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Tag } from './common'
+import { Input, Tag } from './common'
 
 // ============================================================
 // 数字孪生 3D 编辑器
@@ -11,17 +12,19 @@ import { Tag } from './common'
 //       时间轴编辑、日照/夜景/雾效、91 种预置模型库。
 //
 // 交互：
-//   左键点击地面 → 放置当前选中模型
+//   左键拖拽空处 → 旋转视角
 //   左键点击模型 → 选中
 //   左键拖拽模型 → 在地面平移
-//   右键拖拽 → OrbitControls 旋转视角
+//   右键拖拽 → 平移视角
 //   滚轮 → 缩放
+//   拖拽模型库预设到画布 → 放置模型
 // ============================================================
 
 type GeoType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'torus' | 'plane'
 
 interface PlacedObject {
   id: string
+  modelId: string
   name: string
   geoType: GeoType
   color: string
@@ -66,7 +69,13 @@ function createGeometry(type: GeoType, s: number): THREE.BufferGeometry {
 let idCounter = 0
 const nextId = () => `obj_${Date.now()}_${idCounter++}`
 
-export default function TwinPage() {
+interface TwinPageProps {
+  scene?: import('../mock/types').TwinSceneDTO
+  readOnly?: boolean
+  onSave?: (patch: Partial<import('../mock/types').TwinSceneDTO>) => void
+}
+
+export default function TwinPage(_props: TwinPageProps = {}) {
   const { data: models } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
   const mountRef = useRef<HTMLDivElement>(null)
 
@@ -126,6 +135,30 @@ export default function TwinPage() {
 
   useEffect(() => { updateOutline() }, [selectedId, placedObjects, updateOutline])
 
+  // ---- 拖拽放置模型 ----
+  const handleDrop = useCallback((ev: React.DragEvent) => {
+    ev.preventDefault()
+    const presetIndex = parseInt(ev.dataTransfer.getData("text/plain"), 10)
+    if (isNaN(presetIndex) || presetIndex < 0 || presetIndex >= PRESETS.length) return
+    const preset = PRESETS[presetIndex]
+    const canvas = rendererRef.current?.domElement
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const pointer = new THREE.Vector2()
+    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1
+    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1
+    raycasterRef.current.setFromCamera(pointer, cameraRef.current!)
+    const hits = raycasterRef.current.intersectObject(groundRef.current!)
+    const pt = hits[0]?.point
+    if (!pt) return
+    const id = nextId()
+    const obj: PlacedObject = {
+      id, modelId: `preset_${presetIndex}`, name: preset.name, geoType: preset.geoType, color: preset.color,
+      x: pt.x, z: pt.z, y: preset.geoType === "plane" ? 0.05 : 0.6,
+      rotationY: 0, scale: 1
+    }
+    setPlacedObjects((prev) => [...prev, obj])
+  }, [])
   // ---- 主场景初始化 ----
   useEffect(() => {
     const el = mountRef.current
@@ -148,7 +181,7 @@ export default function TwinPage() {
 
     // OrbitControls：右键旋转、滚轮缩放
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.mouseButtons = { LEFT: null as unknown as THREE.MOUSE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
+    controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
     controls.enableDamping = true
     controls.dampingFactor = 0.08
     controls.maxPolarAngle = Math.PI / 2 - 0.05
@@ -210,20 +243,7 @@ export default function TwinPage() {
         draggingRef.current = { id: hit.id, moved: false }
         controls.enabled = false
       } else {
-        // 点到地面
-        const pt = getGroundPoint(ev)
-        if (pt) {
-          // 放置当前选中预设
-          const preset = PRESETS[activePreset]
-          const id = nextId()
-          const s = 1
-          const obj: PlacedObject = {
-            id, name: preset.name, geoType: preset.geoType, color: preset.color,
-            x: pt.x, z: pt.z, y: preset.geoType === 'plane' ? 0.05 : 0.6,
-            rotationY: 0, scale: s
-          }
-          setPlacedObjects((prev) => [...prev, obj])
-        }
+        // 点击空处，OrbitControls 处理旋转
         setSelectedId(null)
         selectedIdRef.current = null
       }
@@ -488,13 +508,18 @@ export default function TwinPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 240px', gap: 12 }}>
         {/* 左：模型库 */}
         <div>
-          <div className="muted2" style={{ marginBottom: 8 }}>模型库（点击选中后在地面上放置）</div>
+          <div className="muted2" style={{ marginBottom: 8 }}>模型库（拖拽到画布放置）</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 460, overflow: 'auto' }}>
             {PRESETS.map((p, i) => (
               <div
+                draggable
                 key={i}
                 className={'card' + (activePreset === i ? ' sel' : '')}
-                style={{ padding: 8, textAlign: 'center', cursor: 'pointer', borderColor: activePreset === i ? 'var(--accent)' : undefined }}
+                style={{ padding: 8, textAlign: 'center', cursor: 'grab', borderColor: activePreset === i ? 'var(--accent)' : undefined }}
+                onDragStart={(ev) => {
+                  ev.dataTransfer.setData("text/plain", String(i))
+                  ev.dataTransfer.effectAllowed = "copy"
+                }}
                 onClick={() => setActivePreset(i)}
               >
                 <div style={{ width: 32, height: 32, margin: '0 auto 4px', background: p.color, borderRadius: p.geoType === 'sphere' ? '50%' : 6, opacity: 0.8 }} />
@@ -520,20 +545,22 @@ export default function TwinPage() {
         {/* 中：3D 视口 */}
         <div>
           <div className="flex" style={{ marginBottom: 8 }}>
-            <button className={'btn sm' + (lighting === 'day' ? ' sel-btn' : '')} onClick={() => setLighting('day')}>☀ 日照</button>
-            <button className={'btn sm' + (lighting === 'night' ? ' sel-btn' : '')} onClick={() => setLighting('night')}>🌙 夜景</button>
-            <button className={'btn sm' + (fog ? ' sel-btn' : '')} onClick={() => setFog((v) => !v)}>🌫 雾效 {fog ? '开' : '关'}</button>
+            <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} onClick={() => setLighting('day')}>☀ 日照</Button>
+            <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} onClick={() => setLighting('night')}>🌙 夜景</Button>
+            <Button size="small" type={fog ? 'primary' : 'default'} onClick={() => setFog((v) => !v)}>🌫 雾效 {fog ? '开' : '关'}</Button>
             <span className="muted2" style={{ marginLeft: 'auto', lineHeight: '30px' }}>
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>
           </div>
           <div
             ref={mountRef}
-            style={{ width: '100%', height: 420, background: '#05080f', borderRadius: 10, border: '1px solid #1a2433', overflow: 'hidden', cursor: 'crosshair' }}
+            style={{ width: '100%', height: 420, background: '#05080f', borderRadius: 10, border: '1px solid #1a2433', overflow: 'hidden' }}
+            onDragOver={(ev) => ev.preventDefault()}
+            onDrop={handleDrop}
           />
           {placedObjects.length === 0 && (
             <div className="muted2" style={{ textAlign: 'center', marginTop: 8 }}>
-              👈 从左侧模型库选择一个模型，然后在 3D 视口中点击地面放置
+              从模型库拖拽模型到 3D 视口放置
             </div>
           )}
         </div>
@@ -544,27 +571,28 @@ export default function TwinPage() {
             <div className="sec">
               <div className="sec-head">
                 <span className="sec-title">选中对象</span>
-                <button className="btn sm danger" onClick={deleteSelected}>删除</button>
+                <Button size="small" danger onClick={deleteSelected}>删除</Button>
               </div>
               <div className="sec-body">
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>名称</span>
-                  <input className="inp" value={selected.name} onChange={(e) => updateSelected({ name: e.target.value })} />
+                  <Input value={selected.name} onChange={(e) => updateSelected({ name: e.target.value })} />
                 </div>
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>颜色</span>
-                  <input type="color" style={{ width: 40, height: 28, border: 'none', background: 'none' }} value={selected.color}
-                    onChange={(e) => {
-                      updateSelected({ color: e.target.value })
+                  <ColorPicker value={selected.color}
+                    onChange={(c) => {
+                      const hex = c.toHexString()
+                      updateSelected({ color: hex })
                       const mesh = objects3DRef.current.get(selected.id)
-                      if (mesh) (mesh.material as THREE.MeshStandardMaterial).color.set(e.target.value)
+                      if (mesh) (mesh.material as THREE.MeshStandardMaterial).color.set(hex)
                     }} />
                 </div>
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>旋转°</span>
-                  <input type="number" className="inp" value={Math.round(selected.rotationY * 180 / Math.PI)}
-                    onChange={(e) => {
-                      const rad = (+e.target.value) * Math.PI / 180
+                  <InputNumber style={{ width: '100%' }} value={Math.round(selected.rotationY * 180 / Math.PI)}
+                    onChange={(v) => {
+                      const rad = (v ?? 0) * Math.PI / 180
                       updateSelected({ rotationY: rad })
                       const mesh = objects3DRef.current.get(selected.id)
                       if (mesh) mesh.rotation.y = rad
@@ -572,9 +600,9 @@ export default function TwinPage() {
                 </div>
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>缩放</span>
-                  <input type="number" step="0.1" className="inp" value={selected.scale}
-                    onChange={(e) => {
-                      const s = +e.target.value || 1
+                  <InputNumber style={{ width: '100%' }} step={0.1} value={selected.scale}
+                    onChange={(v) => {
+                      const s = v || 1
                       updateSelected({ scale: s })
                       const mesh = objects3DRef.current.get(selected.id)
                       if (mesh) {
@@ -588,15 +616,15 @@ export default function TwinPage() {
                   <div className="muted2" style={{ marginBottom: 6 }}>
                     关键帧轨迹（{keyframes[selected.id]?.length ?? 0} 个）
                   </div>
-                  <button className="btn sm" style={{ width: '100%', marginBottom: 6 }} onClick={recordKeyframe}>
+                  <Button size="small" block style={{ marginBottom: 6 }} onClick={recordKeyframe}>
                     ⏺ 录制关键帧 @ {currentTime.toFixed(1)}s
-                  </button>
+                  </Button>
                   {(keyframes[selected.id] ?? []).map((kf, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9fb0c3', marginBottom: 3 }}>
                       <span style={{ color: '#4ade80' }}>◆</span>
                       <span>{kf.time.toFixed(1)}s</span>
                       <span>x:{kf.x.toFixed(1)} z:{kf.z.toFixed(1)}</span>
-                      <button className="icon-btn" style={{ fontSize: 14, marginLeft: 'auto' }} onClick={() => deleteKeyframe(selected.id, kf.time)}>✕</button>
+                      <Button type="text" size="small" style={{ marginLeft: 'auto' }} onClick={() => deleteKeyframe(selected.id, kf.time)}>✕</Button>
                     </div>
                   ))}
                 </div>
@@ -637,12 +665,12 @@ export default function TwinPage() {
           </div>
           <div className="flex" style={{ alignItems: 'center' }}>
             <span className="muted2">时长</span>
-            <input type="number" min="1" max="60" value={duration} onChange={(e) => setDuration(Math.max(1, +e.target.value))}
-              style={{ width: 50, background: '#0b111b', border: '1px solid var(--line)', color: '#d7e2ee', borderRadius: 6, padding: '3px 6px', fontSize: 12 }} />
+            <InputNumber size="small" min={1} max={60} value={duration} style={{ width: 64 }}
+              onChange={(v) => setDuration(Math.max(1, v ?? 1))} />
             <span className="muted2">s</span>
             <span className="muted2" style={{ marginLeft: 12 }}>{currentTime.toFixed(1)}s / {duration}s</span>
-            <button className="btn sm" onClick={play}>{playing ? '⏸ 暂停' : '▶ 播放'}</button>
-            <button className="btn sm" onClick={stop}>⏹ 停止</button>
+            <Button size="small" onClick={play}>{playing ? '⏸ 暂停' : '▶ 播放'}</Button>
+            <Button size="small" onClick={stop}>⏹ 停止</Button>
           </div>
         </div>
 

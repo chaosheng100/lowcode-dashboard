@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import RoutePanel from './data/routes/RoutePanel'
 import RouteOperationPanel from './data/routes/RouteOperationPanel'
 import DashboardManagement from './management/DashboardManagement'
@@ -19,6 +19,15 @@ export default function ProjectView({ onOpenDesigner, onOpenPreview }: Props) {
   const [showRoutes, setShowRoutes] = useState(true) // 移动端抽屉开关
   const [collapsed, setCollapsed] = useState(false) // 折叠为仅图标
   const selectedRouteId = useDesignerStore((s) => s.selectedRouteId)
+
+  useEffect(() => {
+    const openDashboard = (event: Event) => {
+      const routeId = (event as CustomEvent<{ routeId?: string }>).detail?.routeId
+      if (routeId) onOpenDesigner(routeId)
+    }
+    window.addEventListener('dashboard:open-designer', openDashboard)
+    return () => window.removeEventListener('dashboard:open-designer', openDashboard)
+  }, [onOpenDesigner])
 
   const renderPanel = (
     <RoutePanel

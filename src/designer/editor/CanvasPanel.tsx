@@ -1,3 +1,4 @@
+import { Button, ColorPicker, Form, Input, InputNumber, Select, Slider, Upload } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { RouteConfig } from '../../data/types'
 
@@ -12,14 +13,11 @@ export default function CanvasPanel() {
   const setPage = useDesignerStore((s) => s.setPage)
   const page = route.page
 
-  const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // 上传背景图：读取为 dataURL 嵌入项目（beforeUpload 拦截自动上传）
+  const onUpload = (file: File) => {
     const reader = new FileReader()
     reader.onload = () => setPage({ backgroundImage: reader.result as string })
     reader.readAsDataURL(file)
-    // 允许重复选择同一文件
-    e.target.value = ''
   }
 
   const fit = page.backgroundImageFit ?? 'stretch'
@@ -38,24 +36,22 @@ export default function CanvasPanel() {
       <div className="rc-block">
         <h4>画布尺寸</h4>
         <div className="row2">
-          <div className="field">
-            <label>宽度 (px)</label>
-            <input
-              type="number"
+          <Form.Item label="宽度 (px)" colon={false} style={{ marginBottom: 11 }}>
+            <InputNumber
+              style={{ width: '100%' }}
               min={1}
               value={page.width}
-              onChange={(e) => setPage({ width: Math.max(1, Math.round(+e.target.value)) })}
+              onChange={(v) => setPage({ width: Math.max(1, Math.round(v ?? 1)) })}
             />
-          </div>
-          <div className="field">
-            <label>高度 (px)</label>
-            <input
-              type="number"
+          </Form.Item>
+          <Form.Item label="高度 (px)" colon={false} style={{ marginBottom: 11 }}>
+            <InputNumber
+              style={{ width: '100%' }}
               min={1}
               value={page.height}
-              onChange={(e) => setPage({ height: Math.max(1, Math.round(+e.target.value)) })}
+              onChange={(v) => setPage({ height: Math.max(1, Math.round(v ?? 1)) })}
             />
-          </div>
+          </Form.Item>
         </div>
       </div>
 
@@ -63,42 +59,36 @@ export default function CanvasPanel() {
       <div className="rc-block">
         <h4>背景颜色</h4>
         <div className="row2">
-          <div className="field">
-            <label>取色器</label>
-            <input
-              type="color"
+          <Form.Item label="取色器" colon={false} style={{ marginBottom: 11 }}>
+            <ColorPicker
               value={/^#[0-9a-fA-F]{6}$/.test(page.background) ? page.background : '#000000'}
-              onChange={(e) => setPage({ background: e.target.value })}
-              style={{ height: 34, padding: 2 }}
+              onChange={(c) => setPage({ background: c.toHexString() })}
             />
-          </div>
-          <div className="field">
-            <label>色值 (#hex)</label>
-            <input
-              type="text"
-              value={page.background}
-              onChange={(e) => setPage({ background: e.target.value })}
-            />
-          </div>
+          </Form.Item>
+          <Form.Item label="色值 (#hex)" colon={false} style={{ marginBottom: 11 }}>
+            <Input value={page.background} onChange={(e) => setPage({ background: e.target.value })} />
+          </Form.Item>
         </div>
       </div>
 
       {/* 背景图片 */}
       <div className="rc-block">
         <h4>背景图片</h4>
-        <label className="btn" style={{ display: 'inline-block', cursor: 'pointer' }}>
-          上传图片
-          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onUpload} />
-        </label>
+        <Upload
+          accept="image/*"
+          showUploadList={false}
+          beforeUpload={(f) => {
+            onUpload(f)
+            return false
+          }}
+        >
+          <Button>上传图片</Button>
+        </Upload>
         {page.backgroundImage && (
           <>
-            <button
-              className="btn"
-              style={{ marginLeft: 8, padding: '7px 14px' }}
-              onClick={() => setPage({ backgroundImage: '' })}
-            >
+            <Button style={{ marginLeft: 8 }} onClick={() => setPage({ backgroundImage: '' })}>
               移除
-            </button>
+            </Button>
             <img
               src={page.backgroundImage}
               alt="背景预览"
@@ -118,25 +108,31 @@ export default function CanvasPanel() {
 
         {page.backgroundImage && (
           <>
-            <div className="field" style={{ marginTop: 10 }}>
-              <label>填充方式</label>
-              <select value={fit} onChange={(e) => setPage({ backgroundImageFit: e.target.value as 'stretch' | 'tile' | 'center' })}>
-                <option value="stretch">拉伸（铺满）</option>
-                <option value="tile">平铺（原图重复）</option>
-                <option value="center">居中（原图尺寸）</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>透明度：{Math.round(opacity * 100)}%</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(opacity * 100)}
-                onChange={(e) => setPage({ backgroundImageOpacity: +e.target.value / 100 })}
+            <Form.Item label="填充方式" colon={false} style={{ marginBottom: 11, marginTop: 10 }}>
+              <Select
                 style={{ width: '100%' }}
+                value={fit}
+                onChange={(v) => setPage({ backgroundImageFit: v as 'stretch' | 'tile' | 'center' })}
+                options={[
+                  { value: 'stretch', label: '拉伸（铺满）' },
+                  { value: 'tile', label: '平铺（原图重复）' },
+                  { value: 'center', label: '居中（原图尺寸）' }
+                ]}
               />
-            </div>
+            </Form.Item>
+            <Form.Item
+              label={`透明度：${Math.round(opacity * 100)}%`}
+              colon={false}
+              style={{ marginBottom: 11 }}
+            >
+              <Slider
+                min={0}
+                max={1}
+                step={0.05}
+                value={opacity}
+                onChange={(v) => setPage({ backgroundImageOpacity: v })}
+              />
+            </Form.Item>
           </>
         )}
       </div>

@@ -28,6 +28,12 @@ export interface DataPoint {
 
 /** 组件通用 props —— 所有字段可选，运行时按类型读取 */
 export interface WidgetProps {
+  /** 组件库资产定义键，用于识别组件来源与业务类型 */
+  catalogKey?: string
+  catalogName?: string
+  /** 同一资产在目标大屏中的稳定实例键，用于幂等投放 */
+  catalogSourceId?: string
+  businessType?: 'general' | 'twin'
   // 文本
   content?: string
   fontSize?: number
@@ -64,6 +70,9 @@ export interface WidgetProps {
   gaugeMax?: number
   /** 实时数据：绑定后端代理数据源 id（SQL/WS/MQTT），非空时组件自动订阅实时值 */
   liveSourceId?: string
+  /** 物联设备绑定：由物联组态同步到大屏 */
+  iotDeviceId?: string
+  iotMetric?: string
   /** 实时刷新间隔 ms（轮询型） */
   liveIntervalMs?: number
 }

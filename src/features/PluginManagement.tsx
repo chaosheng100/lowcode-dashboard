@@ -1,4 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { Alert, Button, Input, Popconfirm, Spin } from 'antd'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { useApi } from './useApi'
 import type { ApiResp, PageResult } from '../mock/types'
 
@@ -73,8 +75,8 @@ export default function PluginManagement<T extends PluginItem>({
     setRenameId(null)
     reload()
   }
+  // 删除确认由 Popconfirm 承载，这里只做删除与刷新
   const doDelete = async (it: T) => {
-    if (!window.confirm(`确定删除「${it.name}」？此操作不可恢复。`)) return
     await deleteItem(it.id)
     reload()
   }
@@ -88,7 +90,7 @@ export default function PluginManagement<T extends PluginItem>({
     return (
       <div className="pm-fullscreen">
         <div className="pm-bar">
-          <button className="btn" onClick={() => { reload(); setView({ mode: 'list' }) }}>← 返回列表</button>
+          <Button onClick={() => { reload(); setView({ mode: 'list' }) }}>← 返回列表</Button>
           <span className="pm-title">{title} · 编辑 · {view.item.name}</span>
         </div>
         <div className="pm-body">
@@ -101,7 +103,7 @@ export default function PluginManagement<T extends PluginItem>({
     return (
       <div className="pm-fullscreen">
         <div className="pm-bar">
-          <button className="btn" onClick={() => setView({ mode: 'list' })}>← 返回列表</button>
+          <Button onClick={() => setView({ mode: 'list' })}>← 返回列表</Button>
           <span className="pm-title">{title} · 预览 · {view.item.name}</span>
         </div>
         <div className="pm-body">
@@ -116,15 +118,23 @@ export default function PluginManagement<T extends PluginItem>({
     <div className="mg">
       <div className="mg-toolbar">
         <div className="mg-title">{title}</div>
-        <input className="mg-search" placeholder="按名称搜索…" value={kw} onChange={(e) => setKw(e.target.value)} />
-        <button className="btn mg-order" title="切换升序/降序" onClick={() => setDesc((v) => !v)}>
+        {/* marginLeft:auto 顶替旧 .mg-search 的右推布局 */}
+        <Input
+          style={{ marginLeft: 'auto', width: 240 }}
+          placeholder="按名称搜索…"
+          prefix={<SearchOutlined />}
+          allowClear
+          value={kw}
+          onChange={(e) => setKw(e.target.value)}
+        />
+        <Button title="切换升序/降序" onClick={() => setDesc((v) => !v)}>
           {desc ? '↓ 倒序' : '↑ 升序'}
-        </button>
-        <button className="btn mg-new" onClick={doNew}>＋ 新建{countLabel}</button>
+        </Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={doNew}>新建{countLabel}</Button>
       </div>
       <p className="fp-sub" style={{ padding: '4px 16px 0' }}>{subtitle}</p>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ textAlign: 'center', padding: '40px 0' }}><Spin /></div>}
+      {error && <Alert type="error" showIcon message={error} style={{ margin: '12px 16px 0' }} />}
       {!loading && !error && (
         <div className="mg-grid">
           {items.map((it) => (
@@ -134,8 +144,8 @@ export default function PluginManagement<T extends PluginItem>({
               </div>
               <div className="mg-info">
                 {renameId === it.id ? (
-                  <input
-                    className="mg-rename-inp"
+                  <Input
+                    size="small"
                     autoFocus
                     value={renameText}
                     onChange={(e) => setRenameText(e.target.value)}
@@ -161,7 +171,14 @@ export default function PluginManagement<T extends PluginItem>({
                   >
                     重命名
                   </span>
-                  <span className="mg-del" onClick={() => doDelete(it)}>删除</span>
+                  <Popconfirm
+                    title={`确定删除「${it.name}」？此操作不可恢复。`}
+                    okText="删除"
+                    cancelText="取消"
+                    onConfirm={() => doDelete(it)}
+                  >
+                    <span className="mg-del">删除</span>
+                  </Popconfirm>
                 </div>
               </div>
             </div>

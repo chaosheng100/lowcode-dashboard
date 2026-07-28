@@ -14,7 +14,7 @@ export default function TwinManagement() {
       fetcher={() => api.listTwinScenes({ pageSize: 50 })}
       saveItem={(b) => api.saveTwinScene(b)}
       deleteItem={(id) => api.deleteTwinScene(id)}
-      blankItem={() => ({ id: '', name: '新建场景', models: [], lighting: 'day', fog: false, updatedAt: '' })}
+      blankItem={() => ({ id: '', name: '新建场景', models: [], lighting: 'day', fog: false, status: 'offline', updatedAt: '' })}
       renderMeta={(s) => [`模型数：${s.models.length}`, `光照：${s.lighting === 'day' ? '日照' : '夜景'}`, s.fog ? '雾效：开' : '雾效：关']}
       renderTags={(s) => (
         <div className="flex" style={{ margin: '6px 0' }}>

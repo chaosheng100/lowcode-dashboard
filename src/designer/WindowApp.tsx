@@ -1,4 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Button, Slider, Switch } from 'antd'
+import {
+  CloseOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+} from '@ant-design/icons'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { setAutosave, onSaved } from '../data/store/persist'
 import { startEditorSync, startPreviewSync } from './sync'
@@ -146,20 +152,24 @@ export default function WindowApp({ mode, routeId }: Props) {
         <span className="win-title">{isEditor ? '大屏编辑器' : '大屏预览'} · {routeName}</span>
         <span className="win-sep" />
         {isEditor ? (
-          <button className="btn" onClick={() => openPreviewWindow(routeId)}>
+          <Button onClick={() => openPreviewWindow(routeId)}>
             在新页签预览
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              className={'btn' + (refreshing ? ' active' : '')}
-              onClick={() => setRefreshing((v) => !v)}
+            {/* 实时刷新开关 */}
+            <Switch
+              size="small"
+              checked={refreshing}
+              onChange={(v) => setRefreshing(v)}
+            />
+            <span style={{ color: '#9aa7b4', fontSize: 12 }}>实时刷新</span>
+            <Button
+              icon={isFs ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+              onClick={toggleFs}
             >
-              {refreshing ? '实时刷新：开' : '实时刷新：关'}
-            </button>
-            <button className="btn" onClick={toggleFs}>
               {isFs ? '退出全屏' : '全屏查看'}
-            </button>
+            </Button>
           </>
         )}
         <ZoomControls />
@@ -172,9 +182,9 @@ export default function WindowApp({ mode, routeId }: Props) {
         {!isEditor && lastRefresh && (
           <span className="win-saved">刷新于 {lastRefresh.toLocaleTimeString()}</span>
         )}
-        <button className="btn" onClick={() => window.close()}>
+        <Button icon={<CloseOutlined />} onClick={() => window.close()}>
           关闭页签
-        </button>
+        </Button>
       </div>
       <div className="win-body">{isEditor ? <Editor /> : <Renderer />}</div>
     </div>
@@ -193,23 +203,23 @@ function ZoomControls() {
   return (
     <>
       <span className="win-sep" />
-      <button
-        className={'btn' + (fit ? ' active' : '')}
+      <Button
+        type={fit ? 'primary' : 'default'}
         title="画布自动适配窗口尺寸（自适应不同分辨率）"
         onClick={() => setPage({ fit: true })}
       >
         适应
-      </button>
-      <label style={{ color: '#9aa7b4', fontSize: 12 }}>缩放</label>
-      <input
-        type="range"
-        min="0.2"
-        max="1"
-        step="0.02"
+      </Button>
+      <span style={{ color: '#9aa7b4', fontSize: 12 }}>缩放</span>
+      <Slider
+        style={{ width: 110, margin: 0, opacity: fit ? 0.5 : 1 }}
+        min={0.2}
+        max={1}
+        step={0.02}
         value={scale}
         disabled={fit}
-        onChange={(e) => setPage({ scale: parseFloat(e.target.value), fit: false })}
-        style={{ width: 110, opacity: fit ? 0.5 : 1 }}
+        onChange={(v) => setPage({ scale: v as number, fit: false })}
+        tooltip={{ formatter: (v) => `${Math.round((v ?? 0) * 100)}%` }}
       />
       <span style={{ color: '#9aa7b4', fontSize: 12, width: 38 }}>
         {fit ? '自动' : Math.round(scale * 100) + '%'}

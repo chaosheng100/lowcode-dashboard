@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Modal, Field, Input, Tag } from './common'
@@ -21,10 +22,10 @@ export default function CategoryPage() {
           <h2 className="fp-title">分类标签</h2>
           <p className="fp-sub">大屏 / 组件 / 资源的分类与标签，沉淀为画布模板与分组</p>
         </div>
-        <button className="btn" onClick={() => setEditing({ name: '', group: '大屏分类', color: '#4f8cff', count: 0 })}>＋ 新建分类</button>
+        <Button onClick={() => setEditing({ name: '', group: '大屏分类', color: '#4f8cff', count: 0 })}>＋ 新建分类</Button>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
         <div className="flex">
           {(data?.list ?? []).map((c) => (
@@ -36,8 +37,8 @@ export default function CategoryPage() {
               </div>
               <div className="muted2" style={{ marginTop: 8 }}>关联 {c.count} 项</div>
               <div className="fp-toolbar" style={{ marginTop: 6 }}>
-                <button className="btn sm" onClick={() => setEditing(c)}>编辑</button>
-                <button className="btn sm danger" onClick={() => remove(c.id)}>删除</button>
+                <Button size="small" onClick={() => setEditing(c)}>编辑</Button>
+                <Button size="small" danger onClick={() => remove(c.id)}>删除</Button>
               </div>
             </div>
           ))}
@@ -55,7 +56,7 @@ export default function CategoryPage() {
               ))}
             </span>
           </Field>
-          <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+          <div className="fp-toolbar"><Button onClick={save}>保存</Button></div>
         </Modal>
       )}
     </div>

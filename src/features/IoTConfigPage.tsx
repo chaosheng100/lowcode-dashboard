@@ -1,98 +1,416 @@
-import { useEffect, useState } from 'react'
-import PluginManagement from './PluginManagement'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Button, Checkbox, InputNumber, Popconfirm, Select, Spin, Switch } from 'antd'
+import { CloseOutlined } from '@ant-design/icons'
 import { api } from '../mock'
-import type { IoTDeviceDTO } from '../mock/types'
-import { Tag } from './common'
+import type { AlarmLevel, ChannelKind, IoTAlarmRuleDTO, IoTDeviceDTO } from '../mock/types'
+import type { ComponentInstance, RouteConfig } from '../data/types'
+import { useDesignerStore } from '../data/store/useDesignerStore'
+import { broadcastRoute } from '../designer/sync'
+import { Empty, Field, Input, Modal, Textarea } from './common'
+import { useApi } from './useApi'
 
-const STATUS_LABEL: Record<string, string> = { online: '在线', offline: '离线', alarm: '告警' }
-const STATUS_COLOR: Record<string, string> = { online: '#4ade80', offline: '#9aa7b4', alarm: '#ff6b6b' }
+const STATUS_LABEL: Record<IoTDeviceDTO['status'], string> = { online: '在线', offline: '离线', alarm: '告警' }
+const LEVEL_LABEL: Record<AlarmLevel, string> = { info: '提示', warning: '警告', critical: '严重' }
+const CHANNEL_LABEL: Record<ChannelKind, string> = {
+  wechat: '企业微信', dingtalk: '钉钉', email: '邮件', 'sms-aliyun': '阿里云短信', 'sms-tencent': '腾讯云短信'
+}
+const CHANNELS = Object.keys(CHANNEL_LABEL) as ChannelKind[]
 
-/** 物联组态：设备列表 + 配置编辑 + 实时监控预览（关系与大屏管理一致） */
-export default function IoTConfigPage() {
-  return (
-    <PluginManagement<IoTDeviceDTO>
-      title="物联组态"
-      subtitle="工业组态设备管理 · 配置设备指标 · 实时监控预览"
-      countLabel="设备"
-      fetcher={() => api.listIoTDevices({ pageSize: 50 })}
-      saveItem={(b) => api.saveIoTDevice(b)}
-      deleteItem={(id) => api.deleteIoTDevice(id)}
-      blankItem={() => ({ id: '', name: '新设备', type: 'sensor', status: 'online', metrics: { temperature: 0, humidity: 0 }, updatedAt: '' })}
-      renderMeta={(d) => [`类型：${d.type}`, `状态：${STATUS_LABEL[d.status] ?? d.status}`]}
-      renderTags={(d) => <Tag color={STATUS_COLOR[d.status]}>{STATUS_LABEL[d.status] ?? d.status}</Tag>}
-      renderEditor={(d, save) => <DeviceEditor item={d} save={save} />}
-      renderPreview={(d) => <DeviceMonitor item={d} />}
-    />
-  )
+interface IoTDashboardBinding {
+  deviceId: string
+  deviceName: string
+  syncedAt: string
 }
 
-function DeviceEditor({ item, save }: { item: IoTDeviceDTO; save: (p: Partial<IoTDeviceDTO>) => Promise<void> }) {
-  const [name, setName] = useState(item.name)
-  const [type, setType] = useState(item.type)
-  const [status, setStatus] = useState<IoTDeviceDTO['status']>(item.status)
-  const [metricsText, setMetricsText] = useState(
-    Object.entries(item.metrics).map(([k, v]) => `${k}:${v}`).join('\n')
-  )
-  const [saving, setSaving] = useState(false)
+function dashboardBindings(route: RouteConfig): IoTDashboardBinding[] {
+  const value = route.state.iotBindings
+  return Array.isArray(value) ? value.filter((item): item is IoTDashboardBinding => Boolean(item && typeof item === 'object' && 'deviceId' in item)) : []
+}
 
-  const doSave = async () => {
-    setSaving(true)
-    const metrics: Record<string, number> = {}
-    metricsText.split('\n').forEach((line) => {
-      const [k, v] = line.split(/[:：]/)
-      if (k?.trim()) metrics[k.trim()] = Number(v) || 0
+function metricComponentId(deviceId: string, metric: string) {
+  return `iot:${deviceId}:metric:${encodeURIComponent(metric)}`
+}
+
+function syncDeviceToDashboard(route: RouteConfig, device: IoTDeviceDTO): Partial<RouteConfig> {
+  const now = new Date().toISOString()
+  const bindings = dashboardBindings(route)
+  const bindingIndex = bindings.findIndex((binding) => binding.deviceId === device.id)
+  const row = bindingIndex >= 0 ? bindingIndex : bindings.length
+  const titleId = `iot:${device.id}:title`
+  const metricEntries = Object.entries(device.metrics)
+  const validIds = new Set([titleId, ...metricEntries.map(([metric]) => metricComponentId(device.id, metric))])
+  const existing = new Map(route.components.map((component) => [component.id, component]))
+  const title: ComponentInstance = {
+    id: titleId,
+    type: 'text',
+    style: existing.get(titleId)?.style ?? { x: 80, y: 150 + row * 210, w: 900, h: 42 },
+    props: {
+      ...existing.get(titleId)?.props,
+      content: `${device.name} · ${STATUS_LABEL[device.status]}`,
+      fontSize: 24,
+      color: device.status === 'alarm' ? '#f87171' : device.status === 'online' ? '#4ade80' : '#9aa7b4',
+      bold: true,
+      iotDeviceId: device.id
+    }
+  }
+  const metrics: ComponentInstance[] = metricEntries.map(([metric, value], index) => {
+    const id = metricComponentId(device.id, metric)
+    const current = existing.get(id)
+    return {
+      id,
+      type: 'metric',
+      style: current?.style ?? { x: 80 + (index % 5) * 330, y: 200 + row * 210 + Math.floor(index / 5) * 150, w: 290, h: 120 },
+      props: {
+        ...current?.props,
+        label: metric,
+        data: [{ name: device.name, value }],
+        unit: '',
+        iotDeviceId: device.id,
+        iotMetric: metric
+      }
+    }
+  })
+  const components = route.components.filter((component) => component.props.iotDeviceId !== device.id || validIds.has(component.id))
+  const nextComponents = components.filter((component) => !validIds.has(component.id)).concat(title, metrics)
+  const nextBindings = bindings.some((binding) => binding.deviceId === device.id)
+    ? bindings.map((binding) => binding.deviceId === device.id ? { ...binding, deviceName: device.name, syncedAt: now } : binding)
+    : [...bindings, { deviceId: device.id, deviceName: device.name, syncedAt: now }]
+  return { components: nextComponents, state: { ...route.state, iotBindings: nextBindings }, updatedAt: now }
+}
+
+function evaluateAlarm(rule: IoTAlarmRuleDTO, value: number | undefined) {
+  if (!rule.enabled || value == null) return false
+  if (rule.op === '>') return value > rule.threshold
+  if (rule.op === '<') return value < rule.threshold
+  if (rule.op === '==') return value === rule.threshold
+  return value !== rule.threshold
+}
+
+export default function IoTConfigPage() {
+  const devices = useApi(() => api.listIoTDevices({ pageSize: 100 }), [])
+  const alarms = useApi(() => api.listIoTAlarms({ pageSize: 100 }), [])
+  const routes = useDesignerStore((state) => state.routes)
+  const updateRoute = useDesignerStore((state) => state.updateRoute)
+  const selectRoute = useDesignerStore((state) => state.selectRoute)
+  const dashboards = useMemo(() => routes.filter((route) => route.kind === 'dashboard'), [routes])
+  const pushDashboardUpdate = (route: RouteConfig, patch: Partial<RouteConfig>) => {
+    const nextRoute = { ...route, ...patch }
+    updateRoute(route.id, patch)
+    broadcastRoute(nextRoute)
+  }
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | IoTDeviceDTO['status']>('all')
+  const [deviceEditor, setDeviceEditor] = useState<IoTDeviceDTO | null | 'new'>(null)
+  const [alarmEditor, setAlarmEditor] = useState(false)
+  const [dashboardId, setDashboardId] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const deviceList = devices.data?.list ?? []
+  const selected = deviceList.find((device) => device.id === selectedId) ?? deviceList[0] ?? null
+  const deviceAlarms = (alarms.data?.list ?? []).filter((rule) => rule.deviceId === selected?.id)
+  const linkedDashboards = selected
+    ? dashboards.filter((route) => dashboardBindings(route).some((binding) => binding.deviceId === selected.id))
+    : []
+  const filteredDevices = deviceList.filter((device) => {
+    const matchesKeyword = !keyword.trim() || device.name.toLowerCase().includes(keyword.trim().toLowerCase()) || device.type.toLowerCase().includes(keyword.trim().toLowerCase())
+    return matchesKeyword && (statusFilter === 'all' || device.status === statusFilter)
+  })
+  const online = deviceList.filter((device) => device.status === 'online').length
+  const alarmCount = deviceList.filter((device) => device.status === 'alarm').length
+
+  useEffect(() => {
+    if (!selectedId && deviceList[0]) setSelectedId(deviceList[0].id)
+  }, [deviceList, selectedId])
+
+  const saveDevice = async (patch: Partial<IoTDeviceDTO>) => {
+    setBusy(true)
+    const response = await api.saveIoTDevice(patch)
+    if (response.code !== 0) {
+      setNotice(response.message)
+      setBusy(false)
+      return
+    }
+    for (const route of dashboards) {
+      if (dashboardBindings(route).some((binding) => binding.deviceId === response.data.id)) {
+        pushDashboardUpdate(route, syncDeviceToDashboard(route, response.data))
+      }
+    }
+    setSelectedId(response.data.id)
+    setDeviceEditor(null)
+    setNotice('设备配置已保存，关联大屏已同步更新')
+    devices.reload()
+    setBusy(false)
+  }
+
+  const deleteDevice = async (device: IoTDeviceDTO) => {
+    setBusy(true)
+    const response = await api.deleteIoTDevice(device.id)
+    if (response.code === 0) {
+      for (const rule of (alarms.data?.list ?? []).filter((item) => item.deviceId === device.id)) await api.deleteIoTAlarm(rule.id)
+      dashboards.forEach((route) => {
+        const bindings = dashboardBindings(route)
+        if (!bindings.some((binding) => binding.deviceId === device.id)) return
+        pushDashboardUpdate(route, {
+          components: route.components.filter((component) => component.props.iotDeviceId !== device.id),
+          state: { ...route.state, iotBindings: bindings.filter((binding) => binding.deviceId !== device.id) },
+          updatedAt: new Date().toISOString()
+        })
+      })
+      setSelectedId(null)
+      devices.reload()
+      alarms.reload()
+      setNotice('设备及关联配置已删除')
+    } else setNotice(response.message)
+    setBusy(false)
+  }
+
+  const bindDashboard = () => {
+    if (!selected || !dashboardId) return
+    const route = dashboards.find((item) => item.id === dashboardId)
+    if (!route) return
+    pushDashboardUpdate(route, syncDeviceToDashboard(route, selected))
+    setDashboardId('')
+    setNotice(`已将「${selected.name}」同步到「${route.name}」`)
+  }
+
+  const unbindDashboard = (route: RouteConfig) => {
+    if (!selected) return
+    pushDashboardUpdate(route, {
+      components: route.components.filter((component) => component.props.iotDeviceId !== selected.id),
+      state: { ...route.state, iotBindings: dashboardBindings(route).filter((binding) => binding.deviceId !== selected.id) },
+      updatedAt: new Date().toISOString()
     })
-    await save({ name, type, status, metrics })
-    setSaving(false)
+    setNotice(`已解除与「${route.name}」的关联`)
+  }
+
+  const saveAlarm = async (patch: Partial<IoTAlarmRuleDTO>) => {
+    setBusy(true)
+    const response = await api.saveIoTAlarm(patch)
+    if (response.code === 0) {
+      alarms.reload()
+      setAlarmEditor(false)
+      setNotice('告警规则已保存')
+    } else setNotice(response.message)
+    setBusy(false)
+  }
+
+  const toggleAlarm = async (rule: IoTAlarmRuleDTO) => {
+    const response = await api.saveIoTAlarm({ id: rule.id, enabled: !rule.enabled })
+    if (response.code === 0) alarms.reload()
+    else setNotice(response.message)
+  }
+
+  const deleteAlarm = async (rule: IoTAlarmRuleDTO) => {
+    const response = await api.deleteIoTAlarm(rule.id)
+    if (response.code === 0) alarms.reload()
+    else setNotice(response.message)
   }
 
   return (
-    <div className="card" style={{ maxWidth: 680, margin: '0 auto' }}>
-      <div className="field"><label>设备名称</label><input className="inp" value={name} onChange={(e) => setName(e.target.value)} /></div>
-      <div className="row2">
-        <div className="field"><label>类型</label><input className="inp" value={type} onChange={(e) => setType(e.target.value)} /></div>
-        <div className="field"><label>状态</label>
-          <select className="inp" value={status} onChange={(e) => setStatus(e.target.value as IoTDeviceDTO['status'])}>
-            <option value="online">在线</option><option value="offline">离线</option><option value="alarm">告警</option>
-          </select>
+    <main className="feature-page iot-page">
+      <header className="iot-head">
+        <div><h1 className="fp-title">物联组态</h1><p className="fp-sub">统一管理设备、指标、告警，并将实时数据同步到大屏</p></div>
+        <div className="iot-head-actions">
+          <Button onClick={() => selectRoute('/dashboard')}>大屏管理</Button>
+          <Button type="primary" onClick={() => setDeviceEditor('new')}>+ 新建设备</Button>
         </div>
-      </div>
-      <div className="field"><label>指标（每行 key:value，如 temperature:36.5）</label><textarea className="inp" style={{ minHeight: 160 }} value={metricsText} onChange={(e) => setMetricsText(e.target.value)} /></div>
-      <div className="fp-toolbar"><button className="btn primary" onClick={doSave} disabled={saving}>{saving ? '保存中…' : '保存'}</button></div>
-    </div>
+      </header>
+
+      <section className="iot-summary" aria-label="物联设备概览">
+        <div><strong>{deviceList.length}</strong><span>设备总数</span></div>
+        <div><strong>{online}</strong><span>在线设备</span></div>
+        <div className="warning"><strong>{alarmCount}</strong><span>告警设备</span></div>
+        <div><strong>{dashboards.filter((route) => dashboardBindings(route).length).length}</strong><span>关联大屏</span></div>
+      </section>
+
+      {notice && <Alert type="info" message={notice} showIcon closable onClose={() => setNotice(null)} style={{ marginBottom: 12 }} />}
+      {(devices.loading || alarms.loading) && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {(devices.error || alarms.error) && <Alert type="error" message={devices.error || alarms.error} showIcon style={{ marginBottom: 10 }} />}
+
+      {!devices.loading && !devices.error && (
+        <div className="iot-workspace">
+          <aside className="iot-device-panel">
+            <div className="iot-panel-head"><div><h2>设备资产</h2><span>{filteredDevices.length} 台</span></div></div>
+            <div className="iot-device-filters">
+              <Input aria-label="搜索设备" placeholder="搜索名称或类型" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
+              <Select
+                aria-label="设备状态"
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                options={[
+                  { value: 'all', label: '全部状态' },
+                  { value: 'online', label: '在线' },
+                  { value: 'offline', label: '离线' },
+                  { value: 'alarm', label: '告警' }
+                ]}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="iot-device-list">
+              {filteredDevices.map((device) => (
+                <button key={device.id} className={selected?.id === device.id ? 'iot-device-item active' : 'iot-device-item'} onClick={() => setSelectedId(device.id)}>
+                  <span className={`iot-status-dot ${device.status}`} />
+                  <span><strong>{device.name}</strong><small>{device.type} · {Object.keys(device.metrics).length} 个指标</small></span>
+                  <em>{STATUS_LABEL[device.status]}</em>
+                </button>
+              ))}
+              {!filteredDevices.length && <Empty>没有匹配的设备</Empty>}
+            </div>
+          </aside>
+
+          <section className="iot-detail">
+            {selected ? <>
+              <div className="iot-detail-head">
+                <div><div className="iot-device-title"><h2>{selected.name}</h2><span className={`iot-device-state ${selected.status}`}>{STATUS_LABEL[selected.status]}</span></div><p>{selected.type} · 更新于 {selected.updatedAt}</p></div>
+                <div>
+                  <Button onClick={() => setDeviceEditor(selected)}>编辑</Button>
+                  <Popconfirm title={`确定删除「${selected.name}」？相关告警与大屏绑定将一并清理。`} onConfirm={() => deleteDevice(selected)}>
+                    <Button danger disabled={busy}>删除</Button>
+                  </Popconfirm>
+                </div>
+              </div>
+
+              <section className="iot-metrics" aria-label="实时指标">
+                <div className="iot-section-head"><div><h3>实时指标</h3><p>设备当前采集值</p></div><span>{Object.keys(selected.metrics).length} 项</span></div>
+                <div className="iot-metric-grid">
+                  {Object.entries(selected.metrics).map(([metric, value]) => {
+                    const triggered = deviceAlarms.some((rule) => rule.metric === metric && evaluateAlarm(rule, value))
+                    return <article key={metric} className={triggered ? 'iot-metric-card alarm' : 'iot-metric-card'}><span>{metric}</span><strong>{value.toLocaleString()}</strong><small>{triggered ? '已触发告警' : '采集正常'}</small></article>
+                  })}
+                  {!Object.keys(selected.metrics).length && <Empty>该设备尚未配置指标</Empty>}
+                </div>
+              </section>
+
+              <div className="iot-detail-grid">
+                <section className="iot-subpanel">
+                  <div className="iot-section-head"><div><h3>告警规则</h3><p>满足条件时标记指标异常</p></div><Button size="small" onClick={() => setAlarmEditor(true)} disabled={!Object.keys(selected.metrics).length}>+ 新建规则</Button></div>
+                  <div className="iot-alarm-list">
+                    {deviceAlarms.map((rule) => <div className="iot-alarm-row" key={rule.id}>
+                      <span className={`iot-level ${rule.level}`}>{LEVEL_LABEL[rule.level]}</span>
+                      <div><strong>{rule.metric} {rule.op} {rule.threshold}</strong><small>{rule.channels.map((channel) => CHANNEL_LABEL[channel]).join('、') || '仅站内告警'}</small></div>
+                      <Switch size="small" checked={rule.enabled} aria-label={rule.enabled ? '停用告警' : '启用告警'} onChange={() => toggleAlarm(rule)} />
+                      <Popconfirm title="确定删除该告警规则？" onConfirm={() => deleteAlarm(rule)}>
+                        <Button type="text" size="small" danger icon={<CloseOutlined />} aria-label="删除告警" />
+                      </Popconfirm>
+                    </div>)}
+                    {!deviceAlarms.length && <Empty>尚未配置告警规则</Empty>}
+                  </div>
+                </section>
+
+                <section className="iot-subpanel">
+                  <div className="iot-section-head"><div><h3>关联大屏</h3><p>同步设备状态与指标卡</p></div><span>{linkedDashboards.length} 个</span></div>
+                  <div className="iot-bind-row">
+                    <Select
+                      aria-label="选择关联大屏"
+                      placeholder="选择目标大屏"
+                      value={dashboardId || undefined}
+                      onChange={(v) => setDashboardId(v)}
+                      options={dashboards.filter((route) => !linkedDashboards.some((linked) => linked.id === route.id)).map((route) => ({ value: route.id, label: route.name }))}
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                    <Button type="primary" onClick={bindDashboard} disabled={!dashboardId}>同步</Button>
+                  </div>
+                  <div className="iot-dashboard-list">
+                    {linkedDashboards.map((route) => {
+                      const binding = dashboardBindings(route).find((item) => item.deviceId === selected.id)
+                      return <div key={route.id}><div><strong>{route.name}</strong><small>同步于 {binding?.syncedAt.slice(0, 16).replace('T', ' ')}</small></div><Button size="small" onClick={() => pushDashboardUpdate(route, syncDeviceToDashboard(route, selected))}>刷新</Button><Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('dashboard:open-designer', { detail: { routeId: route.id } }))}>打开</Button><Button size="small" danger onClick={() => unbindDashboard(route)}>解绑</Button></div>
+                    })}
+                    {!linkedDashboards.length && <Empty>选择大屏后，设备组件会自动写入画布</Empty>}
+                  </div>
+                </section>
+              </div>
+            </> : <Empty>请选择或新建设备</Empty>}
+          </section>
+        </div>
+      )}
+
+      {deviceEditor && <DeviceModal item={deviceEditor === 'new' ? null : deviceEditor} busy={busy} onClose={() => setDeviceEditor(null)} onSave={saveDevice} />}
+      {alarmEditor && selected && <AlarmModal device={selected} busy={busy} onClose={() => setAlarmEditor(false)} onSave={saveAlarm} />}
+    </main>
   )
 }
 
-function DeviceMonitor({ item }: { item: IoTDeviceDTO }) {
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1500)
-    return () => clearInterval(id)
-  }, [])
-  const entries = Object.entries(item.metrics)
-  return (
-    <div style={{ height: '100%' }}>
-      <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
-        <b style={{ color: '#e6edf3', fontSize: 18 }}>{item.name}</b>
-        <Tag color={STATUS_COLOR[item.status]}>{STATUS_LABEL[item.status] ?? item.status} · 实时</Tag>
-      </div>
-      <div className="grid3">
-        {entries.map(([k, v]) => {
-          // 模拟实时跳动
-          const live = Number(v) + Math.round(Math.sin(tick + k.length) * 5 * 10) / 10
-          const pct = Math.min(100, Math.max(0, (live / (Math.max(1, live * 2))) * 100))
-          return (
-            <div className="card" key={k}>
-              <div className="muted2">{k}</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: '#00d4ff', margin: '6px 0' }}>{live.toFixed(1)}</div>
-              <div style={{ height: 6, background: '#1a2433', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg,#00d4ff,#4f8cff)', transition: 'width .6s' }} />
-              </div>
-            </div>
-          )
-        })}
-        {!entries.length && <div className="empty-tip">该设备无指标</div>}
-      </div>
+function DeviceModal({ item, busy, onClose, onSave }: { item: IoTDeviceDTO | null; busy: boolean; onClose: () => void; onSave: (patch: Partial<IoTDeviceDTO>) => void }) {
+  const [name, setName] = useState(item?.name ?? '')
+  const [type, setType] = useState(item?.type ?? '传感器')
+  const [status, setStatus] = useState<IoTDeviceDTO['status']>(item?.status ?? 'online')
+  const [metrics, setMetrics] = useState(Object.entries(item?.metrics ?? { 温度: 0 }).map(([key, value]) => `${key}:${value}`).join('\n'))
+  const [error, setError] = useState('')
+  const submit = () => {
+    const cleanName = name.trim()
+    if (!cleanName) return setError('请输入设备名称')
+    const parsed: Record<string, number> = {}
+    for (const line of metrics.split('\n').map((value) => value.trim()).filter(Boolean)) {
+      const match = line.match(/^([^:：]+)[:：](-?\d+(?:\.\d+)?)$/)
+      if (!match) return setError(`指标格式错误：${line}`)
+      parsed[match[1].trim()] = Number(match[2])
+    }
+    if (!Object.keys(parsed).length) return setError('请至少配置一个指标')
+    onSave({ id: item?.id, name: cleanName, type: type.trim() || '设备', status, metrics: parsed })
+  }
+  return <Modal title={item ? '编辑设备' : '新建设备'} onClose={onClose} width={620}>
+    {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
+    <div className="iot-form-grid">
+      <Field label="设备名称"><Input value={name} onChange={(event) => setName(event.target.value)} /></Field>
+      <Field label="设备类型"><Input value={type} onChange={(event) => setType(event.target.value)} /></Field>
     </div>
-  )
+    <Field label="运行状态">
+      <Select
+        value={status}
+        onChange={(v) => setStatus(v as IoTDeviceDTO['status'])}
+        options={[{ value: 'online', label: '在线' }, { value: 'offline', label: '离线' }, { value: 'alarm', label: '告警' }]}
+        style={{ width: '100%' }}
+      />
+    </Field>
+    <Field label="采集指标">
+      <div>
+        <Textarea value={metrics} onChange={(event) => setMetrics(event.target.value)} placeholder={'温度:36.5\n压力:8.2'} />
+        <div className="muted2" style={{ marginTop: 4, fontSize: 11 }}>每行一个“指标:数值”，支持小数与负数</div>
+      </div>
+    </Field>
+    <div className="iot-modal-actions">
+      <Button onClick={onClose}>取消</Button>
+      <Button type="primary" loading={busy} onClick={submit}>{busy ? '保存中…' : '保存设备'}</Button>
+    </div>
+  </Modal>
+}
+
+function AlarmModal({ device, busy, onClose, onSave }: { device: IoTDeviceDTO; busy: boolean; onClose: () => void; onSave: (patch: Partial<IoTAlarmRuleDTO>) => void }) {
+  const metrics = Object.keys(device.metrics)
+  const [metric, setMetric] = useState(metrics[0] ?? '')
+  const [op, setOp] = useState<IoTAlarmRuleDTO['op']>('>')
+  const [threshold, setThreshold] = useState(0)
+  const [level, setLevel] = useState<AlarmLevel>('warning')
+  const [channels, setChannels] = useState<ChannelKind[]>([])
+  return <Modal title="新建告警规则" onClose={onClose} width={620}>
+    <div className="iot-form-grid">
+      <Field label="监控指标">
+        <Select value={metric} onChange={(v) => setMetric(v)} options={metrics.map((item) => ({ value: item, label: item }))} style={{ width: '100%' }} />
+      </Field>
+      <Field label="告警等级">
+        <Select value={level} onChange={(v) => setLevel(v as AlarmLevel)} options={[{ value: 'info', label: '提示' }, { value: 'warning', label: '警告' }, { value: 'critical', label: '严重' }]} style={{ width: '100%' }} />
+      </Field>
+    </div>
+    <div className="iot-form-grid">
+      <Field label="判断条件">
+        <Select value={op} onChange={(v) => setOp(v as IoTAlarmRuleDTO['op'])} options={[{ value: '>', label: '大于' }, { value: '<', label: '小于' }, { value: '==', label: '等于' }, { value: '!=', label: '不等于' }]} style={{ width: '100%' }} />
+      </Field>
+      <Field label="阈值">
+        <InputNumber value={threshold} onChange={(v) => setThreshold(v ?? 0)} style={{ width: '100%' }} />
+      </Field>
+    </div>
+    <Field label="通知渠道">
+      <Checkbox.Group
+        options={CHANNELS.map((channel) => ({ value: channel, label: CHANNEL_LABEL[channel] }))}
+        value={channels}
+        onChange={(v) => setChannels(v as ChannelKind[])}
+      />
+    </Field>
+    <div className="iot-modal-actions">
+      <Button onClick={onClose}>取消</Button>
+      <Button type="primary" loading={busy} disabled={!metric} onClick={() => onSave({ deviceId: device.id, deviceName: device.name, metric, op, threshold, level, channels, enabled: true })}>{busy ? '保存中…' : '保存规则'}</Button>
+    </div>
+  </Modal>
 }

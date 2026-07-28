@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Tabs } from 'antd'
 import ComponentPanel from './ComponentPanel'
 import ResourcePanel from './ResourcePanel'
 
@@ -7,14 +8,15 @@ export default function DesignerLeftPanel() {
   const [tab, setTab] = useState<'widget' | 'resource'>('widget')
   return (
     <aside className="panel-left">
-      <div className="dlp-tabs">
-        <button className={'tab' + (tab === 'widget' ? ' active' : '')} onClick={() => setTab('widget')}>
-          组件
-        </button>
-        <button className={'tab' + (tab === 'resource' ? ' active' : '')} onClick={() => setTab('resource')}>
-          资源
-        </button>
-      </div>
+      <Tabs
+        size="small"
+        activeKey={tab}
+        onChange={(k) => setTab(k as typeof tab)}
+        items={[
+          { key: 'widget', label: '组件' },
+          { key: 'resource', label: '资源' },
+        ]}
+      />
       <div className="dlp-body">{tab === 'widget' ? <ComponentPanel /> : <ResourcePanel />}</div>
     </aside>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { App, Button, Tabs } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { api } from '../../mock'
 import type { DatasetDTO, AssetDTO, ThemeDTO } from '../../mock/types'
@@ -14,6 +15,7 @@ const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table']
  * - 主题（/system/runtime）→ 应用到大屏页面配色
  */
 export default function ResourcePanel() {
+  const { message } = App.useApp()
   const selectedId = useDesignerStore((s) => s.selectedId)
   const route = useDesignerStore((s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0])!
   const component = route.components.find((c) => c.id === selectedId)
@@ -26,13 +28,10 @@ export default function ResourcePanel() {
   const [assets, setAssets] = useState<AssetDTO[]>([])
   const [themes, setThemes] = useState<ThemeDTO[]>([])
   const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState('')
-  const [msg, setMsg] = useState('')
 
   useEffect(() => {
     let alive = true
     setLoading(true)
-    setErr('')
     const load = async () => {
       try {
         if (tab === 'dataset') {
@@ -46,7 +45,7 @@ export default function ResourcePanel() {
           if (alive) setThemes(r.data)
         }
       } catch (e) {
-        if (alive) setErr((e as Error).message)
+        if (alive) message.error('加载失败：' + (e as Error).message)
       } finally {
         if (alive) setLoading(false)
       }
@@ -55,7 +54,7 @@ export default function ResourcePanel() {
     return () => {
       alive = false
     }
-  }, [tab])
+  }, [tab, message])
 
   const transform = (rows: Record<string, string | number | boolean>[]): DataPoint[] =>
     rows.map((row) => ({
@@ -64,9 +63,8 @@ export default function ResourcePanel() {
     }))
 
   const bindDataset = async (ds: DatasetDTO) => {
-    setMsg('')
     if (!component || !DATA_WIDGETS.includes(component.type)) {
-      setMsg('请先在画布中选中一个图表 / 指标卡 / 表格组件')
+      message.warning('请先在画布中选中一个图表 / 指标卡 / 表格组件')
       return
     }
     setLoading(true)
@@ -78,9 +76,9 @@ export default function ResourcePanel() {
         dataSourceId: ds.id,
         dataSourceName: ds.name
       })
-      setMsg(`已将「${ds.name}」绑定到 ${component.type} 组件`)
+      message.success(`已将「${ds.name}」绑定到 ${component.type} 组件`)
     } catch (e) {
-      setErr((e as Error).message)
+      message.error('加载失败：' + (e as Error).message)
     } finally {
       setLoading(false)
     }
@@ -88,35 +86,32 @@ export default function ResourcePanel() {
 
   const setBackground = (url: string) => {
     setPage({ backgroundImage: url, backgroundImageFit: 'cover', backgroundImageOpacity: 1 })
-    setMsg('已设为画布背景')
+    message.success('已设为画布背景')
   }
   const insertImage = (url: string) => {
     const id = addComponent('image', { w: 320, h: 200, x: 80, y: 80 })
     if (id) updateProps(id, { src: url })
-    setMsg('已向画布插入图片组件')
+    message.success('已向画布插入图片组件')
   }
   const applyTheme = (t: ThemeDTO) => {
     setPage({ background: t.background })
-    setMsg(`已应用主题「${t.name}」`)
+    message.success(`已应用主题「${t.name}」`)
   }
 
   return (
     <div className="dlp-inner">
       <div style={{ color: '#9aa7b4', fontSize: 12, marginBottom: 10 }}>基础能力 → 画布</div>
-      <div className="dlp-tabs2">
-        <button className={'tab' + (tab === 'dataset' ? ' active' : '')} onClick={() => setTab('dataset')}>
-          数据集
-        </button>
-        <button className={'tab' + (tab === 'asset' ? ' active' : '')} onClick={() => setTab('asset')}>
-          素材
-        </button>
-        <button className={'tab' + (tab === 'theme' ? ' active' : '')} onClick={() => setTab('theme')}>
-          主题
-        </button>
-      </div>
+      <Tabs
+        size="small"
+        activeKey={tab}
+        onChange={(k) => setTab(k as typeof tab)}
+        items={[
+          { key: 'dataset', label: '数据集' },
+          { key: 'asset', label: '素材' },
+          { key: 'theme', label: '主题' },
+        ]}
+      />
 
-      {msg && <div className="dlp-msg">{msg}</div>}
-      {err && <div className="dlp-err">加载失败：{err}</div>}
       {loading && <div className="empty-tip">加载中…</div>}
 
       <div className="dlp-list">
@@ -127,9 +122,9 @@ export default function ResourcePanel() {
                 <strong>{d.name}</strong>
                 <span className="rp-sub">{d.sourceName} · {d.rowCount.toLocaleString()} 行</span>
               </div>
-              <button className="btn rp-act" onClick={() => bindDataset(d)}>
+              <Button size="small" type="link" onClick={() => bindDataset(d)}>
                 绑定到组件
-              </button>
+              </Button>
             </div>
           ))}
 
@@ -141,12 +136,12 @@ export default function ResourcePanel() {
                 <span className="rp-sub">{a.type} · {a.sizeKb}KB</span>
               </div>
               <div className="rp-acts">
-                <button className="btn rp-act" onClick={() => setBackground(a.url)}>
+                <Button size="small" type="link" onClick={() => setBackground(a.url)}>
                   背景
-                </button>
-                <button className="btn rp-act" onClick={() => insertImage(a.url)}>
+                </Button>
+                <Button size="small" type="link" onClick={() => insertImage(a.url)}>
                   图片
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -160,17 +155,17 @@ export default function ResourcePanel() {
                 </strong>
                 <span className="rp-sub">{t.desc}</span>
               </div>
-              <button className="btn rp-act" onClick={() => applyTheme(t)}>
+              <Button size="small" type="link" onClick={() => applyTheme(t)}>
                 应用
-              </button>
+              </Button>
             </div>
           ))}
 
-        {!loading && !err && tab === 'dataset' && !datasets.length && (
+        {!loading && tab === 'dataset' && !datasets.length && (
           <div className="empty-tip">暂无数据集</div>
         )}
-        {!loading && !err && tab === 'asset' && !assets.length && <div className="empty-tip">暂无素材</div>}
-        {!loading && !err && tab === 'theme' && !themes.length && <div className="empty-tip">暂无主题</div>}
+        {!loading && tab === 'asset' && !assets.length && <div className="empty-tip">暂无素材</div>}
+        {!loading && tab === 'theme' && !themes.length && <div className="empty-tip">暂无主题</div>}
       </div>
 
       <div className="dlp-hint">

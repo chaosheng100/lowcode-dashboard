@@ -1,3 +1,4 @@
+import { Card, Col, Row } from 'antd'
 import { api } from '../mock'
 import { useApi } from './useApi'
 import { Tag } from './common'
@@ -21,16 +22,17 @@ export default function ComponentMenuPage() {
           <p className="fp-sub">组件分组与导航 · 已纳管 {data?.list.length ?? 0} 个标准组件</p>
         </div>
       </div>
-      <div className="grid3">
+      <Row gutter={[12, 12]}>
         {MENU.map((m) => (
-          <div key={m.group} className="card">
-            <b style={{ color: '#e6edf3' }}>{m.group}</b>
-            <div className="flex" style={{ marginTop: 10 }}>
-              {m.items.map((it) => <Tag key={it}>{it}</Tag>)}
-            </div>
-          </div>
+          <Col span={8} key={m.group}>
+            <Card size="small" hoverable title={m.group}>
+              <div className="flex">
+                {m.items.map((it) => <Tag key={it}>{it}</Tag>)}
+              </div>
+            </Card>
+          </Col>
         ))}
-      </div>
+      </Row>
     </div>
   )
 }

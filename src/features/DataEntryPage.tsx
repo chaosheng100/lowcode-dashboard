@@ -1,3 +1,4 @@
+import { Alert, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Tag } from './common'
@@ -14,8 +15,8 @@ export default function DataEntryPage() {
         </div>
         <span className="fp-count">共 {data?.list.length ?? 0} 张填报表</span>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}
       {!loading && !error && (
         <div className="grid2">
           {(data?.list ?? []).map((e) => (

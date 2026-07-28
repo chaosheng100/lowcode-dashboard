@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import type { MessageChannelDTO, ChannelKind } from '../mock/types'
@@ -25,10 +26,10 @@ export default function MessagePushPage() {
           <h2 className="fp-title">消息推送</h2>
           <p className="fp-sub">企业微信 / 钉钉 / 邮件 / 阿里云短信 / 腾讯云短信 —— 联动告警与大屏实时推送</p>
         </div>
-        <button className="btn" onClick={() => setEditing({ name: '', kind: 'wechat', endpoint: '', enabled: true })}>＋ 新建通道</button>
+        <Button onClick={() => setEditing({ name: '', kind: 'wechat', endpoint: '', enabled: true })}>＋ 新建通道</Button>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
         <div className="grid3">
           {(data?.list ?? []).map((c) => (
@@ -40,9 +41,9 @@ export default function MessagePushPage() {
               <div className="muted2" style={{ margin: '8px 0' }}>{KIND_LABEL[c.kind]}</div>
               <div className="muted2" style={{ wordBreak: 'break-all' }}>{c.endpoint}</div>
               <div className="fp-toolbar" style={{ marginTop: 10 }}>
-                <button className="btn sm" onClick={() => toggle(c)}>{c.enabled ? '停用' : '启用'}</button>
-                <button className="btn sm" onClick={() => setEditing(c)}>编辑</button>
-                <button className="btn sm danger" onClick={() => remove(c.id)}>删除</button>
+                <Button size="small" onClick={() => toggle(c)}>{c.enabled ? '停用' : '启用'}</Button>
+                <Button size="small" onClick={() => setEditing(c)}>编辑</Button>
+                <Button size="small" danger onClick={() => remove(c.id)}>删除</Button>
               </div>
             </div>
           ))}
@@ -59,7 +60,7 @@ export default function MessagePushPage() {
           <Field label="Webhook / 网关">
             <Input value={editing.endpoint || ''} onChange={(e) => setEditing({ ...editing, endpoint: e.target.value })} placeholder="webhook 地址 / SMTP / 短信网关" />
           </Field>
-          <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+          <div className="fp-toolbar"><Button onClick={save}>保存</Button></div>
         </Modal>
       )}
     </div>

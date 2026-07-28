@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Alert, Button, Spin, Table, Tabs } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { getRouteCapability } from '../data/capabilities'
 import type { DataSourceDTO, DsKind, SqlVendor, ParseMode } from '../mock/types'
-import { Modal, Field, Input, Select, Tag } from './common'
+import { Modal, Field, Input, Select, Tag, Textarea } from './common'
 import { querySqlViaProxy, proxyHealth } from '../data/live/liveClient'
 
 const KIND_LABEL: Record<DsKind, string> = {
@@ -80,44 +81,44 @@ export default function DataSourcePage() {
               : <span style={{ color: '#facc15' }}>● 数据代理离线（npm run proxy 启动后启用真实取数）</span>}
           </p>
         </div>
-        <button className="btn" onClick={() => setEditing({ name: '', kind: 'api', scope: 'public', endpoint: '', status: 'connected' })}>＋ 新建数据源</button>
+        <Button onClick={() => setEditing({ name: '', kind: 'api', scope: 'public', endpoint: '', status: 'connected' })}>＋ 新建数据源</Button>
       </div>
 
-      <div className="tabs">
-        <span className={'tab' + (filter === 'all' ? ' active' : '')} onClick={() => setFilter('all')}>全部</span>
-        {KINDS.map((k) => (
-          <span key={k} className={'tab' + (filter === k ? ' active' : '')} onClick={() => setFilter(k)}>{KIND_LABEL[k]}</span>
-        ))}
-      </div>
+      <Tabs
+        activeKey={filter}
+        onChange={(k) => setFilter(k as DsKind | 'all')}
+        items={[{ key: 'all', label: '全部' }, ...KINDS.map((k) => ({ key: k, label: KIND_LABEL[k] }))]}
+      />
 
-      {result && <div className="fp-error" style={{ color: '#9ec1ff', background: '#16202f', borderColor: '#2f4a73' }}>{result}</div>}
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
+      {result && <Alert type="info" message={result} showIcon closable onClose={() => setResult('')} style={{ marginBottom: 10 }} />}
+      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
+      {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (
-        <table className="data-table">
-          <thead>
-            <tr><th>名称</th><th>类型</th><th>库/范围</th><th>地址</th><th>解析</th><th>状态</th><th>操作</th></tr>
-          </thead>
-          <tbody>
-            {list.map((d) => (
-              <tr key={d.id}>
-                <td>{d.name}</td>
-                <td className="muted">{KIND_LABEL[d.kind]}</td>
-                <td className="muted">{d.kind === 'sql' ? VENDOR_LABEL[d.vendor || 'other'] : (d.scope === 'public' ? '公共' : '独立')}</td>
-                <td className="muted">{d.endpoint}</td>
-                <td className="muted">{d.parseMode ? <Tag>{d.parseMode}</Tag> : '—'}</td>
-                <td><span className={'status-dot ' + (d.status === 'connected' ? 'active' : 'disabled')}>{d.status === 'connected' ? '已连接' : '异常'}</span></td>
-                <td>
-                  <button className="btn sm" disabled={testing === d.id} onClick={() => test(d.id)}>{testing === d.id ? '测试中' : '连通测试'}</button>{' '}
-                  {d.kind === 'sql' && <><button className="btn sm" onClick={() => { setSqlConsole(d); setSqlOut(null); setSqlErr('') }}>SQL 查询</button>{' '}</>}
-                  <button className="btn sm" onClick={() => setEditing(d)}>编辑</button>{' '}
-                  <button className="btn sm danger" onClick={() => remove(d.id)}>删除</button>
-                </td>
-              </tr>
-            ))}
-            {list.length === 0 && <tr><td colSpan={7} className="fp-empty">暂无数据源</td></tr>}
-          </tbody>
-        </table>
+        <Table<DataSourceDTO>
+          size="small"
+          rowKey="id"
+          pagination={false}
+          dataSource={list}
+          locale={{ emptyText: '暂无数据源' }}
+          columns={[
+            { title: '名称', dataIndex: 'name' },
+            { title: '类型', key: 'kind', render: (_, d) => <span className="muted">{KIND_LABEL[d.kind]}</span> },
+            { title: '库/范围', key: 'vendor', render: (_, d) => <span className="muted">{d.kind === 'sql' ? VENDOR_LABEL[d.vendor || 'other'] : (d.scope === 'public' ? '公共' : '独立')}</span> },
+            { title: '地址', dataIndex: 'endpoint', render: (v: string) => <span className="muted">{v}</span> },
+            { title: '解析', key: 'parseMode', render: (_, d) => (d.parseMode ? <Tag>{d.parseMode}</Tag> : '—') },
+            { title: '状态', key: 'status', render: (_, d) => <span className={'status-dot ' + (d.status === 'connected' ? 'active' : 'disabled')}>{d.status === 'connected' ? '已连接' : '异常'}</span> },
+            {
+              title: '操作', key: 'actions', render: (_, d) => (
+                <>
+                  <Button size="small" type="link" disabled={testing === d.id} onClick={() => test(d.id)}>{testing === d.id ? '测试中' : '连通测试'}</Button>
+                  {d.kind === 'sql' && <Button size="small" type="link" onClick={() => { setSqlConsole(d); setSqlOut(null); setSqlErr('') }}>SQL 查询</Button>}
+                  <Button size="small" type="link" onClick={() => setEditing(d)}>编辑</Button>
+                  <Button size="small" type="link" danger onClick={() => remove(d.id)}>删除</Button>
+                </>
+              )
+            }
+          ]}
+        />
       )}
 
       {editing && (
@@ -149,7 +150,7 @@ export default function DataSourcePage() {
               </Select>
             </Field>
           )}
-          <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+          <div className="fp-toolbar"><Button onClick={save}>保存</Button></div>
         </Modal>
       )}
 
@@ -158,11 +159,11 @@ export default function DataSourcePage() {
           <div className="muted2" style={{ marginBottom: 8 }}>
             经数据代理（localhost:5175）执行只读查询；已安装真实驱动（mysql2/pg）时直连数据库，否则返回模拟结果并标注。
           </div>
-          <textarea className="inp area" style={{ minHeight: 90 }} value={sql} onChange={(e) => setSql(e.target.value)} />
+          <Textarea style={{ minHeight: 90 }} value={sql} onChange={(e) => setSql(e.target.value)} />
           <div className="fp-toolbar" style={{ margin: '10px 0' }}>
-            <button className="btn" disabled={sqlBusy} onClick={runSql}>{sqlBusy ? '执行中…' : '▶ 执行查询'}</button>
+            <Button loading={sqlBusy} onClick={runSql}>{sqlBusy ? '执行中…' : '▶ 执行查询'}</Button>
           </div>
-          {sqlErr && <div className="fp-error">{sqlErr}</div>}
+          {sqlErr && <Alert type="error" message={sqlErr} showIcon style={{ marginBottom: 10 }} />}
           {sqlOut && (
             <>
               <div className="muted2" style={{ marginBottom: 6 }}>
@@ -171,14 +172,13 @@ export default function DataSourcePage() {
                   : <span style={{ color: '#4ade80' }}>真实查询</span>}
                 {' '}· {sqlOut.rows.length} 行 · {sqlOut.elapsedMs}ms
               </div>
-              <table className="data-table">
-                <thead><tr>{sqlOut.columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
-                <tbody>
-                  {sqlOut.rows.map((r, i) => (
-                    <tr key={i}>{r.map((v, j) => <td key={j} className="muted">{String(v)}</td>)}</tr>
-                  ))}
-                </tbody>
-              </table>
+              <Table<unknown[]>
+                size="small"
+                rowKey={(_, i) => String(i)}
+                pagination={false}
+                columns={sqlOut.columns.map((c, j) => ({ title: c, key: c, render: (_v: unknown, row: unknown[]) => <span className="muted">{String(row[j] ?? '')}</span> }))}
+                dataSource={sqlOut.rows}
+              />
             </>
           )}
         </Modal>

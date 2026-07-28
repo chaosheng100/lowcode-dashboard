@@ -1,5 +1,5 @@
-/* ============================================================
- * 大屏管理层 —— 列表页样式（科技清新风）
+﻿/* ============================================================
+ * 大屏管理页 —— 列表页样式（科技清新风）
  * ============================================================ */
 .mg {
   display: flex; flex-direction: column; flex: 1; min-height: 0;
@@ -10,7 +10,7 @@
   overflow: hidden;
 }
 
-/* —— 工具栏 —— */
+/* 鈥斺€?宸ュ叿鏍?鈥斺€?*/
 .mg-toolbar {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 24px; border-bottom: 1px solid var(--line);
@@ -24,7 +24,7 @@
   letter-spacing: 1px;
 }
 
-/* —— 搜索框 —— */
+/* 鈥斺€?鎼滅储妗?鈥斺€?*/
 .mg-search {
   margin-left: auto; width: 240px;
   padding: 8px 12px; border-radius: var(--r-md);
@@ -49,7 +49,7 @@
 
 .mg-order { padding: 7px 12px; }
 
-/* —— 新建按钮 —— */
+/* 鈥斺€?鏂板缓鎸夐挳 鈥斺€?*/
 .mg-new {
   padding: 8px 16px;
   background: var(--accent-grad);
@@ -62,7 +62,7 @@
   box-shadow: var(--accent-glow);
 }
 
-/* —— 卡片网格 —— */
+/* 鈥斺€?鍗＄墖缃戞牸 鈥斺€?*/
 .mg-grid {
   flex: 1; overflow: auto;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -81,7 +81,7 @@
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), 0 0 20px rgba(0, 212, 255, 0.08);
 }
 
-/* —— 缩略图 —— */
+/* 鈥斺€?缂╃暐鍥?鈥斺€?*/
 .mg-thumb {
   position: relative; height: 144px;
   display: flex; align-items: flex-end; padding: 10px;
@@ -104,7 +104,7 @@
   backdrop-filter: blur(4px);
 }
 
-/* —— 卡片信息 —— */
+/* 鈥斺€?鍗＄墖淇℃伅 鈥斺€?*/
 .mg-info { padding: 12px 14px 14px; }
 .mg-name {
   font-size: 15px; font-weight: 600; color: var(--txt-bright);
@@ -112,15 +112,55 @@
   margin-bottom: 8px;
 }
 .mg-meta { font-size: 12px; color: var(--sub); line-height: 1.7; }
+.mg-link-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 9px;
+  border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: rgba(5, 10, 18, 0.32);
+}
+.mg-link-stats span { min-width: 0; padding: 7px 4px; border-right: 1px solid var(--line-soft); color: var(--sub); font-size: 9px; text-align: center; }
+.mg-link-stats span:last-child { border-right: 0; }
+.mg-link-stats strong { display: block; margin-bottom: 2px; color: var(--txt-bright); font-size: 14px; font-variant-numeric: tabular-nums; }
+.mg-open-row { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+.mg-open-row button {
+  min-height: 32px; padding: 0 7px; border: 0; border-radius: var(--r-sm);
+  background: transparent; cursor: pointer; font: inherit; font-size: 11px;
+}
 .mg-open {
-  margin-top: 10px; font-size: 12px; color: var(--accent);
-  opacity: 0; transition: opacity var(--t-fast);
+  margin: 0; color: var(--accent); opacity: 1; transition: background var(--t-fast);
 }
-.mg-card:hover .mg-open { opacity: 1; }
+.mg-open-row button:hover { background: var(--panel-hover); text-decoration: none; }
+.mg-open-row .mg-preview { color: var(--accent2); }
+.mg-open-row .mg-rename { color: var(--sub-bright); }
+.mg-open-row .mg-del { margin-left: auto; color: var(--danger); }
 
-/* —— 响应式 —— */
+/* 鈥斺€?鍝嶅簲寮?鈥斺€?*/
 @media (max-width: 560px) {
-  .mg-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; padding: 14px; }
-  .mg-search { width: 130px; }
-  .mg-title { display: none; }
+  .mg { overflow: auto; }
+  .mg-toolbar { align-items: stretch; flex-wrap: wrap; padding: 12px 14px; }
+  .mg-title { display: block; width: 100%; }
+  .mg-search { order: 1; width: 100%; min-height: 44px; margin-left: 0; font-size: 16px; }
+  .mg-sort-label { display: none; }
+  .mg-select, .mg-order, .mg-new { order: 2; min-height: 44px; }
+  .mg-select { min-width: 0; flex: 1; font-size: 16px; }
+  .mg-new { order: 3; width: 100%; }
+  .mg-grid { flex: none; grid-template-columns: 1fr; gap: 12px; padding: 14px; overflow: visible; }
+  .mg-thumb { height: 154px; }
+  .mg-open-row { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .mg-open-row button { min-height: 44px; padding: 0 4px; }
+  .mg-open-row .mg-del { margin-left: 0; }
 }
+
+/* report binding modal */
+.report-modal-mask { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(3,7,14,0.76); backdrop-filter: blur(6px); }
+.report-modal { width: min(460px, 100%); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--panel-solid); box-shadow: var(--shadow-modal); }
+.report-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.report-modal h3 { margin: 0; color: var(--txt-bright); font-size: 16px; }
+.report-modal header p { margin: 4px 0 0; color: var(--sub); font-size: 12px; }
+.report-modal header > button { width: 32px; height: 32px; flex: none; padding: 0; border: 0; background: transparent; color: var(--sub); cursor: pointer; font-size: 22px; }
+.report-modal-body { display: grid; gap: 14px; padding: 18px; }
+.report-modal-body label { display: grid; gap: 7px; color: var(--sub-bright); font-size: 12px; }
+.report-modal-body select { width: 100%; min-height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--txt); outline: none; }
+.report-modal-body select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,212,255,0.12); }
+.report-modal-body > p { margin: 0; color: var(--sub); font-size: 11px; line-height: 1.6; }
+.report-modal > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.report-dashboard-link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+.report-dashboard-link:hover { color: var(--accent2); }

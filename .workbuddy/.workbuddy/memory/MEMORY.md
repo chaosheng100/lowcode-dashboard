@@ -1,5 +1,10 @@
 # lowcode-dashboard 项目长期记忆
 
+## UI 体系（2026-07-28 迁移完成）
+- 全站 UI 已迁移至 antd 6.5.2（ConfigProvider darkAlgorithm，主色 #00d4ff 青色科技风，zhCN locale）。
+- `src/features/common.tsx` 是 antd 兼容封装层（Section/Field/Tag/Stat/Modal/Input/Select/Textarea），旧调用点零改动；新代码直接用 antd。
+- 刻意不用 antd 的层：designer/widgets/*（画布渲染组件）、ComponentPanel（拖拽面板）、纯布局壳（ProjectView/Designer/Editor）。
+
 ## 项目定位
 React 18 + Vite + TS + Zustand 的低代码大屏设计器，**以 Avue Data（Vue3 开源数据大屏，gitee smallweigit/avue-data）为蓝本**做 React 版复刻。功能模块清单与 Avue Data 完整产品一比一对应。
 

@@ -1,79 +1,214 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Button, Select, Tabs } from 'antd'
 import { api } from '../mock'
+import type { TwinSceneDTO } from '../mock/types'
+import { useDesignerStore } from '../data/store/useDesignerStore'
+import {
+  deployStandardAsset,
+  standardComponentAssets,
+  type ComponentAssetDefinition
+} from '../data/registry/componentAssetRegistry'
+import { widgetRegistry } from '../data/registry/widgetRegistry'
+import type { ComponentInstance } from '../data/types'
+import WidgetRenderer from '../designer/widgets/WidgetRenderer'
+import { openEditorWindow, openPreviewWindow } from '../designer/window'
 import { useApi } from './useApi'
-import EChartBox from './EChartBox'
-import { Tag } from './common'
+import {
+  createTwinComponent,
+  syncTwinWidgetsToDashboard,
+  twinComponentAssets,
+  unlinkTwinFromDashboard,
+  type TwinWidgetKind
+} from './twinWidgetCatalog'
+import { Field, Modal, Tag } from './common'
 
-type PreviewKind = 'echart' | 'html' | 'vue' | 'three' | 'basic'
-interface CatalogItem {
-  key: string
-  name: string
-  category: string
-  preview: PreviewKind
-  desc: string
-  option?: Record<string, unknown>
+type LibraryAsset = ComponentAssetDefinition & { kind?: TwinWidgetKind }
+
+const PREVIEW_SCENE: TwinSceneDTO = {
+  id: 'preview',
+  name: '智慧园区',
+  status: 'online',
+  lighting: 'day',
+  fog: false,
+  models: [
+    { id: 'a', modelId: 'a', name: '设备 A', geoType: 'box', color: '#22d3ee', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 },
+    { id: 'b', modelId: 'b', name: '设备 B', geoType: 'cylinder', color: '#4f8cff', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 },
+    { id: 'c', modelId: 'c', name: '设备 C', geoType: 'box', color: '#4ade80', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 }
+  ],
+  updatedAt: ''
 }
 
-// 海量内置组件（节选代表性样例，可继续扩展）
-const CATALOG: CatalogItem[] = [
-  { key: 'line', name: '折线图', category: 'EChart', preview: 'echart', desc: '时序趋势', option: { xAxis: { type: 'category', data: ['周一', '周二', '周三', '周四', '周五'], axisLine: { lineStyle: { color: '#5b6b82' } }, axisLabel: { color: '#9fb0c3' } }, yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1b2636' } } }, series: [{ type: 'line', smooth: true, data: [120, 200, 150, 80, 170], areaStyle: { color: 'rgba(79,140,255,.25)' }, itemStyle: { color: '#4f8cff' } }] } },
-  { key: 'bar', name: '柱状图', category: 'EChart', preview: 'echart', desc: '分类对比', option: { xAxis: { type: 'category', data: ['华东', '华北', '华南', '西部'], axisLabel: { color: '#9fb0c3' } }, yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1b2636' } } }, series: [{ type: 'bar', data: [320, 210, 260, 150], itemStyle: { color: '#22d3ee', borderRadius: [4, 4, 0, 0] } }] } },
-  { key: 'pie', name: '饼图', category: 'EChart', preview: 'echart', desc: '占比构成', option: { series: [{ type: 'pie', radius: ['40%', '70%'], data: [{ value: 40, name: 'A' }, { value: 30, name: 'B' }, { value: 30, name: 'C' }], label: { color: '#cfd9e6' }, color: ['#4f8cff', '#22d3ee', '#a855f7'] }] } },
-  { key: 'gauge', name: '仪表盘', category: 'EChart', preview: 'echart', desc: '关键指标', option: { series: [{ type: 'gauge', progress: { show: true }, detail: { color: '#e6edf3' }, data: [{ value: 72, name: '完成率' }], axisLine: { lineStyle: { color: [[1, '#1b2636']] } } }] } },
-  { key: 'radar', name: '雷达图', category: 'EChart', preview: 'echart', desc: '多维评估', option: { radar: { indicator: [{ name: '性能' }, { name: '稳定' }, { name: '安全' }, { name: '体验' }], axisName: { color: '#9fb0c3' } }, series: [{ type: 'radar', data: [{ value: [80, 90, 70, 85], areaStyle: { color: 'rgba(168,85,247,.3)' } }] }] } },
-  { key: 'scatter', name: '散点图', category: 'EChart', preview: 'echart', desc: '分布关系', option: { xAxis: { type: 'value', splitLine: { lineStyle: { color: '#1b2636' } } }, yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1b2636' } } }, series: [{ type: 'scatter', data: [[10, 20], [30, 50], [50, 30], [70, 80], [90, 40]], itemStyle: { color: '#4ade80' } }] } },
-  { key: 'html', name: 'HTML 组件', category: '自定义', preview: 'html', desc: '任意 HTML/CSS/JS 片段' },
-  { key: 'vue', name: 'Vue 组件', category: '自定义', preview: 'vue', desc: '导入 .vue 单文件组件' },
-  { key: 'src', name: '源码组件', category: '自定义', preview: 'three', desc: 'React/Vue 源码二次开发' },
-  { key: 'three', name: '3D 模型', category: '3D', preview: 'three', desc: 'Three.js 在线预览' },
-  { key: 'text', name: '文本', category: '基础', preview: 'basic', desc: '标题 / 说明' },
-  { key: 'image', name: '图片', category: '基础', preview: 'basic', desc: '封面 / 背景' },
-  { key: 'metric', name: '指标卡', category: '基础', preview: 'basic', desc: '关键 KPI' },
-  { key: 'table', name: '表格', category: '基础', preview: 'basic', desc: '明细列表' },
-  { key: 'container', name: '容器', category: '基础', preview: 'basic', desc: '分组布局' },
-  { key: 'marquee', name: '滚动播报', category: '动效', preview: 'basic', desc: '跑马灯 / 轮播' }
-]
-
-function Preview({ item }: { item: CatalogItem }) {
-  if (item.preview === 'echart' && item.option) return <EChartBox option={item.option} height={150} />
-  if (item.preview === 'html') return <div style={{ padding: 14, fontSize: 12, color: '#9fb0c3' }}>&lt;div class="marquee"&gt;实时滚动播报&lt;/div&gt;</div>
-  if (item.preview === 'vue') return <div style={{ padding: 14, fontSize: 12, color: '#9fb0c3' }}>&lt;template&gt; &lt;div&gt;&#123;&#123; msg &#125;&#125;&lt;/div&gt; &lt;/template&gt;</div>
-  if (item.preview === 'three') return <div style={{ padding: 14, fontSize: 12, color: '#9fb0c3' }}>Three.js 场景 / GLTF 模型预览</div>
-  return <div style={{ padding: 14, fontSize: 12, color: '#9fb0c3' }}>{item.desc}</div>
+function previewComponent(asset: LibraryAsset): ComponentInstance {
+  if (asset.businessType === 'twin' && asset.kind) return createTwinComponent(PREVIEW_SCENE, asset.kind)
+  const definition = widgetRegistry[asset.type]
+  return {
+    id: `preview_${asset.type}`,
+    type: asset.type,
+    style: definition.defaultStyle,
+    props: definition.defaultProps
+  }
 }
 
-/** 组件库：海量内置组件（EChart / HTML / Vue / 源码 / 3D / 基础），画布组件面板的数据来源 */
+function AssetPreview({ asset }: { asset: LibraryAsset }) {
+  const component = useMemo(() => previewComponent(asset), [asset])
+  return (
+    <div className="component-preview" aria-hidden="true">
+      <WidgetRenderer component={component} />
+    </div>
+  )
+}
+
 export default function ComponentLibrary() {
   const { data } = useApi(() => api.listWidgets({ pageSize: 50 }), [])
-  const [cat, setCat] = useState<string>('全部')
-  const cats = ['全部', ...Array.from(new Set(CATALOG.map((c) => c.category)))]
-  const items = CATALOG.filter((c) => cat === '全部' || c.category === cat)
+  const { data: twinData, reload: reloadTwins } = useApi(() => api.listTwinScenes({ pageSize: 100 }), [])
+  const routes = useDesignerStore((state) => state.routes)
+  const updateRoute = useDesignerStore((state) => state.updateRoute)
+  const dashboards = useMemo(() => routes.filter((route) => route.kind === 'dashboard'), [routes])
+  const assets = useMemo<LibraryAsset[]>(() => [...standardComponentAssets, ...twinComponentAssets], [])
+  const categories = useMemo(() => ['全部', ...Array.from(new Set(assets.map((asset) => asset.category)))], [assets])
+  const [category, setCategory] = useState('全部')
+  const [deploying, setDeploying] = useState<LibraryAsset | null>(null)
+  const [dashboardId, setDashboardId] = useState('')
+  const [sceneId, setSceneId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<{ message: string; routeId?: string } | null>(null)
+  const items = assets.filter((asset) => category === '全部' || asset.category === category)
+  const scenes = twinData?.list ?? []
+
+  useEffect(() => {
+    if (!deploying) return
+    setDashboardId((current) => dashboards.some((route) => route.id === current) ? current : dashboards[0]?.id ?? '')
+    setSceneId((current) => scenes.some((scene) => scene.id === current) ? current : scenes[0]?.id ?? '')
+  }, [dashboards, deploying, scenes])
+
+  const deploy = async () => {
+    if (!deploying || !dashboardId) return
+    const route = routes.find((item) => item.id === dashboardId && item.kind === 'dashboard')
+    if (!route) return setNotice({ message: '目标大屏不存在，请重新选择' })
+    setBusy(true)
+    if (deploying.businessType === 'twin' && deploying.kind) {
+      const scene = scenes.find((item) => item.id === sceneId)
+      if (!scene) {
+        setBusy(false)
+        return setNotice({ message: '请选择可用的数字孪生场景' })
+      }
+      const syncedAt = new Date().toISOString()
+      const response = await api.saveTwinScene({ id: scene.id, dashboardId, lastSyncAt: syncedAt })
+      if (response.code !== 0) {
+        setBusy(false)
+        return setNotice({ message: response.message })
+      }
+      if (scene.dashboardId && scene.dashboardId !== dashboardId) {
+        const previousRoute = routes.find((item) => item.id === scene.dashboardId)
+        if (previousRoute) updateRoute(previousRoute.id, unlinkTwinFromDashboard(previousRoute, scene.id))
+      }
+      updateRoute(route.id, syncTwinWidgetsToDashboard(route, response.data, syncedAt, [deploying.kind]))
+      reloadTwins()
+    } else {
+      updateRoute(route.id, deployStandardAsset(route, deploying))
+    }
+    setBusy(false)
+    setDeploying(null)
+    setNotice({ message: `「${deploying.name}」已投放到「${route.name}」`, routeId: route.id })
+  }
 
   return (
-    <div className="feature-page">
-      <div className="fp-head">
+    <div className="feature-page component-library-page">
+      <div className="fp-head component-library-head">
         <div>
           <h2 className="fp-title">组件库</h2>
-          <p className="fp-sub">画布组件面板来源 · 已注册 {data?.list.length ?? 0} 个标准组件 + {CATALOG.length} 个内置样例</p>
+          <p className="fp-sub">统一管理标准组件与数字孪生业务组件，按资产键幂等投放到大屏</p>
+        </div>
+        <div className="component-library-summary" aria-label="组件资产统计">
+          <span>标准组件 <strong>{standardComponentAssets.length}</strong></span>
+          <span>孪生组件 <strong>{twinComponentAssets.length}</strong></span>
+          <span>服务已注册 <strong>{data?.list.length ?? 0}</strong></span>
         </div>
       </div>
-      <div className="tabs">
-        {cats.map((c) => <span key={c} className={'tab' + (cat === c ? ' active' : '')} onClick={() => setCat(c)}>{c}</span>)}
-      </div>
-      <div className="grid3">
-        {items.map((it) => (
-          <div key={it.key} className="card">
-            <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <b style={{ color: '#e6edf3' }}>{it.name}</b>
-              <Tag>{it.category}</Tag>
-            </div>
-            <div style={{ background: '#0b111b', borderRadius: 8, margin: '10px 0', border: '1px solid #1a2433' }}>
-              <Preview item={it} />
-            </div>
-            <div className="muted2">{it.desc}</div>
-          </div>
+
+      {/* 投放结果提示：带快捷操作（打开编辑器 / 预览大屏） */}
+      {notice && (
+        <Alert
+          showIcon
+          closable
+          style={{ marginBottom: 12 }}
+          message={notice.message}
+          onClose={() => setNotice(null)}
+          action={
+            notice.routeId && (
+              <>
+                <Button size="small" onClick={() => openEditorWindow(notice.routeId!)}>打开编辑器</Button>
+                <Button size="small" onClick={() => openPreviewWindow(notice.routeId!)}>预览大屏</Button>
+              </>
+            )
+          }
+        />
+      )}
+
+      <Tabs
+        className="component-library-tabs"
+        activeKey={category}
+        onChange={setCategory}
+        items={categories.map((item) => ({ key: item, label: item }))}
+      />
+
+      <div className="component-library-grid">
+        {items.map((asset) => (
+          <article key={asset.key} className="card component-asset-card">
+            <header>
+              <div><b>{asset.name}</b><span>{asset.type}</span></div>
+              <Tag>{asset.category}</Tag>
+            </header>
+            <AssetPreview asset={asset} />
+            <p>{asset.description}</p>
+            <footer>
+              <span>{asset.businessType === 'twin' ? '场景数据驱动' : '设计器原生组件'}</span>
+              <Button type="primary" size="small" onClick={() => setDeploying(asset)}>投放到大屏</Button>
+            </footer>
+          </article>
         ))}
       </div>
+
+      {/* 投放弹窗：Esc/遮罩关闭由 antd Modal 托管（busy 时禁止关闭） */}
+      {deploying && (
+        <Modal title="投放组件到大屏" onClose={() => { if (!busy) setDeploying(null) }}>
+          <p style={{ marginTop: 0, color: 'var(--sub)' }}>{deploying.name} · {deploying.description}</p>
+          {deploying.businessType === 'twin' && (
+            <Field label="数字孪生场景">
+              <Select
+                style={{ width: '100%' }}
+                value={sceneId || undefined}
+                placeholder={scenes.length ? '请选择场景' : '暂无可用场景'}
+                onChange={setSceneId}
+                options={scenes.map((scene) => ({ value: scene.id, label: `${scene.name} · ${scene.models.length} 个模型` }))}
+              />
+            </Field>
+          )}
+          <Field label="目标大屏">
+            <Select
+              style={{ width: '100%' }}
+              value={dashboardId || undefined}
+              placeholder={dashboards.length ? '请选择大屏' : '暂无可用大屏'}
+              onChange={setDashboardId}
+              options={dashboards.map((dashboard) => ({ value: dashboard.id, label: `${dashboard.name} · ${dashboard.components.length} 个组件` }))}
+            />
+          </Field>
+          <p style={{ color: 'var(--sub)', fontSize: 12, lineHeight: 1.6 }}>
+            {deploying.businessType === 'twin' ? '投放时将建立场景与大屏绑定；同一场景业务组件会原位更新。' : '同一组件资产重复投放会更新已有实例，并保留已调整的布局。'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button disabled={busy} onClick={() => setDeploying(null)}>取消</Button>
+            <Button
+              type="primary"
+              loading={busy}
+              disabled={!dashboardId || (deploying.businessType === 'twin' && !sceneId)}
+              onClick={deploy}
+            >
+              {busy ? '投放中...' : '确认投放'}
+            </Button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

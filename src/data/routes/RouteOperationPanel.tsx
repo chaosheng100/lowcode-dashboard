@@ -1,3 +1,5 @@
+import { Button } from 'antd'
+import { MenuOutlined } from '@ant-design/icons'
 import { useDesignerStore } from '../store/useDesignerStore'
 import RouteConfigPanel from './RouteConfigPanel'
 import type { RouteConfig } from '../types'
@@ -27,9 +29,8 @@ export default function RouteOperationPanel({ onToggle }: RouteOperationPanelPro
   return (
     <main className="operation-area">
       <div className="oa-head">
-        <button className="btn icon-btn oa-menu" title="展开路由区" onClick={onToggle}>
-          ☰
-        </button>
+        {/* oa-menu 类保留：桌面端隐藏、移动端显示的响应式开关 */}
+        <Button type="text" className="oa-menu" title="展开路由区" icon={<MenuOutlined />} onClick={onToggle} />
         <div className="oa-crumb">
           <span className="oa-name">{route.name}</span>
           <span className="oa-path">{route.path}</span>

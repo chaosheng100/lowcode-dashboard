@@ -3,7 +3,7 @@ import { useDesignerStore } from '../../data/store/useDesignerStore'
 import WidgetRenderer from '../widgets/WidgetRenderer'
 import { useFitScale } from '../editor/useFitScale'
 import { bgImageStyle } from '../editor/background'
-import type { ComponentInstance, Filter } from '../../data/types'
+import type { ComponentInstance, Filter, RouteConfig } from '../../data/types'
 
 /**
  * 联动引擎（简化声明式）：
@@ -29,21 +29,15 @@ function LinkageFrame({ component, filter, onPick }: { component: ComponentInsta
   )
 }
 
-export default function Renderer() {
-  const route = useDesignerStore(
-    (s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0]
-  )!
-  const components = route.components
-  const page = route.page
-  const filter = useDesignerStore((s) => s.filter)
-  const setFilter = useDesignerStore((s) => s.setFilter)
-  const clearFilter = useDesignerStore((s) => s.clearFilter)
+/** 按指定路由渲染完整大屏，供独立预览与轮播播放器复用。 */
+export function RouteRenderer({ route }: { route: RouteConfig }) {
+  const filter = useDesignerStore((state) => state.filter)
+  const setFilter = useDesignerStore((state) => state.setFilter)
+  const clearFilter = useDesignerStore((state) => state.clearFilter)
   const areaRef = useRef<HTMLDivElement>(null)
+  const { page, components } = route
 
-  // 自适应：fit=true 时按容器尺寸自动缩放；否则使用手动 scale
-  const fitScale = useFitScale(areaRef, page)
-  const scale = page.fit ? fitScale : page.scale
-
+  const scale = useFitScale(areaRef, page)
   const onPick = ({ field, value }: Filter) => {
     if (filter && filter.field === field && filter.value === value) clearFilter()
     else setFilter({ field, value })
@@ -69,22 +63,26 @@ export default function Renderer() {
             }}
           >
             {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
-            {components.map((c) => (
-              <LinkageFrame key={c.id} component={c} filter={filter} onPick={onPick} />
+            {components.map((component) => (
+              <LinkageFrame key={component.id} component={component} filter={filter} onPick={onPick} />
             ))}
           </div>
         </div>
       </div>
       {filter && (
         <div className="filter-banner">
-          <span>
-            联动筛选：{filter.field} = {filter.value}
-          </span>
-          <span className="clear" onClick={clearFilter}>
-            清除
-          </span>
+          <span>联动筛选：{filter.field} = {filter.value}</span>
+          <button className="clear" onClick={clearFilter}>清除</button>
         </div>
       )}
     </div>
   )
+}
+
+export default function Renderer() {
+  const route = useDesignerStore(
+    (state) => state.routes.find((item) => item.id === state.selectedRouteId) || state.routes[0]
+  )!
+
+  return <RouteRenderer route={route} />
 }

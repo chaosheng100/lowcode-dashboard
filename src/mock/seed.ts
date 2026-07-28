@@ -194,12 +194,25 @@ export const widgets: WidgetDefDTO[] = [
 const REPORT_NAMES = ['周销售简报', '月度经营分析', '设备健康月报', '能耗季度报告', '客流周报', '财务风控日报']
 export const reports: ReportDTO[] = REPORT_NAMES.map((name, i) => {
   const r = rng(i + 300)
+  const dataset = datasets[i % datasets.length]
+  const values = [320, 210, 260, 150, 180, 95]
   return {
     id: `rpt_${4000 + i}`,
     name,
-    sourceName: datasets[i % datasets.length].name,
-    format: i % 2 === 0 ? ['pdf', 'excel'] : ['excel'],
+    sourceId: dataset.id,
+    sourceName: dataset.name,
+    format: i % 2 === 0 ? ['pdf', 'xlsx'] : ['xlsx'],
     schedule: ['每日 08:00', '每周一 09:00', '每月 1 日', '每季度首月 1 日'][i % 4],
+    status: i === 4 ? 'paused' : 'enabled',
+    delivery: i % 2 === 0 ? ['邮件'] : ['企业微信'],
+    lastRunAt: new Date(Date.now() - Math.floor(r() * 3) * 86400000).toISOString(),
+    lastRunStatus: i === 3 ? 'failed' : 'success',
+    design: {
+      title: name,
+      subtitle: '经营数据概览',
+      columns: ['区域', '指标', '数值'],
+      rows: ['华东', '华北', '华南', '西部', '华中', '东北'].map((region, index) => [region, dataset.name, String(values[index])])
+    },
     updatedAt: new Date(Date.now() - Math.floor(r() * 7) * 86400000).toISOString().slice(0, 10)
   }
 })
@@ -330,8 +343,14 @@ export const twinModels: TwinModelDTO[] = Array.from({ length: 91 }).map((_, i) 
   }
 })
 export const twinScenes: TwinSceneDTO[] = [
-  { id: 'tsc_1', name: '智慧园区孪生', models: [{ modelId: 'tm_0', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 }], lighting: 'day', fog: false, updatedAt: '2026-07-16' },
-  { id: 'tsc_2', name: '工厂产线孪生', models: [{ modelId: 'tm_6', x: 2, y: 0, z: -1, rx: 0, ry: 0.5, rz: 0 }], lighting: 'night', fog: true, updatedAt: '2026-07-17' }
+  {
+    id: 'tsc_1', name: '智慧园区孪生', lighting: 'day', fog: false, status: 'online', duration: 10, updatedAt: '2026-07-16',
+    models: [{ id: 'obj_seed_1', modelId: 'tm_0', name: '园区主楼', geoType: 'box', color: '#4f8cff', x: 0, y: 0.6, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 }]
+  },
+  {
+    id: 'tsc_2', name: '工厂产线孪生', lighting: 'night', fog: true, status: 'maintenance', duration: 10, updatedAt: '2026-07-17',
+    models: [{ id: 'obj_seed_2', modelId: 'tm_6', name: '一号厂房', geoType: 'box', color: '#64748b', x: 2, y: 0.6, z: -1, rx: 0, ry: 0.5, rz: 0, scale: 1 }]
+  }
 ]
 
 // ====================== 扩展域：物联组态 ======================
@@ -363,8 +382,8 @@ export const workflows: WorkflowDTO[] = [
   { id: 'wf_2', name: '日报生成流', trigger: 'Cron:0 8 * * *', nodes: ['抽取', '聚合', '导出'], status: 'draft' }
 ]
 export const carousels: CarouselDTO[] = [
-  { id: 'cl_1', name: '首页轮播方案', slides: ['经营总览', '区域销售', '实时订单'], intervalSec: 8 },
-  { id: 'cl_2', name: '大屏巡播', slides: ['安全态势', '能耗监测', '物流调度'], intervalSec: 12 }
+  { id: 'cl_1', name: '首页轮播方案', slides: ['/screen/overview', '/screen/sales', '/screen/finance'], intervalSec: 8, enabled: true, updatedAt: '2026-07-25' },
+  { id: 'cl_2', name: '大屏巡播', slides: ['/screen/safety', '/screen/energy', '/screen/logistics'], intervalSec: 12, enabled: false, updatedAt: '2026-07-21' }
 ]
 export const plugins: PluginDTO[] = [
   { id: 'pl_1', name: '3D 地球', author: '官方', version: '1.4.0', installed: true, desc: '自带纹理的三维地球组件', rating: 4.8 },
