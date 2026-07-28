@@ -4,8 +4,10 @@ import type { RouteConfig } from '../data/types'
 import './DashboardManagement.css'
 
 interface Props {
-  /** 点击列表项进入对应大屏编辑器 */
+  /** 点击列表项在新窗口打开对应大屏编辑器 */
   onOpen: (routeId: string) => void
+  /** 在新窗口打开对应大屏预览 */
+  onOpenPreview?: (routeId: string) => void
 }
 
 type SortKey = 'createdAt' | 'updatedAt'
@@ -40,7 +42,7 @@ function MiniChart({ seed }: { seed: string }) {
   )
 }
 
-export default function DashboardManagement({ onOpen }: Props) {
+export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
   const routes = useDesignerStore((s) => s.routes)
   const createDashboard = useDesignerStore((s) => s.createDashboard)
 
@@ -105,7 +107,19 @@ export default function DashboardManagement({ onOpen }: Props) {
               </div>
               <div className="mg-meta">创建：{fmt(d.createdAt)}</div>
               <div className="mg-meta">更新：{fmt(d.updatedAt)}</div>
-              <div className="mg-open">进入编辑器 →</div>
+              <div className="mg-open-row">
+                <span className="mg-open" onClick={(e) => { e.stopPropagation(); onOpen(d.id) }}>
+                  进入编辑器 →
+                </span>
+                {onOpenPreview && (
+                  <span
+                    className="mg-preview"
+                    onClick={(e) => { e.stopPropagation(); onOpenPreview(d.id) }}
+                  >
+                    在新窗口预览
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ))}

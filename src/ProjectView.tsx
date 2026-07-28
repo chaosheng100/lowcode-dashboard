@@ -6,14 +6,16 @@ import { featurePages } from './features/registry'
 import { useDesignerStore } from './data/store/useDesignerStore'
 
 interface Props {
-  /** 点击大屏卡片进入对应大屏编辑器 */
+  /** 点击大屏卡片在新窗口打开对应大屏编辑器 */
   onOpenDesigner: (routeId: string) => void
+  /** 在新窗口打开对应大屏预览 */
+  onOpenPreview?: (routeId: string) => void
 }
 
 // /dashboard 路由即大屏管理列表页
 const DASHBOARD_LIST_ROUTE = '/dashboard'
 
-export default function ProjectView({ onOpenDesigner }: Props) {
+export default function ProjectView({ onOpenDesigner, onOpenPreview }: Props) {
   const [showRoutes, setShowRoutes] = useState(true) // 移动端抽屉开关
   const [collapsed, setCollapsed] = useState(false) // 折叠为仅图标
   const selectedRouteId = useDesignerStore((s) => s.selectedRouteId)
@@ -32,7 +34,10 @@ export default function ProjectView({ onOpenDesigner }: Props) {
       <div className={'project-view' + (showRoutes ? ' show-routes' : '')}>
         {renderPanel}
         <main className="operation-area">
-          <DashboardManagement onOpen={(id) => onOpenDesigner(id)} />
+          <DashboardManagement
+            onOpen={(id) => onOpenDesigner(id)}
+            onOpenPreview={onOpenPreview ? (id) => onOpenPreview(id) : undefined}
+          />
         </main>
       </div>
     )

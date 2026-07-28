@@ -7,6 +7,7 @@ import PieChart from './PieChart'
 import MetricWidget from './MetricWidget'
 import TableWidget from './TableWidget'
 import ContainerWidget from './ContainerWidget'
+import EChartWidget from './EChartWidget'
 import type { WidgetType, WidgetViewProps } from '../../data/types'
 
 const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
@@ -17,7 +18,13 @@ const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
   pieChart: PieChart,
   metric: MetricWidget,
   table: TableWidget,
-  container: ContainerWidget
+  container: ContainerWidget,
+  echartLine: EChartWidget,
+  echartBar: EChartWidget,
+  echartPie: EChartWidget,
+  echartGauge: EChartWidget,
+  echartRadar: EChartWidget,
+  echartCustom: EChartWidget
 }
 
 export default function WidgetRenderer({ component, filter, onPick }: WidgetViewProps) {

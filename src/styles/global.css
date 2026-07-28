@@ -125,6 +125,11 @@ body {
   background: var(--accent); border-radius: 3px; cursor: nwse-resize; z-index: 10;
 }
 
+/* 预览态画布布局：在滚动容器内居中（margin:auto 在溢出时回退为 0，
+   保证超大盘可正常滚动、不会被裁掉）；padding 由 useFitScale 扣除，留出呼吸边距 */
+.preview-scroll { display: flex; padding: 24px; }
+.preview-viewport { margin: auto; }
+
 /* Property panel */
 .pp-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
 .pp-tabs .tab { flex: 1; text-align: center; padding: 7px; background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; cursor: pointer; font-size: 12.5px; }
@@ -165,6 +170,25 @@ body {
   font-size: 13px; z-index: 100; display: flex; align-items: center; gap: 10px;
 }
 .filter-banner .clear { cursor: pointer; text-decoration: underline; }
+
+/* ============ 独立窗口（编辑 / 预览）外壳 ============ */
+.win-app { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.win-body { flex: 1; min-height: 0; display: flex; }
+.win-bar {
+  display: flex; align-items: center; gap: 10px;
+  height: 48px; padding: 0 14px; flex: none;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.win-title { font-weight: 700; color: var(--accent2); letter-spacing: 0.5px; }
+.win-sep { width: 1px; height: 20px; background: var(--line); }
+.win-spacer { margin-left: auto; }
+.win-saved { font-size: 12px; color: #6fcf97; }
+/* 大屏管理卡片上的「在新窗口预览」链接 */
+.mg-open-row { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
+.mg-open { color: var(--accent); cursor: pointer; font-size: 13px; }
+.mg-open:hover { text-decoration: underline; }
+.mg-preview { color: var(--accent2); cursor: pointer; font-size: 13px; }
+.mg-preview:hover { text-decoration: underline; }
 
 /* ============ 项目视图：左路由区 + 右操作区 ============ */
 .project-view { display: flex; flex: 1; min-height: 0; position: relative; }

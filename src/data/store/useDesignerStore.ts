@@ -95,6 +95,10 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   updateRoute: (id, patch) =>
     set((s) => ({ routes: s.routes.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
 
+  // —— 跨窗口同步：用整条远端路由替换（预览端应用，不触发广播）——
+  upsertRoute: (route) =>
+    set((s) => ({ routes: s.routes.map((r) => (r.id === route.id ? route : r)) })),
+
   // —— 新建大屏（dashboard 类型），独立进入大屏编辑器 —— 
   createDashboard: (name) => {
     const count = get().routes.filter((r) => r.kind === 'dashboard').length

@@ -60,3 +60,42 @@
 .ds-list { flex: 1.1; min-width: 0; display: flex; flex-direction: column; }
 .ds-detail { flex: 1.3; min-width: 0; background: #0b111b; border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; }
 .ds-detail-title { margin: 0 0 12px; font-size: 14px; color: #e6edf3; }
+/* ============ 通用组件（Section/Field/Tag/Stat/Modal/Input） ============ */
+.sec { background: #0b111b; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.sec-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+.sec-title { font-size: 14.5px; color: #e6edf3; font-weight: 600; }
+.sec-desc { font-size: 12px; color: var(--sub); margin-top: 3px; }
+.sec-body { font-size: 13px; color: #cfd9e6; }
+.field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.field-label { width: 110px; flex: none; color: var(--sub); font-size: 13px; }
+.field-ctrl { flex: 1; min-width: 0; }
+.tag { display: inline-flex; align-items: center; padding: 1px 9px; border: 1px solid #2f4a73; border-radius: 12px; font-size: 11.5px; }
+.stat { flex: 1; min-width: 120px; background: #111a27; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stat-value { font-size: 22px; font-weight: 700; color: #e6edf3; }
+.stat-label { font-size: 12px; color: var(--sub); margin-top: 4px; }
+.inp { width: 100%; background: #0b111b; border: 1px solid var(--line); color: #d7e2ee; padding: 8px 10px; border-radius: 8px; font-size: 13px; outline: none; box-sizing: border-box; }
+.inp:focus { border-color: var(--accent); }
+.inp.area { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.5; }
+.icon-btn { background: transparent; border: none; color: var(--sub); font-size: 20px; cursor: pointer; line-height: 1; }
+.icon-btn:hover { color: #fff; }
+.modal-mask { position: fixed; inset: 0; background: rgba(3,7,14,.6); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal { background: #0d1420; border: 1px solid var(--line); border-radius: 12px; max-width: 92vw; max-height: 86vh; overflow: auto; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14.5px; color: #e6edf3; font-weight: 600; }
+.modal-body { padding: 16px; }
+.flex { display: flex; gap: 12px; flex-wrap: wrap; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.muted2 { color: var(--sub); font-size: 12px; }
+.card { background: #0b111b; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* 三级标签页（功能页内） */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tab { padding: 6px 14px; border-radius: 8px; font-size: 13px; color: var(--sub); background: #0b111b; border: 1px solid var(--line); cursor: pointer; }
+.tab.active { color: #fff; background: #16243a; border-color: var(--accent); }
+
+/* 选中态按钮 / 危险按钮 */
+.sel-btn { background: #1c3a6e !important; border-color: var(--accent) !important; color: #fff !important; }
+.btn.danger { color: #ff9a9a; border-color: #5b2330; background: #2a1318; }
+.btn.danger:hover { background: #3a1820; }

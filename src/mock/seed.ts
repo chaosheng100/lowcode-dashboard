@@ -13,7 +13,27 @@ import type {
   ReportDTO,
   AnalyticsDTO,
   AssetDTO,
-  ThemeDTO
+  ThemeDTO,
+  MessageChannelDTO,
+  MapResourceDTO,
+  GlobalVarDTO,
+  CodeSnippetDTO,
+  CategoryDTO,
+  AIModelDTO,
+  AIBotDTO,
+  TwinModelDTO,
+  TwinSceneDTO,
+  IoTDeviceDTO,
+  IoTAlarmRuleDTO,
+  DataEntryDTO,
+  WorkflowDTO,
+  CarouselDTO,
+  PluginDTO,
+  DsKind,
+  SqlVendor,
+  ChannelKind,
+  MapProvider,
+  TwinCategory
 } from './types'
 
 // 简易确定性伪随机（保证多次刷新数据一致，便于演示/调试）
@@ -54,25 +74,31 @@ export const dashboards: DashboardDTO[] = DASHBOARD_NAMES.map((name, i) => {
   }
 })
 
-const DS_TYPES = ['mysql', 'postgres', 'api', 'kafka', 'file'] as const
-const DS_NAMES = [
-  '生产业务库',
-  '数仓ODS',
-  '用户中心API',
-  'IoT消息总线',
-  '日志文件源',
-  '财务系统库',
-  '气象数据API',
-  '订单交易库'
+// 数据源：覆盖规范全部来源（静态/API/SQL[多库]/WebSocket/MQTT/Flow/爬虫解析）
+const DS_DEFS: Array<{ name: string; kind: DsKind; vendor?: SqlVendor; scope: 'public' | 'private'; endpoint: string; parseMode?: 'json' | 'xml' | 'html' | 'script' }> = [
+  { name: '静态示例数据', kind: 'static', scope: 'public', endpoint: '内置数据集' },
+  { name: '用户中心 API', kind: 'api', scope: 'public', endpoint: 'https://api.example.com/v1', parseMode: 'json' },
+  { name: '生产业务库 MySQL', kind: 'sql', vendor: 'mysql', scope: 'public', endpoint: '10.20.1.10:3306' },
+  { name: '数仓 ODS PostgreSQL', kind: 'sql', vendor: 'postgres', scope: 'public', endpoint: '10.20.1.11:5432' },
+  { name: '报表库 SQLServer', kind: 'sql', vendor: 'sqlserver', scope: 'private', endpoint: '10.20.2.20:1433' },
+  { name: '实时分析 StarRocks', kind: 'sql', vendor: 'starrocks', scope: 'public', endpoint: '10.20.2.21:9030' },
+  { name: '财务库 Oracle', kind: 'sql', vendor: 'oracle', scope: 'private', endpoint: '10.20.3.30:1521' },
+  { name: 'IoT 实时流 WebSocket', kind: 'websocket', scope: 'public', endpoint: 'wss://stream.example.com/device' },
+  { name: '设备消息 MQTT', kind: 'mqtt', scope: 'public', endpoint: 'mqtt://broker.example.com:1883' },
+  { name: '订单 Flow 流程', kind: 'flow', scope: 'public', endpoint: 'flow://engine/order' },
+  { name: '舆情爬虫源', kind: 'crawler', scope: 'private', endpoint: 'https://news.example.com', parseMode: 'html' }
 ]
-export const dataSources: DataSourceDTO[] = DS_NAMES.map((name, i) => {
+export const dataSources: DataSourceDTO[] = DS_DEFS.map((d, i) => {
   const r = rng(i + 50)
   const status = r() > 0.2 ? 'connected' : 'error'
   return {
     id: `ds_${2000 + i}`,
-    name,
-    type: DS_TYPES[i % DS_TYPES.length],
-    endpoint: `10.20.${i}.${10 + i}:${[3306, 5432, 8080, 9092, 21][i % 5]}`,
+    name: d.name,
+    kind: d.kind,
+    vendor: d.vendor,
+    scope: d.scope,
+    endpoint: d.endpoint,
+    parseMode: d.parseMode,
     status,
     updatedAt: new Date(Date.now() - Math.floor(r() * 10) * 86400000).toISOString().slice(0, 10)
   }
@@ -216,4 +242,132 @@ export const themes: ThemeDTO[] = [
   { id: 'theme_cyan', name: '青绿极光', background: '#06141a', accent: '#22d3ee', desc: '冷色极光主题' },
   { id: 'theme_purple', name: '紫魅夜', background: '#120a1f', accent: '#a855f7', desc: '紫调夜间主题' },
   { id: 'theme_ink', name: '墨金', background: '#0d0b07', accent: '#e0b15a', desc: '商务墨金主题' }
+]
+
+// ====================== 扩展域：消息推送 ======================
+const CHANNEL_DEFS: Array<{ name: string; kind: ChannelKind; endpoint: string }> = [
+  { name: '企业微信应用', kind: 'wechat', endpoint: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=***' },
+  { name: '钉钉机器人', kind: 'dingtalk', endpoint: 'https://oapi.dingtalk.com/robot/send?access_token=***' },
+  { name: '系统邮件网关', kind: 'email', endpoint: 'smtp://mail.example.com:465' },
+  { name: '阿里云短信', kind: 'sms-aliyun', endpoint: 'dysmsapi.aliyuncs.com' },
+  { name: '腾讯云短信', kind: 'sms-tencent', endpoint: 'sms.tencentcloudapi.com' }
+]
+export const messageChannels: MessageChannelDTO[] = CHANNEL_DEFS.map((c, i) => ({
+  id: `ch_${7000 + i}`,
+  name: c.name,
+  kind: c.kind,
+  endpoint: c.endpoint,
+  enabled: i % 3 !== 0,
+  updatedAt: new Date(Date.now() - Math.floor(rng(i + 700)() * 8) * 86400000).toISOString().slice(0, 10)
+}))
+
+// ====================== 扩展域：地图资源 ======================
+const MAP_DEFS: Array<{ name: string; provider: MapProvider; center: [number, number]; zoom: number }> = [
+  { name: '全国 EChart 地图', provider: 'echart', center: [104, 35], zoom: 1.2 },
+  { name: '高德底图-华东', provider: 'gaode', center: [121, 31], zoom: 10 },
+  { name: '百度底图-华北', provider: 'baidu', center: [116, 39], zoom: 11 },
+  { name: '腾讯底图-华南', provider: 'tencent', center: [113, 23], zoom: 10 },
+  { name: '自定义GeoJSON', provider: 'custom', center: [0, 0], zoom: 1 }
+]
+export const mapResources: MapResourceDTO[] = MAP_DEFS.map((m, i) => ({
+  id: `map_${8000 + i}`,
+  name: m.name,
+  provider: m.provider,
+  key: m.provider === 'custom' ? undefined : '****',
+  center: m.center,
+  zoom: m.zoom,
+  updatedAt: new Date(Date.now() - Math.floor(rng(i + 800)() * 6) * 86400000).toISOString().slice(0, 10)
+}))
+
+// ====================== 扩展域：全局变量 / 函数 / 格式化 ======================
+export const globalVars: GlobalVarDTO[] = [
+  { id: 'gv_1', name: 'g_now', kind: 'variable', value: '2026-07-28', scope: 'global', updatedAt: '2026-07-20' },
+  { id: 'gv_2', name: 'fmtMoney', kind: 'formatter', value: "v => '¥' + (v/10000).toFixed(2) + '万'", scope: 'global', updatedAt: '2026-07-21' },
+  { id: 'gv_3', name: 'calcGrowth', kind: 'function', value: '(a, b) => ((b - a) / a * 100).toFixed(1) + "%"', scope: 'screen', updatedAt: '2026-07-22' }
+]
+
+// ====================== 扩展域：代码仓库 ======================
+const SNIPPET_SQL = 'SELECT region, SUM(value) AS total\nFROM sales\nGROUP BY region\nORDER BY total DESC;'
+const SNIPPET_VUE = '<template>\n  <div class="card">{{ title }}</div>\n</template>\n<script setup>\nconst props = defineProps({ title: String })\n</script>'
+const SNIPPET_HTML = '<div class="marquee"><span>实时滚动播报内容</span></div>'
+export const codeSnippets: CodeSnippetDTO[] = [
+  { id: 'cs_1', name: '区域销售汇总', lang: 'sql', tags: ['sql', '销售'], code: SNIPPET_SQL, updatedAt: '2026-07-18' },
+  { id: 'cs_2', name: '指标卡组件', lang: 'vue', tags: ['vue', '组件'], code: SNIPPET_VUE, updatedAt: '2026-07-19' },
+  { id: 'cs_3', name: '滚动播报条', lang: 'html', tags: ['html', '动效'], code: SNIPPET_HTML, updatedAt: '2026-07-20' }
+]
+
+// ====================== 扩展域：分类标签 ======================
+export const categories: CategoryDTO[] = [
+  { id: 'cat_1', name: '经营类', group: '大屏分类', color: '#4f8cff', count: 18 },
+  { id: 'cat_2', name: '监控类', group: '大屏分类', color: '#22d3ee', count: 12 },
+  { id: 'cat_3', name: '地理类', group: '大屏分类', color: '#a855f7', count: 7 },
+  { id: 'cat_4', name: '金融', group: '行业', color: '#e0b15a', count: 9 },
+  { id: 'cat_5', name: '政务', group: '行业', color: '#4ade80', count: 5 }
+]
+
+// ====================== 扩展域：AI 模型 / 机器人 ======================
+export const aiModels: AIModelDTO[] = [
+  { id: 'ai_1', name: 'GPT-4o 通义千问', provider: '通义', type: 'chat', baseUrl: 'https://dashscope.aliyuncs.com', status: 'ready', updatedAt: '2026-07-10' },
+  { id: 'ai_2', name: '文心一言', provider: '文心', type: 'chat', baseUrl: 'https://aip.baidubce.com', status: 'ready', updatedAt: '2026-07-11' },
+  { id: 'ai_3', name: 'CodeLlama 本地', provider: '本地', type: 'code', baseUrl: 'http://localhost:11434', status: 'unset', updatedAt: '2026-07-12' },
+  { id: 'ai_4', name: '视觉识别模型', provider: 'openai', type: 'vision', baseUrl: 'https://api.openai.com', status: 'error', updatedAt: '2026-07-13' }
+]
+export const aiBots: AIBotDTO[] = [
+  { id: 'bot_1', name: '大屏编排助手', modelId: 'ai_1', prompt: '你是一个数据大屏编排专家，帮助用户生成组件与配色。', enabled: true, updatedAt: '2026-07-14' },
+  { id: 'bot_2', name: 'SQL 助手', modelId: 'ai_3', prompt: '将自然语言转为 SQL。', enabled: false, updatedAt: '2026-07-15' }
+]
+
+// ====================== 扩展域：数字孪生 3D（91 种预置模型） ======================
+const TWIN_CATS: TwinCategory[] = ['建筑', '设备', '交通', '自然', '人物', '其他']
+export const twinModels: TwinModelDTO[] = Array.from({ length: 91 }).map((_, i) => {
+  const cat = TWIN_CATS[i % TWIN_CATS.length]
+  return {
+    id: `tm_${i}`,
+    name: `${cat}模型${i + 1}`,
+    category: cat,
+    builtin: true,
+    thumbnail: `https://picsum.photos/seed/tm${i}/120/120`
+  }
+})
+export const twinScenes: TwinSceneDTO[] = [
+  { id: 'tsc_1', name: '智慧园区孪生', models: [{ modelId: 'tm_0', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 }], lighting: 'day', fog: false, updatedAt: '2026-07-16' },
+  { id: 'tsc_2', name: '工厂产线孪生', models: [{ modelId: 'tm_6', x: 2, y: 0, z: -1, rx: 0, ry: 0.5, rz: 0 }], lighting: 'night', fog: true, updatedAt: '2026-07-17' }
+]
+
+// ====================== 扩展域：物联组态 ======================
+const IOT_TYPES = ['PLC', '传感器', '摄像头', '电表', '阀门']
+export const iotDevices: IoTDeviceDTO[] = Array.from({ length: 14 }).map((_, i) => {
+  const r = rng(i + 900)
+  const status = (['online', 'online', 'offline', 'alarm'] as const)[Math.floor(r() * 4)]
+  return {
+    id: `iot_${i}`,
+    name: `${IOT_TYPES[i % IOT_TYPES.length]}-${String(i + 1).padStart(2, '0')}`,
+    type: IOT_TYPES[i % IOT_TYPES.length],
+    status,
+    metrics: { 温度: Math.round(r() * 80), 压力: Math.round(r() * 10), 流量: Math.round(r() * 100) },
+    updatedAt: new Date(Date.now() - Math.floor(r() * 3) * 86400000).toISOString().slice(0, 10)
+  }
+})
+export const iotAlarms: IoTAlarmRuleDTO[] = [
+  { id: 'al_1', deviceId: 'iot_0', deviceName: 'PLC-01', metric: '温度', op: '>', threshold: 60, level: 'critical', channels: ['wechat', 'sms-tencent'], enabled: true },
+  { id: 'al_2', deviceId: 'iot_3', deviceName: '电表-04', metric: '流量', op: '<', threshold: 5, level: 'warning', channels: ['dingtalk'], enabled: true }
+]
+
+// ====================== 扩展域：填报 / 工作流 / 轮播 / 插件 ======================
+export const dataEntries: DataEntryDTO[] = [
+  { id: 'de_1', name: '每日经营填报表', fields: [{ name: '日期', type: 'date' }, { name: '营收(万)', type: 'number' }, { name: '区域', type: 'select', options: ['华东', '华北', '华南'] }], rows: [{ 日期: '2026-07-27', '营收(万)': 320, 区域: '华东' }] },
+  { id: 'de_2', name: '设备巡检记录', fields: [{ name: '设备', type: 'text' }, { name: '状态', type: 'select', options: ['正常', '异常'] }], rows: [] }
+]
+export const workflows: WorkflowDTO[] = [
+  { id: 'wf_1', name: '订单实时同步流', trigger: 'MQTT:order/topic', nodes: ['解析', '清洗', '入库', '大屏推送'], status: 'running' },
+  { id: 'wf_2', name: '日报生成流', trigger: 'Cron:0 8 * * *', nodes: ['抽取', '聚合', '导出'], status: 'draft' }
+]
+export const carousels: CarouselDTO[] = [
+  { id: 'cl_1', name: '首页轮播方案', slides: ['经营总览', '区域销售', '实时订单'], intervalSec: 8 },
+  { id: 'cl_2', name: '大屏巡播', slides: ['安全态势', '能耗监测', '物流调度'], intervalSec: 12 }
+]
+export const plugins: PluginDTO[] = [
+  { id: 'pl_1', name: '3D 地球', author: '官方', version: '1.4.0', installed: true, desc: '自带纹理的三维地球组件', rating: 4.8 },
+  { id: 'pl_2', name: '瀑布图', author: '社区', version: '0.9.2', installed: false, desc: '瀑布式占比分析图', rating: 4.2 },
+  { id: 'pl_3', name: '词云', author: '社区', version: '1.1.0', installed: true, desc: '文本词频可视化', rating: 4.5 }
 ]

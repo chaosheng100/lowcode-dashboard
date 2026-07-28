@@ -117,7 +117,8 @@ export default function Canvas() {
   }, [])
 
   // 自适应：fit=true 时按容器尺寸自动缩放；否则使用手动 scale
-  const fitScale = useFitScale(areaRef, page)
+  // 传入标尺带尺寸，使 fit 出的画布（含标尺框）完整落在 canvas-area 内，不再溢出
+  const fitScale = useFitScale(areaRef, page, ruler.x, ruler.y)
   const scale = page.fit ? fitScale : page.scale
 
   // 视口在屏幕上的实际像素尺寸（已乘缩放）。

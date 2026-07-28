@@ -1,24 +1,20 @@
-import { useState } from 'react'
+import { initPersist } from './data/store/persist'
+import { openEditorWindow } from './designer/window'
 import ProjectView from './ProjectView'
-import Designer from './designer/Designer'
-import { useDesignerStore } from './data/store/useDesignerStore'
+import WindowApp from './designer/WindowApp'
+
+// 启动即加载已保存项目 + 开启实时保存（同源窗口共享 localStorage）
+initPersist()
 
 export default function App() {
-  // 大屏编辑器以覆盖式独立模块打开，路由与基础数据层分离
-  const [editorRouteId, setEditorRouteId] = useState<string | null>(null)
-  const selectRoute = useDesignerStore((s) => s.selectRoute)
-
-  if (editorRouteId) {
-    return (
-      <Designer
-        routeId={editorRouteId}
-        onBack={() => {
-          selectRoute('/dashboard')
-          setEditorRouteId(null)
-        }}
-      />
-    )
+  // 独立窗口入口：?mode=editor|preview&routeId=xxx → 在该窗口内打开对应模式
+  const params = new URLSearchParams(location.search)
+  const mode = params.get('mode')
+  const routeId = params.get('routeId')
+  if ((mode === 'editor' || mode === 'preview') && routeId) {
+    return <WindowApp mode={mode as 'editor' | 'preview'} routeId={routeId} />
   }
 
-  return <ProjectView onOpenDesigner={(id) => setEditorRouteId(id)} />
+  // 主应用：大屏管理台（点击卡片在新窗口打开编辑/预览）
+  return <ProjectView onOpenDesigner={(id) => openEditorWindow(id)} />
 }

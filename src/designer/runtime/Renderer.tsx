@@ -50,27 +50,29 @@ export default function Renderer() {
   }
 
   return (
-    <div className="canvas-area" ref={areaRef} style={{ padding: 0 }}>
-      <div
-        className="canvas-viewport"
-        style={{
-          width: Math.round(page.width * scale),
-          height: Math.round(page.height * scale)
-        }}
-      >
+    <div className="canvas-area">
+      <div className="canvas-scroll preview-scroll" ref={areaRef}>
         <div
-          className="canvas"
+          className="canvas-viewport preview-viewport"
           style={{
-            width: page.width,
-            height: page.height,
-            background: page.background,
-            transform: `scale(${scale})`
+            width: Math.round(page.width * scale),
+            height: Math.round(page.height * scale)
           }}
         >
-          {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
-          {components.map((c) => (
-            <LinkageFrame key={c.id} component={c} filter={filter} onPick={onPick} />
-          ))}
+          <div
+            className="canvas"
+            style={{
+              width: page.width,
+              height: page.height,
+              background: page.background,
+              transform: `scale(${scale})`
+            }}
+          >
+            {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
+            {components.map((c) => (
+              <LinkageFrame key={c.id} component={c} filter={filter} onPick={onPick} />
+            ))}
+          </div>
         </div>
       </div>
       {filter && (

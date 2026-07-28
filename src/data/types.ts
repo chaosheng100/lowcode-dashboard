@@ -12,6 +12,13 @@ export type WidgetType =
   | 'metric'
   | 'table'
   | 'container'
+  // ECharts 真实图表组件（画布内嵌 echarts 实例）
+  | 'echartLine'
+  | 'echartBar'
+  | 'echartPie'
+  | 'echartGauge'
+  | 'echartRadar'
+  | 'echartCustom'
 
 /** 图表数据位点 */
 export interface DataPoint {
@@ -45,6 +52,20 @@ export interface WidgetProps {
   columns?: string[]
   // 容器
   background?: string
+  // ECharts 组件
+  /** echartCustom：完整 ECharts option（JSON 字符串，支持任意图表） */
+  optionJson?: string
+  /** 是否平滑（折线） */
+  smooth?: boolean
+  /** 是否显示图例 */
+  showLegend?: boolean
+  /** 仪表盘当前值 / 最大值 */
+  gaugeValue?: number
+  gaugeMax?: number
+  /** 实时数据：绑定后端代理数据源 id（SQL/WS/MQTT），非空时组件自动订阅实时值 */
+  liveSourceId?: string
+  /** 实时刷新间隔 ms（轮询型） */
+  liveIntervalMs?: number
 }
 
 /** CSS 风格定位尺寸（画布坐标系，单位 px） */
@@ -165,6 +186,8 @@ export interface DesignerState {
   addRoute: (parentId?: string | null) => string
   deleteRoute: (id: string) => void
   updateRoute: (id: string, patch: Partial<RouteConfig>) => void
+  /** 跨窗口同步：用整条远端路由替换（预览端应用，不触发广播） */
+  upsertRoute: (route: RouteConfig) => void
   /** 新建一个大屏路由（dashboard 类型），返回其 id */
   createDashboard: (name?: string) => string
 

@@ -18,7 +18,22 @@ import {
   reports,
   analytics,
   assets,
-  themes
+  themes,
+  messageChannels,
+  mapResources,
+  globalVars,
+  codeSnippets,
+  categories,
+  aiModels,
+  aiBots,
+  twinModels,
+  twinScenes,
+  iotDevices,
+  iotAlarms,
+  dataEntries,
+  workflows,
+  carousels,
+  plugins
 } from './seed'
 
 const DEFAULT_DELAY = 320
@@ -56,14 +71,57 @@ function matchPath(tpl: string, path: string): Record<string, string> | null {
   return params
 }
 
+// —— 通用 CRUD 工厂（支撑扩展域全量增删改查）——
+function crud(resource: string, store: any[]): Record<string, Handler> {
+  const base = `/api/${resource}`
+  return {
+    [`GET ${base}`]: ({ query }) =>
+      paginate(store, query, (it, kw) => JSON.stringify(it).toLowerCase().includes(kw.toLowerCase())),
+    [`GET ${base}/:id`]: ({ params }) => store.find((x) => x.id === params.id) ?? null,
+    [`POST ${base}`]: ({ body }) => {
+      const item = { id: `${resource}_${Date.now().toString(36)}`, ...(body || {}) }
+      store.push(item)
+      return item
+    },
+    [`PATCH ${base}/:id`]: ({ params, body }) => {
+      const it = store.find((x) => x.id === params.id)
+      if (!it) return null
+      Object.assign(it, body || {})
+      return it
+    },
+    [`DELETE ${base}/:id`]: ({ params }) => {
+      const i = store.findIndex((x) => x.id === params.id)
+      if (i >= 0) store.splice(i, 1)
+      return { ok: true }
+    }
+  }
+}
+
 // —— 业务 handlers ——
 const handlers: Record<string, Handler> = {
+  ...crud('dataSources', dataSources),
+  ...crud('messageChannels', messageChannels),
+  ...crud('mapResources', mapResources),
+  ...crud('globalVars', globalVars),
+  ...crud('codeSnippets', codeSnippets),
+  ...crud('categories', categories),
+  ...crud('aiModels', aiModels),
+  ...crud('aiBots', aiBots),
+  ...crud('twinModels', twinModels),
+  ...crud('twinScenes', twinScenes),
+  ...crud('iotDevices', iotDevices),
+  ...crud('iotAlarms', iotAlarms),
+  ...crud('dataEntries', dataEntries),
+  ...crud('workflows', workflows),
+  ...crud('carousels', carousels),
+  ...crud('plugins', plugins),
+
   'GET /api/dashboards': ({ query }) =>
     paginate(dashboards, query, (d, kw) => d.name.includes(kw) || d.ownerName.includes(kw)),
   'GET /api/dashboards/:id': ({ params }) => dashboards.find((d) => d.id === params.id) ?? null,
 
   'GET /api/datasources': ({ query }) =>
-    paginate(dataSources, query, (d, kw) => d.name.includes(kw) || d.type.includes(kw)),
+    paginate(dataSources, query, (d, kw) => d.name.includes(kw) || (d.kind ?? '').includes(kw)),
   'POST /api/datasources/:id/test': ({ params }) => {
     const ds = dataSources.find((d) => d.id === params.id)
     return { id: params.id, ok: !!ds && ds.status === 'connected', latencyMs: 40 + Math.floor(Math.random() * 120) }
