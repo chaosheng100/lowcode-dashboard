@@ -1,72 +1,97 @@
 import { useEffect, useState } from 'react'
-import { useApi } from './useApi'
+import PluginManagement from './PluginManagement'
 import { api } from '../mock'
+import type { IoTDeviceDTO } from '../mock/types'
 import { Tag } from './common'
-import type { IoTDeviceDTO, ChannelKind } from '../mock/types'
 
-const CH_LABEL: Record<ChannelKind, string> = { wechat: '企业微信', dingtalk: '钉钉', email: '邮件', 'sms-aliyun': '阿里云短信', 'sms-tencent': '腾讯云短信' }
-const STAT_COLOR: Record<string, string> = { online: '#4ade80', offline: '#9fb0c3', alarm: '#ff8585' }
+const STATUS_LABEL: Record<string, string> = { online: '在线', offline: '离线', alarm: '告警' }
+const STATUS_COLOR: Record<string, string> = { online: '#4ade80', offline: '#9aa7b4', alarm: '#ff6b6b' }
 
-/** 物联组态：工业级可视化编辑器 / 设备实时状态 / 多级联动智能报警 */
+/** 物联组态：设备列表 + 配置编辑 + 实时监控预览（关系与大屏管理一致） */
 export default function IoTConfigPage() {
-  const { data: dev, loading, error } = useApi(() => api.listIoTDevices({ pageSize: 50 }), [])
-  const { data: alarms } = useApi(() => api.listIoTAlarms({ pageSize: 50 }), [])
-  const [live, setLive] = useState<IoTDeviceDTO[]>([])
+  return (
+    <PluginManagement<IoTDeviceDTO>
+      title="物联组态"
+      subtitle="工业组态设备管理 · 配置设备指标 · 实时监控预览"
+      countLabel="设备"
+      fetcher={() => api.listIoTDevices({ pageSize: 50 })}
+      saveItem={(b) => api.saveIoTDevice(b)}
+      deleteItem={(id) => api.deleteIoTDevice(id)}
+      blankItem={() => ({ id: '', name: '新设备', type: 'sensor', status: 'online', metrics: { temperature: 0, humidity: 0 }, updatedAt: '' })}
+      renderMeta={(d) => [`类型：${d.type}`, `状态：${STATUS_LABEL[d.status] ?? d.status}`]}
+      renderTags={(d) => <Tag color={STATUS_COLOR[d.status]}>{STATUS_LABEL[d.status] ?? d.status}</Tag>}
+      renderEditor={(d, save) => <DeviceEditor item={d} save={save} />}
+      renderPreview={(d) => <DeviceMonitor item={d} />}
+    />
+  )
+}
 
-  useEffect(() => { if (dev?.list) setLive(dev.list) }, [dev])
-  // 模拟实时指标跳动
-  useEffect(() => {
-    const t = setInterval(() => {
-      setLive((prev) => prev.map((d) => {
-        if (d.status === 'offline') return d
-        const metrics: Record<string, number> = {}
-        for (const k of Object.keys(d.metrics)) metrics[k] = Math.max(0, Math.round(d.metrics[k] + (Math.random() - 0.5) * 6))
-        return { ...d, metrics }
-      }))
-    }, 2000)
-    return () => clearInterval(t)
-  }, [])
+function DeviceEditor({ item, save }: { item: IoTDeviceDTO; save: (p: Partial<IoTDeviceDTO>) => Promise<void> }) {
+  const [name, setName] = useState(item.name)
+  const [type, setType] = useState(item.type)
+  const [status, setStatus] = useState<IoTDeviceDTO['status']>(item.status)
+  const [metricsText, setMetricsText] = useState(
+    Object.entries(item.metrics).map(([k, v]) => `${k}:${v}`).join('\n')
+  )
+  const [saving, setSaving] = useState(false)
+
+  const doSave = async () => {
+    setSaving(true)
+    const metrics: Record<string, number> = {}
+    metricsText.split('\n').forEach((line) => {
+      const [k, v] = line.split(/[:：]/)
+      if (k?.trim()) metrics[k.trim()] = Number(v) || 0
+    })
+    await save({ name, type, status, metrics })
+    setSaving(false)
+  }
 
   return (
-    <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">物联组态</h2><p className="fp-sub">工业级可视化组态编辑器 · 设备实时状态监控 · 多级联动智能报警</p></div>
-        <span className="fp-count">设备 {live.length} 台</span>
+    <div className="card" style={{ maxWidth: 680, margin: '0 auto' }}>
+      <div className="field"><label>设备名称</label><input className="inp" value={name} onChange={(e) => setName(e.target.value)} /></div>
+      <div className="row2">
+        <div className="field"><label>类型</label><input className="inp" value={type} onChange={(e) => setType(e.target.value)} /></div>
+        <div className="field"><label>状态</label>
+          <select className="inp" value={status} onChange={(e) => setStatus(e.target.value as IoTDeviceDTO['status'])}>
+            <option value="online">在线</option><option value="offline">离线</option><option value="alarm">告警</option>
+          </select>
+        </div>
       </div>
-      {loading && <div className="fp-loading">加载中…</div>}
-      {error && <div className="fp-error">{error}</div>}
-      {!loading && !error && (
-        <div className="grid3" style={{ marginBottom: 16 }}>
-          {live.map((d) => (
-            <div key={d.id} className="card">
-              <div className="flex" style={{ justifyContent: 'space-between' }}>
-                <b style={{ color: '#e6edf3' }}>{d.name}</b>
-                <span className={'status-dot ' + (d.status === 'online' ? 'active' : d.status === 'alarm' ? 'disabled' : '')}>{STAT_COLOR[d.status]} {d.status}</span>
-              </div>
-              <div className="muted2" style={{ margin: '8px 0' }}>{d.type}</div>
-              <div className="flex">
-                {Object.entries(d.metrics).map(([k, v]) => <Tag key={k}>{k}:{v}</Tag>)}
+      <div className="field"><label>指标（每行 key:value，如 temperature:36.5）</label><textarea className="inp" style={{ minHeight: 160 }} value={metricsText} onChange={(e) => setMetricsText(e.target.value)} /></div>
+      <div className="fp-toolbar"><button className="btn primary" onClick={doSave} disabled={saving}>{saving ? '保存中…' : '保存'}</button></div>
+    </div>
+  )
+}
+
+function DeviceMonitor({ item }: { item: IoTDeviceDTO }) {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1500)
+    return () => clearInterval(id)
+  }, [])
+  const entries = Object.entries(item.metrics)
+  return (
+    <div style={{ height: '100%' }}>
+      <div className="flex" style={{ justifyContent: 'space-between', marginBottom: 16 }}>
+        <b style={{ color: '#e6edf3', fontSize: 18 }}>{item.name}</b>
+        <Tag color={STATUS_COLOR[item.status]}>{STATUS_LABEL[item.status] ?? item.status} · 实时</Tag>
+      </div>
+      <div className="grid3">
+        {entries.map(([k, v]) => {
+          // 模拟实时跳动
+          const live = Number(v) + Math.round(Math.sin(tick + k.length) * 5 * 10) / 10
+          const pct = Math.min(100, Math.max(0, (live / (Math.max(1, live * 2))) * 100))
+          return (
+            <div className="card" key={k}>
+              <div className="muted2">{k}</div>
+              <div style={{ fontSize: 30, fontWeight: 700, color: '#00d4ff', margin: '6px 0' }}>{live.toFixed(1)}</div>
+              <div style={{ height: 6, background: '#1a2433', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg,#00d4ff,#4f8cff)', transition: 'width .6s' }} />
               </div>
             </div>
-          ))}
-        </div>
-      )}
-      <div className="card">
-        <b style={{ color: '#e6edf3' }}>多级联动智能报警规则</b>
-        <table className="data-table" style={{ marginTop: 10 }}>
-          <thead><tr><th>设备</th><th>指标</th><th>条件</th><th>级别</th><th>推送通道</th><th>状态</th></tr></thead>
-          <tbody>
-            {(alarms?.list ?? []).map((a) => (
-              <tr key={a.id}>
-                <td>{a.deviceName}</td><td className="muted">{a.metric}</td>
-                <td className="muted">{a.op} {a.threshold}</td>
-                <td><Tag color={a.level === 'critical' ? '#ff8585' : a.level === 'warning' ? '#e0b15a' : '#9fb0c3'}>{a.level}</Tag></td>
-                <td className="flex">{a.channels.map((c) => <Tag key={c}>{CH_LABEL[c]}</Tag>)}</td>
-                <td><span className={'status-dot ' + (a.enabled ? 'active' : 'disabled')}>{a.enabled ? '启用' : '停用'}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          )
+        })}
+        {!entries.length && <div className="empty-tip">该设备无指标</div>}
       </div>
     </div>
   )

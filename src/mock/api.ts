@@ -66,6 +66,9 @@ export const api = {
 
   // 报表
   listReports: (q: PageQuery = {}) => mockFetch<PageResult<ReportDTO>>('GET', '/api/reports', { query: q }),
+  saveReport: (body: Partial<ReportDTO>) =>
+    mockFetch<ReportDTO>(body.id ? 'PATCH' : 'POST', `/api/reports${body.id ? '/' + body.id : ''}`, { body }),
+  deleteReport: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/reports/${id}`),
 
   // 分析
   getAnalytics: (q: Record<string, any> = {}) => mockFetch<AnalyticsDTO[]>('GET', '/api/analytics/summary', { query: q }),
@@ -124,15 +127,24 @@ export const api = {
   // —— 数字孪生 ——
   listTwinModels: (q: PageQuery = {}) => mockFetch<PageResult<TwinModelDTO>>('GET', '/api/twinModels', { query: q }),
   listTwinScenes: (q: PageQuery = {}) => mockFetch<PageResult<TwinSceneDTO>>('GET', '/api/twinScenes', { query: q }),
+  saveTwinScene: (body: Partial<TwinSceneDTO>) =>
+    mockFetch<TwinSceneDTO>(body.id ? 'PATCH' : 'POST', `/api/twinScenes${body.id ? '/' + body.id : ''}`, { body }),
+  deleteTwinScene: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinScenes/${id}`),
 
   // —— 物联组态 ——
   listIoTDevices: (q: PageQuery = {}) => mockFetch<PageResult<IoTDeviceDTO>>('GET', '/api/iotDevices', { query: q }),
+  saveIoTDevice: (body: Partial<IoTDeviceDTO>) =>
+    mockFetch<IoTDeviceDTO>(body.id ? 'PATCH' : 'POST', `/api/iotDevices${body.id ? '/' + body.id : ''}`, { body }),
+  deleteIoTDevice: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/iotDevices/${id}`),
   listIoTAlarms: (q: PageQuery = {}) => mockFetch<PageResult<IoTAlarmRuleDTO>>('GET', '/api/iotAlarms', { query: q }),
 
   // —— 填报 / 工作流 / 轮播 / 插件 ——
   listDataEntries: (q: PageQuery = {}) => mockFetch<PageResult<DataEntryDTO>>('GET', '/api/dataEntries', { query: q }),
   listWorkflows: (q: PageQuery = {}) => mockFetch<PageResult<WorkflowDTO>>('GET', '/api/workflows', { query: q }),
   listCarousels: (q: PageQuery = {}) => mockFetch<PageResult<CarouselDTO>>('GET', '/api/carousels', { query: q }),
+  saveCarousel: (body: Partial<CarouselDTO>) =>
+    mockFetch<CarouselDTO>(body.id ? 'PATCH' : 'POST', `/api/carousels${body.id ? '/' + body.id : ''}`, { body }),
+  deleteCarousel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/carousels/${id}`),
   listPlugins: (q: PageQuery = {}) => mockFetch<PageResult<PluginDTO>>('GET', '/api/plugins', { query: q }),
   togglePlugin: (id: string, installed: boolean) => mockFetch<PluginDTO>('PATCH', `/api/plugins/${id}`, { body: { installed } })
 }

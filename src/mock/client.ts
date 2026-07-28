@@ -115,6 +115,7 @@ const handlers: Record<string, Handler> = {
   ...crud('workflows', workflows),
   ...crud('carousels', carousels),
   ...crud('plugins', plugins),
+  ...crud('reports', reports),
 
   'GET /api/dashboards': ({ query }) =>
     paginate(dashboards, query, (d, kw) => d.name.includes(kw) || d.ownerName.includes(kw)),

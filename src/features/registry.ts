@@ -20,9 +20,9 @@ import PluginMinePage from './PluginMinePage'
 import PluginMarketPage from './PluginMarketPage'
 import HelpPage from './HelpPage'
 import AIPlatformPage from './AIPlatformPage'
-import TwinPage from './TwinPage'
+import TwinManagement from './TwinManagement'
 import IoTConfigPage from './IoTConfigPage'
-import ReportDesignPage from './ReportDesignPage'
+import ReportManagement from './ReportManagement'
 import CarouselPage from './CarouselPage'
 import DeployPage from './DeployPage'
 import './features.css'
@@ -60,9 +60,9 @@ export const featurePages: Record<string, ComponentType> = {
   '/plugins/mine': PluginMinePage,
   '/plugins/market': PluginMarketPage,
   // 生态扩展
-  '/extension/twin': TwinPage,
+  '/extension/twin': TwinManagement,
   '/extension/iot': IoTConfigPage,
-  '/extension/report': ReportDesignPage,
+  '/extension/report': ReportManagement,
   '/extension/carousel': CarouselPage,
   '/extension/deploy': DeployPage,
   // 其他系统 / 帮助
