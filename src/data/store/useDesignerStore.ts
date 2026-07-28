@@ -126,6 +126,23 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     return route.id
   },
 
+  // —— 删除大屏（dashboard 类型）—— 
+  deleteDashboard: (id) => {
+    set((s) => {
+      const remaining = s.routes.filter((r) => r.id !== id)
+      const nextSel = s.selectedRouteId === id ? remaining[0]?.id ?? null : s.selectedRouteId
+      return { routes: remaining, selectedRouteId: nextSel, selectedId: null, filter: null }
+    })
+  },
+
+  // —— 重命名大屏（dashboard 类型），并刷新 updatedAt —— 
+  renameDashboard: (id, name) =>
+    set((s) => ({
+      routes: s.routes.map((r) =>
+        r.id === id ? { ...r, name, updatedAt: new Date().toISOString() } : r
+      )
+    })),
+
   // —— 组件操作（作用于当前选中路由）—— 
   addComponent: (type, stylePatch = {}) => {
     const s = get()

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { getRouteCapability } from '../data/capabilities'
 import type { DataSourceDTO, DsKind, SqlVendor, ParseMode } from '../mock/types'
 import { Modal, Field, Input, Select, Tag } from './common'
+import { querySqlViaProxy, proxyHealth } from '../data/live/liveClient'
 
 const KIND_LABEL: Record<DsKind, string> = {
   static: '静态数据', api: 'API 接口', sql: 'SQL 数据库', websocket: 'WebSocket',
@@ -28,6 +29,31 @@ export default function DataSourcePage() {
   const [result, setResult] = useState('')
 
   const list = (data?.list ?? []).filter((d) => filter === 'all' || d.kind === filter)
+
+  // —— SQL 查询控制台（经后端代理真实取数） ——
+  const [proxyOn, setProxyOn] = useState<boolean | null>(null)
+  const [sqlConsole, setSqlConsole] = useState<DataSourceDTO | null>(null)
+  const [sql, setSql] = useState('SELECT region AS name, amount AS value FROM orders LIMIT 8')
+  const [sqlBusy, setSqlBusy] = useState(false)
+  const [sqlOut, setSqlOut] = useState<{ columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean; fallbackReason?: string } | null>(null)
+  const [sqlErr, setSqlErr] = useState('')
+
+  useEffect(() => { proxyHealth().then(setProxyOn) }, [])
+
+  const runSql = async () => {
+    if (!sqlConsole) return
+    setSqlBusy(true); setSqlErr(''); setSqlOut(null)
+    try {
+      const out = await querySqlViaProxy({
+        dsType: sqlConsole.vendor || 'mysql',
+        endpoint: sqlConsole.endpoint,
+        sql
+      })
+      setSqlOut(out)
+    } catch (e) {
+      setSqlErr('代理服务不可达（请先运行 npm run proxy 启动数据代理，端口 5175）：' + (e as Error).message)
+    } finally { setSqlBusy(false) }
+  }
   const test = async (id: string) => {
     setTesting(id); setResult('')
     try {
@@ -47,7 +73,12 @@ export default function DataSourcePage() {
       <div className="fp-head">
         <div>
           <h2 className="fp-title">数据源配置</h2>
-          <p className="fp-sub">画布组件取数的来路 · {cap ? `画布能力：${cap.capability}` : ''}</p>
+          <p className="fp-sub">
+            画布组件取数的来路 · {cap ? `画布能力：${cap.capability}` : ''} ·{' '}
+            {proxyOn === null ? '代理检测中…' : proxyOn
+              ? <span style={{ color: '#4ade80' }}>● 数据代理在线（SQL/WS/MQTT 真实取数）</span>
+              : <span style={{ color: '#facc15' }}>● 数据代理离线（npm run proxy 启动后启用真实取数）</span>}
+          </p>
         </div>
         <button className="btn" onClick={() => setEditing({ name: '', kind: 'api', scope: 'public', endpoint: '', status: 'connected' })}>＋ 新建数据源</button>
       </div>
@@ -78,6 +109,7 @@ export default function DataSourcePage() {
                 <td><span className={'status-dot ' + (d.status === 'connected' ? 'active' : 'disabled')}>{d.status === 'connected' ? '已连接' : '异常'}</span></td>
                 <td>
                   <button className="btn sm" disabled={testing === d.id} onClick={() => test(d.id)}>{testing === d.id ? '测试中' : '连通测试'}</button>{' '}
+                  {d.kind === 'sql' && <><button className="btn sm" onClick={() => { setSqlConsole(d); setSqlOut(null); setSqlErr('') }}>SQL 查询</button>{' '}</>}
                   <button className="btn sm" onClick={() => setEditing(d)}>编辑</button>{' '}
                   <button className="btn sm danger" onClick={() => remove(d.id)}>删除</button>
                 </td>
@@ -118,6 +150,37 @@ export default function DataSourcePage() {
             </Field>
           )}
           <div className="fp-toolbar"><button className="btn" onClick={save}>保存</button></div>
+        </Modal>
+      )}
+
+      {sqlConsole && (
+        <Modal title={`SQL 查询控制台 · ${sqlConsole.name}（${VENDOR_LABEL[sqlConsole.vendor || 'other']}）`} onClose={() => setSqlConsole(null)}>
+          <div className="muted2" style={{ marginBottom: 8 }}>
+            经数据代理（localhost:5175）执行只读查询；已安装真实驱动（mysql2/pg）时直连数据库，否则返回模拟结果并标注。
+          </div>
+          <textarea className="inp area" style={{ minHeight: 90 }} value={sql} onChange={(e) => setSql(e.target.value)} />
+          <div className="fp-toolbar" style={{ margin: '10px 0' }}>
+            <button className="btn" disabled={sqlBusy} onClick={runSql}>{sqlBusy ? '执行中…' : '▶ 执行查询'}</button>
+          </div>
+          {sqlErr && <div className="fp-error">{sqlErr}</div>}
+          {sqlOut && (
+            <>
+              <div className="muted2" style={{ marginBottom: 6 }}>
+                {sqlOut.simulated
+                  ? <span style={{ color: '#facc15' }}>模拟结果（{sqlOut.fallbackReason || '驱动未安装'}）</span>
+                  : <span style={{ color: '#4ade80' }}>真实查询</span>}
+                {' '}· {sqlOut.rows.length} 行 · {sqlOut.elapsedMs}ms
+              </div>
+              <table className="data-table">
+                <thead><tr>{sqlOut.columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+                <tbody>
+                  {sqlOut.rows.map((r, i) => (
+                    <tr key={i}>{r.map((v, j) => <td key={j} className="muted">{String(v)}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </Modal>
       )}
     </div>

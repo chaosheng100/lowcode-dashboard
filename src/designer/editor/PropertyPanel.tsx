@@ -2,11 +2,18 @@ import { useState, useEffect } from 'react'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
 import { api } from '../../mock'
-import type { DatasetDTO } from '../../mock/types'
+import type { DatasetDTO, DataSourceDTO } from '../../mock/types'
 import type { DataPoint } from '../../data/types'
 import CanvasPanel from './CanvasPanel'
+import SchemaForm from './SchemaForm'
+import { styleSchemas, dataSchemas } from './propSchemas'
 
-const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table']
+const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie']
+/** 支持数据绑定的组件类型 */
+const dataTypes: WidgetType[] = [
+  'lineChart', 'barChart', 'pieChart', 'metric', 'table',
+  'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar'
+]
 
 export default function PropertyPanel() {
   const selectedId = useDesignerStore((s) => s.selectedId)
@@ -21,6 +28,7 @@ export default function PropertyPanel() {
   const [tab, setTab] = useState<'style' | 'data' | 'event'>('style')
   const [dataText, setDataText] = useState('')
   const [datasets, setDatasets] = useState<DatasetDTO[]>([])
+  const [dataSources, setDataSources] = useState<DataSourceDTO[]>([])
 
   useEffect(() => {
     if (component && component.props.data) {
@@ -30,14 +38,25 @@ export default function PropertyPanel() {
 
   useEffect(() => {
     let alive = true
-    api
-      .listDatasets({ pageSize: 50 })
-      .then((r) => alive && setDatasets(r.data.list))
+    Promise.all([
+      api.listDatasets({ pageSize: 50 }),
+      api.listDataSources({ pageSize: 50 })
+    ])
+      .then(([dr, dsr]) => {
+        if (!alive) return
+        if (dr.code === 0) setDatasets(dr.data.list)
+        if (dsr.code === 0) setDataSources(dsr.data.list)
+      })
       .catch(() => {})
     return () => {
       alive = false
     }
   }, [])
+
+  // 可作为实时源的数据源（SQL / WebSocket / MQTT / API / Flow）
+  const liveSources = dataSources.filter((d) =>
+    ['sql', 'websocket', 'mqtt', 'api', 'flow'].includes(d.kind)
+  )
 
   const bindDataset = async (datasetId: string) => {
     if (!datasetId || !component) return
@@ -54,8 +73,10 @@ export default function PropertyPanel() {
   }
 
   const p = component.props
-  const hasData = ['lineChart', 'barChart', 'pieChart', 'metric', 'table'].includes(component.type)
+  const hasData = dataTypes.includes(component.type)
   const isInteractive = interactiveTypes.includes(component.type)
+  const styleSchema = styleSchemas[component.type]
+  const dataSchema = dataSchemas[component.type]
 
   const applyData = () => {
     try {
@@ -125,98 +146,25 @@ export default function PropertyPanel() {
               />
             </div>
           </div>
-          {component.type === 'text' && (
-            <>
-              <div className="field">
-                <label>文本内容</label>
-                <input value={p.content} onChange={(e) => updateProps(component.id, { content: e.target.value })} />
-              </div>
-              <div className="row2">
-                <div className="field">
-                  <label>字号</label>
-                  <input
-                    type="number"
-                    value={p.fontSize}
-                    onChange={(e) => updateProps(component.id, { fontSize: +e.target.value })}
-                  />
-                </div>
-                <div className="field">
-                  <label>颜色</label>
-                  <input type="color" value={p.color} onChange={(e) => updateProps(component.id, { color: e.target.value })} />
-                </div>
-              </div>
-              <div className="field">
-                <label>对齐</label>
-                <select value={p.align} onChange={(e) => updateProps(component.id, { align: e.target.value as 'left' | 'center' | 'right' })}>
-                  <option value="left">左</option>
-                  <option value="center">中</option>
-                  <option value="right">右</option>
-                </select>
-              </div>
-            </>
-          )}
-          {component.type === 'image' && (
-            <>
-              <div className="field">
-                <label>图片地址</label>
-                <input value={p.src} onChange={(e) => updateProps(component.id, { src: e.target.value })} />
-              </div>
-              <div className="field">
-                <label>填充</label>
-                <select value={p.fit} onChange={(e) => updateProps(component.id, { fit: e.target.value as 'cover' | 'contain' | 'fill' })}>
-                  <option value="cover">cover</option>
-                  <option value="contain">contain</option>
-                  <option value="fill">fill</option>
-                </select>
-              </div>
-            </>
-          )}
-          {component.type === 'container' && (
-            <>
-              <div className="field">
-                <label>标题</label>
-                <input value={p.label} onChange={(e) => updateProps(component.id, { label: e.target.value })} />
-              </div>
-              <div className="field">
-                <label>背景色</label>
-                <input value={p.background} onChange={(e) => updateProps(component.id, { background: e.target.value })} />
-              </div>
-            </>
+          {styleSchema && (
+            <SchemaForm
+              schema={styleSchema}
+              value={p}
+              onChange={(patch) => updateProps(component.id, patch)}
+            />
           )}
         </>
       )}
 
       {tab === 'data' && (
         <>
-          {['lineChart', 'barChart', 'pieChart'].includes(component.type) && (
-            <div className="field">
-              <label>标题</label>
-              <input value={p.title} onChange={(e) => updateProps(component.id, { title: e.target.value })} />
-            </div>
-          )}
-          {['lineChart', 'barChart'].includes(component.type) && (
-            <div className="field">
-              <label>主色</label>
-              <input type="color" value={p.color} onChange={(e) => updateProps(component.id, { color: e.target.value })} />
-            </div>
-          )}
-          {component.type === 'metric' && (
-            <>
-              <div className="field">
-                <label>指标名</label>
-                <input value={p.label} onChange={(e) => updateProps(component.id, { label: e.target.value })} />
-              </div>
-              <div className="field">
-                <label>单位</label>
-                <input value={p.unit} onChange={(e) => updateProps(component.id, { unit: e.target.value })} />
-              </div>
-            </>
-          )}
-          {component.type === 'table' && (
-            <div className="field">
-              <label>标题</label>
-              <input value={p.title} onChange={(e) => updateProps(component.id, { title: e.target.value })} />
-            </div>
+          {dataSchema && (
+            <SchemaForm
+              schema={dataSchema}
+              value={p}
+              liveSources={liveSources}
+              onChange={(patch) => updateProps(component.id, patch)}
+            />
           )}
           {hasData && (
             <>
@@ -246,7 +194,7 @@ export default function PropertyPanel() {
               )}
             </>
           )}
-          {!hasData && <div className="empty-tip">该组件无可配置数据</div>}
+          {!hasData && !dataSchema && <div className="empty-tip">该组件无可配置数据</div>}
         </>
       )}
 

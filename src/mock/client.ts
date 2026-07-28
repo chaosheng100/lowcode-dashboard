@@ -167,7 +167,32 @@ const handlers: Record<string, Handler> = {
 
   'GET /api/assets': ({ query }) =>
     paginate(assets, query, (a, kw) => a.name.includes(kw) || a.type.includes(kw)),
-  'GET /api/themes': () => themes
+  'GET /api/themes': () => themes,
+
+  // —— AI 对话 / 代码生成（离线模拟）——
+  'POST /api/ai/chat': ({ body }) => {
+    const msg = String((body as { message?: string })?.message || '').trim() || '示例需求'
+    const picks = ['折线图', '指标卡', '表格', '柱状图', '饼图']
+    const pick = picks[msg.length % picks.length]
+    return {
+      reply: `已理解「${msg}」。建议：使用 ${pick} 呈现，并绑定对应数据集；需要我直接生成组件代码吗？`,
+      suggestion: pick
+    }
+  },
+  'POST /api/ai/generate': ({ body }) => {
+    const b = (body || {}) as { prompt?: string; lang?: string }
+    const p = b.prompt || '示例'
+    const lang = b.lang || 'vue'
+    let code = ''
+    if (lang === 'vue') {
+      code = `<template>\n  <div class="card">\n    <h3>{{ title }}</h3>\n    <div class="value">{{ value }}</div>\n  </div>\n</template>\n\n<script setup>\nconst props = defineProps({\n  title: { type: String, default: '${p}' },\n  value: { type: [Number, String], default: 0 }\n})\n</script>`
+    } else if (lang === 'echart') {
+      code = `// EChart 组件：基于 ${p}\noption = {\n  xAxis: { type: 'category', data: ['一月','二月','三月'] },\n  yAxis: { type: 'value' },\n  series: [{ type: 'bar', data: [120, 200, 150], itemStyle: { color: '#4f8cff' } }]\n}`
+    } else {
+      code = `<!-- HTML 组件：${p} -->\n<div class="widget" style="padding:12px">\n  <strong>${p}</strong>\n  <p>由 AI 生成的静态片段</p>\n</div>`
+    }
+    return { code }
+  }
 }
 
 // —— 对外请求函数 ——

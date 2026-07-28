@@ -6,9 +6,9 @@ import { featurePages } from './features/registry'
 import { useDesignerStore } from './data/store/useDesignerStore'
 
 interface Props {
-  /** 点击大屏卡片在新窗口打开对应大屏编辑器 */
+  /** 点击大屏卡片在新页签打开对应大屏编辑器 */
   onOpenDesigner: (routeId: string) => void
-  /** 在新窗口打开对应大屏预览 */
+  /** 在新页签打开对应大屏预览 */
   onOpenPreview?: (routeId: string) => void
 }
 

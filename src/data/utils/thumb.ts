@@ -26,3 +26,31 @@ export function makeThumb(seed: string): string {
   const angle = 110 + (h % 60)
   return `linear-gradient(${angle}deg, ${a} 0%, ${b} 100%)`
 }
+
+/**
+ * 真实缩略图：用 html2canvas 截取画布视口元素，返回压缩后的 JPEG dataURL。
+ * 对齐 Avue Data 的 html2canvas 缩略图方案；失败时返回空串，调用方回退 makeThumb。
+ * @param el 画布视口元素（.canvas-viewport），不含 transform，截图即所见
+ * @param bg 背景色（默认深空蓝）
+ *
+ * 注意：用变量名动态 import，使未安装 html2canvas 时 tsc 也能通过；
+ *       安装 html2canvas 后即可正常工作（npm i html2canvas）。
+ */
+export async function captureThumbnail(el: HTMLElement, bg = '#0a0e1a'): Promise<string> {
+  try {
+    const modName = 'html2canvas'
+    const mod: any = await import(modName)
+    const html2canvas: (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement> =
+      mod.default ?? mod
+    const cv = await html2canvas(el, {
+      backgroundColor: bg,
+      scale: 0.18, // 缩略图缩小到 ~18%，控制 dataURL 体积
+      logging: false,
+      useCORS: true,
+      allowTaint: true
+    })
+    return cv.toDataURL('image/jpeg', 0.6)
+  } catch {
+    return ''
+  }
+}

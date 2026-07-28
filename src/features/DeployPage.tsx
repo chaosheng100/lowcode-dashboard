@@ -47,7 +47,24 @@ export default function DeployPage() {
     push('已导出独立静态页面（可直接双击打开）')
   }
   const exportDs = () => { download('datasource-config.json', JSON.stringify(ds?.list ?? [], null, 2)); push('已导出数据源配置') }
-  const buildCli = () => { push('已生成命令行批量构建脚本：npm run build -- --screen=all') }
+  const buildCli = () => {
+    const screens = exportProject().routes.filter((r) => r.kind === 'dashboard').map((r) => r.path)
+    const script = [
+      '#!/bin/bash',
+      '# 大屏批量构建脚本（由「独立部署」页一键生成）',
+      'set -e',
+      '',
+      '# 1) 构建生产产物到 dist/',
+      'npm run build',
+      '',
+      '# 2) 可选：按大屏路由单独构建（取消注释启用）',
+      ...screens.map((s) => `# npm run build -- --screen=${s}`),
+      '',
+      'echo "✓ 构建完成，产物位于 dist/"'
+    ].join('\n')
+    download('build-screens.sh', script, 'text/x-shellscript')
+    push(`已生成命令行批量构建脚本 build-screens.sh（含 ${screens.length} 个大屏路由）`)
+  }
 
   return (
     <div className="feature-page">

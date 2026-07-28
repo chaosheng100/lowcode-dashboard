@@ -96,6 +96,9 @@ export const api = {
 
   // —— 代码仓库 ——
   listSnippets: (q: PageQuery = {}) => mockFetch<PageResult<CodeSnippetDTO>>('GET', '/api/codeSnippets', { query: q }),
+  saveSnippet: (body: Partial<CodeSnippetDTO>) =>
+    mockFetch<CodeSnippetDTO>(body.id ? 'PATCH' : 'POST', `/api/codeSnippets${body.id ? '/' + body.id : ''}`, { body }),
+  deleteSnippet: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/codeSnippets/${id}`),
 
   // —— 分类标签 ——
   listCategories: (q: PageQuery = {}) => mockFetch<PageResult<CategoryDTO>>('GET', '/api/categories', { query: q }),
@@ -112,6 +115,11 @@ export const api = {
   saveAIBot: (body: Partial<AIBotDTO>) =>
     mockFetch<AIBotDTO>(body.id ? 'PATCH' : 'POST', `/api/aiBots${body.id ? '/' + body.id : ''}`, { body }),
   deleteAIBot: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiBots/${id}`),
+  // AI 对话 / 代码生成（离线模拟，真实接入后替换 handler 即可）
+  aiChat: (message: string) =>
+    mockFetch<{ reply: string; suggestion: string }>('POST', '/api/ai/chat', { body: { message } }),
+  aiGenerate: (prompt: string, lang: string) =>
+    mockFetch<{ code: string }>('POST', '/api/ai/generate', { body: { prompt, lang } }),
 
   // —— 数字孪生 ——
   listTwinModels: (q: PageQuery = {}) => mockFetch<PageResult<TwinModelDTO>>('GET', '/api/twinModels', { query: q }),
