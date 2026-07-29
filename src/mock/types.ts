@@ -250,6 +250,56 @@ export interface DatasetRow {
 }
 
 export type UserStatus = 'active' | 'disabled'
+
+// ---------------- 独立部署（企业级）----------------
+export type DeployEnvKind = 'dev' | 'test' | 'prod'
+export interface DeployEnvDTO {
+  id: string
+  name: string
+  kind: DeployEnvKind
+  /** 部署目标基础地址，如 https://bi.example.com（产物内数据/资源请求根） */
+  baseUrl: string
+  description?: string
+  createdAt: string
+}
+
+export type DeployPackageStatus = 'draft' | 'built' | 'deployed'
+export interface DeployPackageDTO {
+  id: string
+  name: string
+  /** 语义化版本，如 1.0.0 */
+  version: string
+  /** 纳入部署的大屏路由 id 列表（来自 Zustand routes 中 kind==='dashboard'） */
+  screenIds: string[]
+  /** 目标环境 id */
+  envId: string
+  /** 目标环境名称（冗余存储，避免联表） */
+  envName: string
+  /** 数据源环境级绑定：dsId -> 该环境下 endpoint（覆盖默认，实现多环境一套大屏多套配置） */
+  datasourceBindings: Record<string, string>
+  /** 是否将全局变量打包进产物（实现模块间数据互通） */
+  includeGlobalVars: boolean
+  status: DeployPackageStatus
+  createdAt: string
+  createdBy: string
+}
+
+export type DeployStatus = 'building' | 'success' | 'failed'
+export interface DeployRecordDTO {
+  id: string
+  packageId: string
+  packageName: string
+  version: string
+  envId: string
+  envName: string
+  screenName?: string
+  status: DeployStatus
+  deployedAt: string
+  deployedBy: string
+  /** 产物地址（企业场景通常为 CDN / 对象存储 / 静态站点 URL） */
+  artifactUrl?: string
+  log: string[]
+}
 export interface UserDTO {
   id: string
   name: string

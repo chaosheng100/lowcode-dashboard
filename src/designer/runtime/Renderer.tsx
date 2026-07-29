@@ -1,17 +1,59 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import WidgetRenderer from '../widgets/WidgetRenderer'
 import { useFitScale } from '../editor/useFitScale'
 import { bgImageStyle } from '../editor/background'
-import type { ComponentInstance, Filter, RouteConfig } from '../../data/types'
+import { createEventBus, dispatchLinks } from './LinkageEngine'
+import { api } from '../../mock'
+import { useApi } from '../../features/useApi'
+import type { ComponentInstance, Filter, LinkageEvent, RouteConfig, WidgetProps } from '../../data/types'
+import type { GlobalVarDTO } from '../../mock/types'
 
 /**
- * 联动引擎（简化声明式）：
- * 交互组件点击数据元素 -> emit({ field, value }) -> 全局 filter
- * 同 filterField 的组件自动按 filter 过滤/高亮。
- * 后续可替换为设计书中的「links 规则表」驱动（源事件 -> 目标动作）。
+ * 全局变量占位解析：将组件文本类属性中的 ${G.name} 替换为全局变量值，
+ * 实现「全局变量 ↔ 大屏组件」的模块间数据互通（全局变量来自 /dev/variables 模块）。
  */
-function LinkageFrame({ component, filter, onPick }: { component: ComponentInstance; filter: Filter | null; onPick: (f: Filter) => void }) {
+function resolveVars(props: WidgetProps, vars: Record<string, string>): WidgetProps {
+  if (!vars || Object.keys(vars).length === 0) return props
+  const apply = (v: unknown): unknown => {
+    if (typeof v !== 'string') return v
+    return v.replace(/\$\{G\.([A-Za-z0-9_]+)\}/g, (_, k) => (k in vars ? vars[k] : '${G.' + k + '}'))
+  }
+  const next: WidgetProps = { ...props }
+  for (const key of Object.keys(props) as (keyof WidgetProps)[]) {
+    // 仅替换字符串型属性（content/title/label/src 等）
+    const val = props[key]
+    if (typeof val === 'string') (next as Record<string, unknown>)[key] = apply(val)
+  }
+  return next
+}
+
+/**
+ * 联动引擎（声明式规则表）：
+ * 交互组件点击 -> emit({ componentId, type:'pick', payload:{field,value} }) ->
+ * 事件总线分发 route.links 中命中「源组件+事件」的规则 -> 对目标执行动作。
+ * 支持动作：setFilter(全局筛选) / clearFilter(清除筛选)。
+ * 同时保留原有「全局 Filter」联动（同 filterField 的组件自动过滤/高亮）。
+ */
+function LinkageFrame({
+  component,
+  filter,
+  onPick,
+  vars,
+  bus
+}: {
+  component: ComponentInstance
+  filter: Filter | null
+  onPick: (f: Filter) => void
+  vars: Record<string, string>
+  bus: ReturnType<typeof createEventBus>
+}) {
+  const resolved = useMemo(() => ({ ...component, props: resolveVars(component.props, vars) }), [component, vars])
+  const handlePick = (f: Filter) => {
+    onPick(f)
+    // 同时向事件总线广播，触发声明式 links 联动
+    bus.emit('pick', { componentId: component.id, type: 'pick', payload: { field: f.field, value: f.value } } as LinkageEvent)
+  }
   return (
     <div
       className="comp-frame"
@@ -24,7 +66,7 @@ function LinkageFrame({ component, filter, onPick }: { component: ComponentInsta
         pointerEvents: 'auto'
       }}
     >
-      <WidgetRenderer component={component} filter={filter} onPick={onPick} />
+      <WidgetRenderer component={resolved} filter={filter} onPick={handlePick} />
     </div>
   )
 }
@@ -35,13 +77,41 @@ export function RouteRenderer({ route }: { route: RouteConfig }) {
   const setFilter = useDesignerStore((state) => state.setFilter)
   const clearFilter = useDesignerStore((state) => state.clearFilter)
   const areaRef = useRef<HTMLDivElement>(null)
-  const { page, components } = route
+  const busRef = useRef<ReturnType<typeof createEventBus>>()
+  if (!busRef.current) busRef.current = createEventBus()
 
-  const scale = useFitScale(areaRef, page)
+  // 加载全局变量（来自 /dev/variables 模块），供 ${G.x} 占位解析
+  const { data: gvData } = useApi(() => api.listVars(), [])
+  const vars = useMemo<Record<string, string>>(() => {
+    const list = (gvData?.list ?? []) as GlobalVarDTO[]
+    const m: Record<string, string> = {}
+    for (const v of list) if (v.kind === 'variable') m[v.name] = v.value
+    return m
+  }, [gvData])
+
+  const scale = useFitScale(areaRef, route.page)
   const onPick = ({ field, value }: Filter) => {
     if (filter && filter.field === field && filter.value === value) clearFilter()
     else setFilter({ field, value })
   }
+
+  // 声明式联动：监听事件总线，分发 route.links 规则
+  useEffect(() => {
+    const bus = busRef.current!
+    const off = bus.on('pick', (payload) => {
+      const event = payload as LinkageEvent
+      const actions = dispatchLinks(route.links, event)
+      for (const a of actions) {
+        if (a.action === 'setFilter') {
+          const p = (a.params || {}) as { field?: string; value?: string }
+          if (p.field != null && p.value != null) setFilter({ field: p.field, value: String(p.value) })
+        } else if (a.action === 'clearFilter') {
+          clearFilter()
+        }
+      }
+    })
+    return off
+  }, [route.links, setFilter, clearFilter])
 
   return (
     <div className="canvas-area">
@@ -49,22 +119,22 @@ export function RouteRenderer({ route }: { route: RouteConfig }) {
         <div
           className="canvas-viewport preview-viewport"
           style={{
-            width: Math.round(page.width * scale),
-            height: Math.round(page.height * scale)
+            width: Math.round(route.page.width * scale),
+            height: Math.round(route.page.height * scale)
           }}
         >
           <div
             className="canvas"
             style={{
-              width: page.width,
-              height: page.height,
-              background: page.background,
+              width: route.page.width,
+              height: route.page.height,
+              background: route.page.background,
               transform: `scale(${scale})`
             }}
           >
-            {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
-            {components.map((component) => (
-              <LinkageFrame key={component.id} component={component} filter={filter} onPick={onPick} />
+            {route.page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(route.page)} />}
+            {route.components.map((component) => (
+              <LinkageFrame key={component.id} component={component} filter={filter} onPick={onPick} vars={vars} bus={busRef.current!} />
             ))}
           </div>
         </div>

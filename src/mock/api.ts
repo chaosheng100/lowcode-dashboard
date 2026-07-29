@@ -23,6 +23,9 @@ import type {
   GlobalVarDTO,
   CodeSnippetDTO,
   CategoryDTO,
+  DeployEnvDTO,
+  DeployPackageDTO,
+  DeployRecordDTO,
   AIModelDTO,
   AIBotDTO,
   TwinModelDTO,
@@ -150,7 +153,23 @@ export const api = {
     mockFetch<CarouselDTO>(body.id ? 'PATCH' : 'POST', `/api/carousels${body.id ? '/' + body.id : ''}`, { body }),
   deleteCarousel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/carousels/${id}`),
   listPlugins: (q: PageQuery = {}) => mockFetch<PageResult<PluginDTO>>('GET', '/api/plugins', { query: q }),
-  togglePlugin: (id: string, installed: boolean) => mockFetch<PluginDTO>('PATCH', `/api/plugins/${id}`, { body: { installed } })
+  togglePlugin: (id: string, installed: boolean) => mockFetch<PluginDTO>('PATCH', `/api/plugins/${id}`, { body: { installed } }),
+
+  // —— 独立部署（企业级）：环境 / 部署包 / 部署记录 ——
+  listDeployEnvs: (q: PageQuery = {}) => mockFetch<PageResult<DeployEnvDTO>>('GET', '/api/deployEnvs', { query: q }),
+  saveDeployEnv: (body: Partial<DeployEnvDTO>) =>
+    mockFetch<DeployEnvDTO>(body.id ? 'PATCH' : 'POST', `/api/deployEnvs${body.id ? '/' + body.id : ''}`, { body }),
+  deleteDeployEnv: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/deployEnvs/${id}`),
+
+  listDeployPackages: (q: PageQuery = {}) => mockFetch<PageResult<DeployPackageDTO>>('GET', '/api/deployPackages', { query: q }),
+  saveDeployPackage: (body: Partial<DeployPackageDTO>) =>
+    mockFetch<DeployPackageDTO>(body.id ? 'PATCH' : 'POST', `/api/deployPackages${body.id ? '/' + body.id : ''}`, { body }),
+  deleteDeployPackage: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/deployPackages/${id}`),
+
+  listDeployRecords: (q: PageQuery = {}) => mockFetch<PageResult<DeployRecordDTO>>('GET', '/api/deployRecords', { query: q }),
+  saveDeployRecord: (body: Partial<DeployRecordDTO>) =>
+    mockFetch<DeployRecordDTO>(body.id ? 'PATCH' : 'POST', `/api/deployRecords${body.id ? '/' + body.id : ''}`, { body }),
+  deleteDeployRecord: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/deployRecords/${id}`)
 }
 
 export type { RequestOptions }

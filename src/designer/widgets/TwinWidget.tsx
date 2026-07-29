@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Slider, Button, Empty } from 'antd'
 import type { WidgetViewProps, Filter } from '../../data/types'
-import { TwinRenderer } from '../../twin/TwinRenderer'
 import { createDemoScene } from '../../twin/sceneFactory'
 import {
   subscribeTwinLive,
@@ -9,35 +8,28 @@ import {
   type TelemetrySample
 } from '../../twin/TwinDataBridge'
 import { createSource } from '../../twin/sources/TwinSource'
-import { TwinSim } from '../../twin/TwinSim'
-import { TwinControlHub } from '../../twin/control'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../../twin/twinRuntimeStore'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
-import { healthToState, STATE_COLORS, CONTROL_LABELS, type TwinEntityState, type ControlAction, type TwinScene } from '../../twin/twinTypes'
+import { STATE_COLORS, CONTROL_LABELS, type ControlAction, type TwinScene } from '../../twin/twinTypes'
+import { TwinSceneView, type TwinSceneViewController, type TwinEntityLive, type TwinSceneViewOptions } from '../../twin/TwinSceneView'
 
 // ============================================================
-// TwinWidget：嵌入数据大屏的「数字孪生组件」（进阶/高级能力落地）
-// 在 MVP 双向联动基础上新增：
-//  - TwinSim 仿真：实时遥测 → 健康指数/RUL/预测状态 → 预测性维护告警（写运行时 store）
-//  - 多源适配：默认 simulated 源，可切换 industrial/bim/gis（经 TwinDataBridge.subscribeTwinSource）
-//  - 闭环控制：选中实体后下发 启停/复位 指令（TwinControlHub → 运行时 store 指令日志）
-//  - What-if 决策沙盘：调参推演产能/能耗/故障风险，结果驱动大屏动态展示
+// TwinWidget：嵌入数据大屏的「数字孪生组件」
+// 复用共享内核 TwinSceneView（与数字孪生模块 TwinPage 同一套渲染/仿真/控制实现），
+// 在此之上叠加：HUD 实体列表、大屏联动（filter → 聚焦/高亮）、What-if 决策沙盘、
+// 多源适配数据源订阅。运行时会话以 component.id 隔离，场景几何来自全局 twinScenes。
 // ============================================================
-
-interface EntityLive extends TelemetrySample {
-  state: TwinEntityState
-}
 
 const CONTROL_ACTIONS: ControlAction[] = ['start', 'stop', 'reset']
 
 export default function TwinWidget({ component, filter, onPick }: WidgetViewProps) {
-  const mountRef = useRef<HTMLDivElement>(null)
-  const rendererRef = useRef<TwinRenderer | null>(null)
   const p = component.props
   const sceneId = (p.sceneId as string) || 'main'
   // 运行时状态按组件实例（component.id）隔离，避免同屏多个孪生组件互相串数据；
   // 场景几何数据仍来自全局 twinScenes，因此多组件可共享同一场景、但各自独立遥测/选中/仿真。
   const instanceId = component.id
+  const filterField = p.filterField || 'entityId'
+
   // 优先使用全局孪生场景库中同 sceneId 的场景，实现大屏组件与数字孪生模块数据互通；
   // 取不到时兜底回演示场景，保证永远有可渲染内容。
   const resolveScene = (id: string): TwinScene => {
@@ -45,11 +37,10 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     return s ?? createDemoScene()
   }
   const sceneRef = useRef<TwinScene>(resolveScene(sceneId))
-  const filterField = p.filterField || 'entityId'
   const rt = useTwinRuntimeStore((s) => s.instances[instanceId]) ?? EMPTY_TWIN_INSTANCE
 
-  const [live, setLive] = useState<Record<string, EntityLive>>(() => {
-    const init: Record<string, EntityLive> = {}
+  const [live, setLive] = useState<Record<string, TwinEntityLive>>(() => {
+    const init: Record<string, TwinEntityLive> = {}
     sceneRef.current.entities.forEach((e) => {
       init[e.id] = {
         temperature: e.metrics?.temperature ?? 0,
@@ -68,136 +59,93 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
   const cbRef = useRef({ onPick, interactive: p.interactive, filterField })
   cbRef.current = { onPick, interactive: p.interactive, filterField }
 
+  // 遥测累积区（数据源订阅只负责填充，渲染/仿真由 TwinSceneView 统一消费）
   const liveRef = useRef<Record<string, TelemetrySample>>({})
-  const simRef = useRef<TwinSim | null>( null)
-  const controlRef = useRef<TwinControlHub | null>(null)
-  if (!controlRef.current) controlRef.current = new TwinControlHub(instanceId)
+  const viewRef = useRef<TwinSceneViewController | null>(null)
 
-  // 确保本实例的运行时会话存在（与全局告警/仿真/选中隔离）
-  useEffect(() => {
-    useTwinRuntimeStore.getState().ensureInstance(instanceId)
-  }, [instanceId])
-
-  // ---- 初始化渲染器（sceneId 变化时重建，使大屏组件与模块场景同源） ----
-  useEffect(() => {
-    const el = mountRef.current
-    if (!el) return
-    const scene = resolveScene(sceneId)
-    sceneRef.current = scene
-    const renderer = new TwinRenderer(el, scene, {
-      lighting: p.lighting === 'night' ? 'night' : 'day',
-      fog: !!p.fog,
-      autoRotate: !!p.autoRotate
-    })
-    renderer.setLabelVisible(p.showLabels !== false)
-    renderer.setClickHandler((id) => {
-      const { onPick, interactive, filterField } = cbRef.current
-      useTwinRuntimeStore.getState().setSelectedEntity(instanceId, id)
-      if (interactive !== false && onPick) onPick({ field: filterField, value: id })
-    })
-    rendererRef.current = renderer
-    simRef.current = new TwinSim(scene.entities)
-    liveRef.current = {}
-
-    const ro = new ResizeObserver(() => renderer.resize())
-    ro.observe(el)
-    return () => {
-      ro.disconnect()
-      renderer.dispose()
-      rendererRef.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneId])
-
-  // ---- 实时遥测：多源适配 or liveClient，并驱动孪生体状态 ----
+  // 数据源订阅：仅负责把遥测写入 liveRef（实时性由 source 节奏决定，仿真/渲染由内核统一消费）
   useEffect(() => {
     const entities = sceneRef.current.entities
-    const apply = (id: string, sample: TelemetrySample) => {
-      const state = healthToState(sample.health, sample.temperature)
-      rendererRef.current?.setEntityState(id, state)
-      setLive((m) => ({ ...m, [id]: { ...sample, state } }))
-      liveRef.current[id] = sample
-    }
-
     let stopSim: (() => void) | undefined
     let stopLive: (() => void) | undefined
 
     if (p.liveSourceId) {
-      stopLive = subscribeTwinLive(p.liveSourceId, entities, apply, p.liveIntervalMs ?? 2000)
+      stopLive = subscribeTwinLive(p.liveSourceId, entities, (id, sample) => { liveRef.current[id] = sample }, p.liveIntervalMs ?? 2000)
     } else {
       const sourceKind = (p.sourceKind as 'simulated' | 'industrial' | 'bim' | 'gis') || 'simulated'
       const source = createSource(sourceKind, entities)
       useTwinRuntimeStore.getState().setSourceStatus(instanceId, source.status())
-      stopSim = subscribeTwinSource(source, entities, apply, 1500)
+      stopSim = subscribeTwinSource(source, entities, (id, sample) => { liveRef.current[id] = sample }, 1500)
     }
-
-    // ---- 仿真 tick：把实时遥测算出预测 + 预测性维护告警，写入运行时 store ----
-    const simTimer = setInterval(() => {
-      if (!simRef.current) return
-      const res = simRef.current.tick(liveRef.current)
-      useTwinRuntimeStore.getState().setPredictions(instanceId, res.predictions)
-      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(instanceId, a))
-    }, 2000)
 
     return () => {
       stopSim?.()
       stopLive?.()
-      clearInterval(simTimer)
     }
-  }, [sceneId, p.liveSourceId, p.liveIntervalMs, p.sourceKind])
-
-  // ---- 属性变更 → 渲染器 ----
-  useEffect(() => { rendererRef.current?.setLighting(p.lighting === 'night' ? 'night' : 'day') }, [p.lighting])
-  useEffect(() => { rendererRef.current?.setFog(!!p.fog) }, [p.fog])
-  useEffect(() => { rendererRef.current?.setAutoRotate(!!p.autoRotate) }, [p.autoRotate])
-  useEffect(() => { rendererRef.current?.setLabelVisible(p.showLabels !== false) }, [p.showLabels])
+  }, [sceneId, p.liveSourceId, p.liveIntervalMs, p.sourceKind, instanceId])
 
   // ---- 下行联动：大屏筛选 → 聚焦/高亮孪生体 ----
   useEffect(() => {
-    const r = rendererRef.current
-    if (!r) return
     const f = filter as Filter | null | undefined
     if (f && f.field === filterField && f.value) {
-      r.highlightEntity(f.value, 'warn')
-      r.focusEntity(f.value)
+      viewRef.current?.focus(f.value, 'warn')
       useTwinRuntimeStore.getState().setSelectedEntity(instanceId, f.value)
     } else {
-      r.highlightEntity(null)
+      viewRef.current?.highlight(null)
     }
-  }, [filter, filterField])
+  }, [filter, filterField, instanceId])
 
-  const onHudClick = (id: string) => {
+  // 渲染器点击/选中（HUD 点击同一入口）→ 更新实例选中态 + 大屏联动
+  const handleSelect = (id: string | null) => {
+    const { onPick, interactive, filterField } = cbRef.current
     useTwinRuntimeStore.getState().setSelectedEntity(instanceId, id)
-    if (p.interactive !== false && onPick) onPick({ field: filterField, value: id })
+    if (interactive !== false && onPick && id) onPick({ field: filterField, value: id })
   }
 
-  // ---- What-if 决策沙盘：推演 ----
+  // ---- What-if 决策沙盘：推演（仿真能力由内核提供） ----
   const runWhatIf = () => {
-    if (!simRef.current) return
-    const res = simRef.current.runWhatIf({
+    const res = viewRef.current?.runWhatIf({
       speed: scenario.speed,
       targetOutput: scenario.targetOutput,
       energyBudget: scenario.energyBudget,
       maintenanceHours: scenario.maintenanceHours
     })
+    if (!res) return
     setWhatIfLocal(res)
     useTwinRuntimeStore.getState().setWhatIf(instanceId, scenario, res)
   }
 
-  // ---- 闭环控制：下发指令 ----
+  // ---- 闭环控制：下发指令（控制能力由内核提供） ----
   const dispatchControl = async (action: ControlAction) => {
     const id = rt.selectedEntityId
     const ent = sceneRef.current.entities.find((e) => e.id === id)
     if (!ent) return
-    await controlRef.current?.dispatch(ent, action)
+    await viewRef.current?.dispatchControl(ent, action)
   }
 
   const selectedEntity = rt.selectedEntityId ? sceneRef.current?.entities.find((e) => e.id === rt.selectedEntityId) : null
   const pred = rt.selectedEntityId ? rt.predictions[rt.selectedEntityId] : undefined
 
+  const options: TwinSceneViewOptions = {
+    lighting: p.lighting === 'night' ? 'night' : 'day',
+    fog: !!p.fog,
+    autoRotate: !!p.autoRotate,
+    showLabels: p.showLabels !== false
+  }
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#05080f', overflow: 'hidden' }}>
-      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      <TwinSceneView
+        ref={viewRef}
+        key={sceneId}
+        scene={sceneRef.current}
+        instanceId={instanceId}
+        options={options}
+        getTelemetry={() => liveRef.current}
+        simIntervalMs={2000}
+        onSelectEntity={handleSelect}
+        onTelemetry={setLive}
+      />
 
       {p.showHud !== false && (
         <div style={{ position: 'absolute', top: 6, left: 8, right: 8, pointerEvents: 'none' }}>
@@ -216,7 +164,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
               return (
                 <div
                   key={e.id}
-                  onClick={() => onHudClick(e.id)}
+                  onClick={() => handleSelect(e.id)}
                   style={{
                     pointerEvents: 'auto',
                     cursor: 'pointer',

@@ -1,135 +1,332 @@
-﻿import { useState } from "react"
-import { Button } from "antd"
-import { useDesignerStore } from "../data/store/useDesignerStore"
-import { useApi } from "./useApi"
-import { api } from "../mock"
-import { Stat } from "./common"
-import { openPreviewWindow } from "../designer/window"
+﻿import { useMemo, useState } from 'react'
+import {
+  Tabs, Table, Button, Modal, Input, Select, Switch, Tag, Popconfirm, Space, Card, App, Empty
+} from 'antd'
+import { useDesignerStore } from '../data/store/useDesignerStore'
+import { useApi } from './useApi'
+import { api } from '../mock'
+import { buildStandaloneHtml, type StandalonePayload } from './standaloneBuilder'
+import type { DeployEnvDTO, DeployPackageDTO, DeployRecordDTO, DataSourceDTO, GlobalVarDTO } from '../mock/types'
 
-function download(filename: string, content: string, type = "application/json") {
+function download(filename: string, content: string, type = 'application/json') {
   const blob = new Blob([content], { type })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
+  const a = document.createElement('a')
   a.href = url
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
 }
 
-function buildStandaloneHtml(projectJson: string, dashboardCount: number): string {
-  const style = "body{margin:0;background:#0a0e1a;color:#e6edf3;font-family:system-ui,sans-serif}"
-    + ".header{padding:16px 24px;background:#0d1420;border-bottom:1px solid #1a2433}"
-    + ".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:24px}"
-    + ".card{background:#0d1420;border:1px solid #1a2433;border-radius:10px;padding:16px}"
-    + ".muted{color:#9fb0c3;font-size:13px}"
-    + ".badge{display:inline-block;padding:2px 8px;border-radius:4px;background:#1e3a5f;color:#7dd3fc;font-size:11px;margin-bottom:6px}"
-    + ".comp-list{margin-top:8px;display:flex;flex-wrap:wrap;gap:4px}"
-    + ".comp-tag{padding:2px 6px;border-radius:3px;background:#132033;font-size:10px;color:#9fb0c3}"
-  const script = "var P=__PROJECT__;var typeNames={text:'文本',metric:'指标卡',barChart:'柱状图',lineChart:'折线图',pieChart:'饼图',table:'表格',container:'容器',image:'图片',echartLine:'ECharts折线',echartBar:'ECharts柱状',echartPie:'ECharts饼图',echartGauge:'ECharts仪表盘',echartRadar:'ECharts雷达',echartCustom:'ECharts自定义'};document.getElementById('app').innerHTML=P.routes.filter(function(r){return r.kind==='dashboard'}).map(function(r){var comps=r.components.map(function(c){return '<span class=\"comp-tag\">'+(typeNames[c.type]||c.type)+'</span>'}).join('');return '<div class=\"card\"><span class=\"badge\">大屏</span><b>'+r.name+'</b><div class=\"muted\">'+r.components.length+' 个组件 · 更新 '+r.updatedAt+'</div><div class=\"comp-list\">'+comps+'</div></div>'}).join('');"
-  return '<!DOCTYPE html>\n<html lang="zh-CN"><head><meta charset="UTF-8"/>\n<title>数据大屏 · 独立部署</title>\n'
-    + "<style>" + style + "</style></head>\n<body><div class=\"header\"><h2>数据大屏平台 · 独立部署导出</h2>\n"
-    + '<p class="muted">共 ' + dashboardCount + ' 个大屏 · 本文件由「独立部署」一键导出</p></div>\n'
-    + '<div class="grid" id="app"></div>\n'
-    + "<script>var __PROJECT__=" + projectJson + ";\n" + script + "\n</script>\n</body></html>"
-}
+const ENV_COLOR: Record<string, string> = { dev: '#22d3ee', test: '#facc15', prod: '#4ade80' }
+const STATUS_COLOR: Record<string, string> = { draft: 'default', built: 'blue', deployed: 'green' }
+const REC_COLOR: Record<string, string> = { building: 'gold', success: 'green', failed: 'red' }
+const REC_LABEL: Record<string, string> = { building: '构建中', success: '成功', failed: '失败' }
 
 export default function DeployPage() {
   const routes = useDesignerStore((s) => s.routes)
-  const updateRoute = useDesignerStore((s) => s.updateRoute)
   const exportProject = useDesignerStore((s) => s.exportProject)
-  const { data: ds } = useApi(() => api.listDataSources({ pageSize: 50 }), [])
-  const [log, setLog] = useState<string[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [deploying, setDeploying] = useState(false)
+  const { message } = App.useApp()
 
-  const push = (m: string) => setLog((l) => [...l, `[${new Date().toLocaleTimeString("zh-CN")}] ${m}`])
+  const dashboards = useMemo(() => routes.filter((r) => r.kind === 'dashboard'), [routes])
 
-  const dashboards = routes.filter((r) => r.kind === "dashboard")
+  const { data: envData, reload: reloadEnv } = useApi(() => api.listDeployEnvs(), [])
+  const { data: pkgData, reload: reloadPkg } = useApi(() => api.listDeployPackages(), [])
+  const { data: recData, reload: reloadRec } = useApi(() => api.listDeployRecords(), [])
+  const { data: dsData } = useApi(() => api.listDataSources({ pageSize: 100 }), [])
+  const { data: gvData } = useApi(() => api.listVars(), [])
 
-  const deployDashboard = async (id: string) => {
-    const route = dashboards.find((r) => r.id === id)
-    if (!route) return
-    setDeploying(true)
-    setActiveId(id)
-    const now = new Date().toISOString()
-    updateRoute(id, { state: { ...route.state, deployInfo: { deployedAt: now, deployedBy: "当前用户" } } })
-    push(`已部署大屏「${route.name}」(${route.components.length} 组件)`)
-    setDeploying(false)
+  const envs: DeployEnvDTO[] = envData?.list ?? []
+  const pkgs: DeployPackageDTO[] = pkgData?.list ?? []
+  const recs: DeployRecordDTO[] = recData?.list ?? []
+  const dataSources: DataSourceDTO[] = dsData?.list ?? []
+  const globalVars: GlobalVarDTO[] = gvData?.list ?? []
+
+  const envName = (id: string) => envs.find((e) => e.id === id)?.name ?? id
+
+  // ---------- 构建独立产物 payload（聚合大屏 + 数据源 + 全局变量）----------
+  const buildPayload = (
+    screenIds: string[],
+    envId: string,
+    includeGlobalVars: boolean,
+    bindings: Record<string, string>,
+    title: string
+  ): StandalonePayload => {
+    const screens = routes.filter((r) => r.kind === 'dashboard' && screenIds.includes(r.id))
+    const gvMap: Record<string, string> = {}
+    if (includeGlobalVars) for (const v of globalVars) if (v.kind === 'variable') gvMap[v.name] = v.value
+    const dsMap: Record<string, { kind: string; endpoint: string }> = {}
+    for (const ds of dataSources) dsMap[ds.id] = { kind: ds.kind, endpoint: bindings[ds.id] || ds.endpoint }
+    const env = envs.find((e) => e.id === envId)
+    return {
+      title,
+      screens,
+      globalVars: gvMap,
+      dataSources: dsMap,
+      env: { name: env?.name || '默认环境', baseUrl: env?.baseUrl || '' }
+    }
   }
 
-  const exportJson = () => { download("dashboard-project.json", JSON.stringify(exportProject(), null, 2)); push("已导出项目 JSON") }
-  const exportHtml = () => {
-    const p = exportProject()
-    download("dashboard-standalone.html", buildStandaloneHtml(JSON.stringify(p), p.routes.filter((r) => r.kind === "dashboard").length), "text/html")
-    push("已导出独立静态页面")
+  const exportStandalone = (screenIds: string[], envId: string, includeGlobalVars: boolean, bindings: Record<string, string>, title: string) => {
+    const html = buildStandaloneHtml(buildPayload(screenIds, envId, includeGlobalVars, bindings, title))
+    download(`standalone-${title || 'dashboard'}.html`, html, 'text/html')
+    message.success('已导出可独立运行的 HTML 大屏')
   }
-  const exportDs = () => { download("datasource-config.json", JSON.stringify(ds?.list ?? [], null, 2)); push("已导出数据源配置") }
-  const buildCli = () => {
-    const screens = exportProject().routes.filter((r) => r.kind === "dashboard").map((r) => r.path)
-    const script = ["#!/bin/bash", "# 大屏批量构建脚本（由「独立部署」页一键生成）", "set -e", "", "npm run build", "",
-      ...screens.map((s) => `# npm run build -- --screen=${s}`), "", 'echo "✅ 构建完成，产物位于 dist/"'].join("\n")
-    download("build-screens.sh", script, "text/x-shellscript")
-    push(`已生成构建脚本 build-screens.sh（含 ${screens.length} 个大屏）`)
+
+  // ---------- 环境管理 ----------
+  const [envModal, setEnvModal] = useState<{ open: boolean; edit?: DeployEnvDTO }>({ open: false })
+  const [envForm, setEnvForm] = useState<Partial<DeployEnvDTO>>({})
+  const openEnvModal = (edit?: DeployEnvDTO) => {
+    setEnvForm(edit ? { ...edit } : { name: '', kind: 'dev', baseUrl: '', description: '' })
+    setEnvModal({ open: true, edit })
   }
+  const saveEnv = async () => {
+    if (!envForm.name || !envForm.baseUrl) { message.warning('请填写名称与目标地址'); return }
+    await api.saveDeployEnv({ ...envForm, createdAt: envForm.createdAt || new Date().toISOString().slice(0, 10) })
+    setEnvModal({ open: false })
+    reloadEnv()
+    message.success('环境已保存')
+  }
+
+  // ---------- 部署包 ----------
+  const [pkgModal, setPkgModal] = useState(false)
+  const [pkgForm, setPkgForm] = useState<{
+    name: string; version: string; screenIds: string[]; envId: string; includeGlobalVars: boolean; bindings: Record<string, string>
+  }>({ name: '', version: '1.0.0', screenIds: [], envId: envs[0]?.id || '', includeGlobalVars: true, bindings: {} })
+  const openPkgModal = () => {
+    const bindings: Record<string, string> = {}
+    for (const ds of dataSources) bindings[ds.id] = ds.endpoint
+    setPkgForm({ name: '', version: '1.0.0', screenIds: [], envId: envs[0]?.id || '', includeGlobalVars: true, bindings })
+    setPkgModal(true)
+  }
+  const savePkg = async () => {
+    if (!pkgForm.name || !pkgForm.screenIds.length || !pkgForm.envId) { message.warning('请填写名称、选择大屏与环境'); return }
+    await api.saveDeployPackage({
+      name: pkgForm.name, version: pkgForm.version, screenIds: pkgForm.screenIds, envId: pkgForm.envId,
+      envName: envName(pkgForm.envId), datasourceBindings: pkgForm.bindings, includeGlobalVars: pkgForm.includeGlobalVars,
+      status: 'draft', createdAt: new Date().toISOString().slice(0, 10), createdBy: '当前用户'
+    })
+    setPkgModal(false)
+    reloadPkg()
+    message.success('部署包已创建')
+  }
+
+  // ---------- 部署（模拟构建 + 写记录 + 联动状态）----------
+  const deploy = async (pkg: DeployPackageDTO) => {
+    const env = envs.find((e) => e.id === pkg.envId)
+    const created = (await api.saveDeployRecord({
+      packageId: pkg.id, packageName: pkg.name, version: pkg.version, envId: pkg.envId, envName: pkg.envName,
+      status: 'building', deployedAt: new Date().toISOString(), deployedBy: '当前用户',
+      log: ['开始构建产物...', '聚合大屏 ' + pkg.screenIds.length + ' 个 / 数据源 ' + Object.keys(pkg.datasourceBindings).length + ' 个' + (pkg.includeGlobalVars ? ' / 全局变量' : '')]
+    })).data
+    message.info(`正在向「${pkg.envName}」部署 ${pkg.name} ...`)
+    setTimeout(async () => {
+      await api.saveDeployRecord({
+        id: created.id, status: 'success',
+        log: [...created.log, '产物已发布至 ' + (env?.baseUrl || '目标地址'), '部署完成 ✓']
+      })
+      await api.saveDeployPackage({ id: pkg.id, status: 'deployed' })
+      reloadRec(); reloadPkg()
+      message.success(`${pkg.name} 部署成功`)
+    }, 1200)
+  }
+
+  // ---------- 导出 / 构建脚本 ----------
+  const [exportPkg, setExportPkg] = useState<string>(pkgs[0]?.id || '')
+  const buildCli = (pkg?: DeployPackageDTO) => {
+    const p = pkg || pkgs.find((x) => x.id === exportPkg)
+    if (!p) { message.warning('请先选择部署包'); return }
+    const env = envs.find((e) => e.id === p.envId)
+    const screens = routes.filter((r) => r.kind === 'dashboard' && p.screenIds.includes(r.id))
+    const lines = [
+      '#!/bin/bash',
+      `# 独立部署构建脚本 · 包：${p.name}@${p.version}`,
+      `# 目标环境：${p.envName}（${env?.baseUrl || ''}）`,
+      'set -e', '', 'echo "▶ 安装依赖"', 'npm ci', '',
+      'echo "▶ 构建大屏产物"',
+      ...screens.map((s) => `npm run build -- --screen=${s.path}`),
+      '', 'echo "▶ 推送至 ' + (env?.baseUrl || '目标环境') + '"',
+      '# rsync -az dist/ ' + (env?.baseUrl || 'user@host:/var/www/bi') + '/',
+      '', 'echo "✅ 部署完成"'
+    ]
+    download(`build-${p.name}.sh`, lines.join('\n'), 'text/x-shellscript')
+    message.success('已生成构建脚本')
+  }
+
+  // ---------- 日志查看 ----------
+  const [logModal, setLogModal] = useState<DeployRecordDTO | null>(null)
+
+  // ====================== 视图 ======================
+  const overview = (
+    <div className="grid2" style={{ padding: 16, gap: 16 }}>
+      <Card><div className="fp-sub">可部署大屏</div><div style={{ fontSize: 28, fontWeight: 800, color: '#00d4ff' }}>{dashboards.length}</div></Card>
+      <Card><div className="fp-sub">已部署包</div><div style={{ fontSize: 28, fontWeight: 800, color: '#4ade80' }}>{pkgs.filter((p) => p.status === 'deployed').length}</div></Card>
+      <Card><div className="fp-sub">部署环境</div><div style={{ fontSize: 28, fontWeight: 800, color: '#22d3ee' }}>{envs.length}</div></Card>
+      <Card><div className="fp-sub">最近部署</div><div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{recs[0]?.packageName || '—'}</div><div className="fp-sub">{recs[0] ? new Date(recs[0].deployedAt).toLocaleString('zh-CN') : '暂无记录'}</div></Card>
+      <Card style={{ gridColumn: '1 / -1' }}>
+        <div className="fp-sub" style={{ marginBottom: 8 }}>说明</div>
+        <div style={{ color: '#9aa7b4', fontSize: 13, lineHeight: 1.8 }}>
+          企业级独立部署聚合「大屏 + 数据源 + 数据集 + 全局变量」多模块数据，支持多环境（开发/测试/生产）一套大屏多套配置；
+          导出的独立 HTML 为<strong style={{ color: '#e6edf3' }}>真实可运行</strong>的大屏产物，内置全局变量解析与点击联动（与平台内大屏同源联动）。
+        </div>
+      </Card>
+    </div>
+  )
+
+  const envTab = (
+    <div style={{ padding: 16 }}>
+      <Space style={{ marginBottom: 12 }}>
+        <Button type="primary" onClick={() => openEnvModal()}>新增环境</Button>
+      </Space>
+      <Table<DeployEnvDTO>
+        rowKey="id" dataSource={envs} pagination={false}
+        columns={[
+          { title: '名称', dataIndex: 'name' },
+          { title: '类型', dataIndex: 'kind', render: (k: string) => <Tag color={ENV_COLOR[k]}>{k}</Tag> },
+          { title: '目标地址', dataIndex: 'baseUrl', ellipsis: true },
+          { title: '说明', dataIndex: 'description', ellipsis: true },
+          { title: '操作', width: 160, render: (_, r) => (
+            <Space>
+              <Button size="small" onClick={() => openEnvModal(r)}>编辑</Button>
+              <Popconfirm title="确认删除该环境？" onConfirm={async () => { await api.deleteDeployEnv(r.id); reloadEnv(); message.success('已删除') }}>
+                <Button size="small" danger>删除</Button>
+              </Popconfirm>
+            </Space>
+          ) }
+        ]}
+      />
+    </div>
+  )
+
+  const pkgTab = (
+    <div style={{ padding: 16 }}>
+      <Space style={{ marginBottom: 12 }}>
+        <Button type="primary" onClick={openPkgModal}>新建部署包</Button>
+      </Space>
+      <Table<DeployPackageDTO>
+        rowKey="id" dataSource={pkgs} pagination={false} locale={{ emptyText: <Empty description="暂无部署包，点击「新建部署包」" /> }}
+        columns={[
+          { title: '名称', dataIndex: 'name' },
+          { title: '版本', dataIndex: 'version', width: 90 },
+          { title: '大屏数', render: (_, r) => r.screenIds.length, width: 80 },
+          { title: '环境', dataIndex: 'envName', render: (v) => <Tag color={ENV_COLOR[envs.find((e) => e.name === v)?.kind || 'dev']}>{v}</Tag> },
+          { title: '全局变量', dataIndex: 'includeGlobalVars', render: (b: boolean) => b ? <Tag color="green">包含</Tag> : <Tag>不含</Tag>, width: 90 },
+          { title: '状态', dataIndex: 'status', render: (s: string) => <Tag color={STATUS_COLOR[s]}>{s}</Tag>, width: 90 },
+          { title: '操作', width: 280, render: (_, r) => (
+            <Space>
+              <Button size="small" type="primary" onClick={() => deploy(r)}>部署</Button>
+              <Button size="small" onClick={() => exportStandalone(r.screenIds, r.envId, r.includeGlobalVars, r.datasourceBindings, r.name)}>导出 HTML</Button>
+              <Popconfirm title="确认删除该部署包？" onConfirm={async () => { await api.deleteDeployPackage(r.id); reloadPkg(); message.success('已删除') }}>
+                <Button size="small" danger>删除</Button>
+              </Popconfirm>
+            </Space>
+          ) }
+        ]}
+      />
+    </div>
+  )
+
+  const recTab = (
+    <div style={{ padding: 16 }}>
+      <Table<DeployRecordDTO>
+        rowKey="id" dataSource={recs} pagination={{ pageSize: 8 }} locale={{ emptyText: <Empty description="暂无部署记录" /> }}
+        columns={[
+          { title: '部署包', dataIndex: 'packageName' },
+          { title: '版本', dataIndex: 'version', width: 90 },
+          { title: '环境', dataIndex: 'envName', width: 100 },
+          { title: '状态', dataIndex: 'status', width: 90, render: (s: string) => <Tag color={REC_COLOR[s]}>{REC_LABEL[s]}</Tag> },
+          { title: '操作人', dataIndex: 'deployedBy', width: 100 },
+          { title: '部署时间', dataIndex: 'deployedAt', width: 170, render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+          { title: '操作', width: 200, render: (_, r) => (
+            <Space>
+              <Button size="small" onClick={() => setLogModal(r)}>日志</Button>
+              <Button size="small" onClick={() => { const p = pkgs.find((x) => x.id === r.packageId); if (p) deploy(p); else message.warning('原部署包已删除') }}>重新部署</Button>
+            </Space>
+          ) }
+        ]}
+      />
+    </div>
+  )
+
+  const exportTab = (
+    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
+      <div className="fp-sub">选择部署包（决定导出内容与环境绑定）</div>
+      <Select value={exportPkg} onChange={setExportPkg} style={{ width: '100%' }} options={pkgs.map((p) => ({ value: p.id, label: `${p.name}@${p.version}` }))} placeholder="选择部署包" />
+      <Space wrap>
+        <Button onClick={() => { download('dashboard-project.json', JSON.stringify(exportProject(), null, 2)); message.success('已导出项目 JSON') }}>导出项目 JSON</Button>
+        <Button onClick={() => {
+          const p = pkgs.find((x) => x.id === exportPkg)
+          const cfg = p ? { package: p.name, env: p.envName, bindings: p.datasourceBindings } : { bindings: Object.fromEntries(dataSources.map((d) => [d.id, d.endpoint])) }
+          download('datasource-config.json', JSON.stringify(cfg, null, 2)); message.success('已导出数据源配置')
+        }}>导出数据源配置</Button>
+        <Button type="primary" onClick={() => {
+          const p = pkgs.find((x) => x.id === exportPkg)
+          if (!p) { message.warning('请先选择或新建部署包'); return }
+          exportStandalone(p.screenIds, p.envId, p.includeGlobalVars, p.datasourceBindings, p.name)
+        }}>导出独立 HTML（真实大屏）</Button>
+        <Button onClick={() => buildCli()}>生成构建脚本</Button>
+      </Space>
+      <div className="fp-sub" style={{ marginTop: 8, color: '#7889a3' }}>
+        提示：独立 HTML 内置原生运行态，浏览器直接打开即为真实可交互大屏，支持全局变量 ${'{G.x}'} 解析与点击联动；图表优先加载 ECharts CDN，离线自动降级为 SVG。
+      </div>
+    </div>
+  )
 
   return (
     <div className="mg">
       <div className="mg-toolbar">
         <div className="mg-title">独立部署</div>
-        <span className="fp-sub" style={{ margin: 0 }}>选择大屏进行部署，或一键导出部署包</span>
+        <span className="fp-sub" style={{ margin: 0 }}>企业级：多环境 · 部署包 · 构建发布 · 与数据大屏联动</span>
       </div>
-      <div className="flex" style={{ padding: "12px 16px", gap: 12 }}>
-        <Stat label="可部署大屏" value={dashboards.length} accent="#4f8cff" />
-        <Stat label="已部署" value={dashboards.filter((d) => d.state.deployInfo).length} accent="#4ade80" />
-        <Stat label="数据源" value={ds?.list.length ?? 0} accent="#22d3ee" />
-      </div>
-      <div className="mg-grid">
-        {dashboards.map((d) => {
-          const deployed = Boolean(d.state.deployInfo)
-          const info = d.state.deployInfo as { deployedAt?: string; deployedBy?: string } | undefined
-          return (
-            <div className="mg-card" key={d.id} onClick={() => setActiveId(d.id)}>
-              <div className="mg-thumb" style={d.thumbnail?.startsWith("data:")
-                ? { backgroundImage: `url("${d.thumbnail}")`, backgroundSize: "cover", backgroundPosition: "center" }
-                : { background: d.thumbnail || "#10243b" }}>
-                <span className="mg-badge" style={deployed ? { background: "#16a34a", color: "#fff" } : undefined}>
-                  {deployed ? "已部署" : "大屏"}
-                </span>
-              </div>
-              <div className="mg-info">
-                <div className="mg-name" title={d.name}>{d.name}</div>
-                <div className="mg-meta">组件数：{d.components.length}</div>
-                {deployed && <div className="mg-meta" style={{ color: "#4ade80" }}>部署时间：{info?.deployedAt?.slice(0, 16).replace("T", " ")}</div>}
-                <div className="mg-open-row">
-                  <Button type={deployed ? "default" : "primary"} size="small" loading={deploying && activeId === d.id}
-                    onClick={(e) => { e.stopPropagation(); deployDashboard(d.id) }}>
-                    {deployed ? "重新部署" : "部署 →"}
-                  </Button>
-                  <Button size="small" onClick={(e) => { e.stopPropagation(); openPreviewWindow(d.id) }}>预览</Button>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-        {!dashboards.length && <div className="empty-tip">暂无可部署的大屏</div>}
-      </div>
+      <Tabs
+        defaultActiveKey="overview"
+        items={[
+          { key: 'overview', label: '概览', children: overview },
+          { key: 'env', label: `环境管理 (${envs.length})`, children: envTab },
+          { key: 'pkg', label: `部署包 (${pkgs.length})`, children: pkgTab },
+          { key: 'rec', label: `部署记录 (${recs.length})`, children: recTab },
+          { key: 'export', label: '导出 / 构建', children: exportTab }
+        ]}
+      />
 
-      <div className="grid2" style={{ padding: 16 }}>
-        <div className="card">
-          <b style={{ color: "#e6edf3" }}>导出 / 构建{activeId ? ` · ${routes.find((r) => r.id === activeId)?.name ?? ""}` : ""}</b>
-          <div className="fp-toolbar" style={{ flexDirection: "column", alignItems: "stretch", marginTop: 10 }}>
-            <Button onClick={exportJson}>导出项目 JSON</Button>
-            <Button onClick={exportHtml}>导出独立 HTML 页面</Button>
-            <Button onClick={exportDs}>导出数据源配置</Button>
-            <Button onClick={buildCli}>生成命令行批量构建</Button>
+      {/* 环境编辑弹窗 */}
+      <Modal title={envModal.edit ? '编辑环境' : '新增环境'} open={envModal.open} onOk={saveEnv} onCancel={() => setEnvModal({ open: false })} okText="保存" cancelText="取消">
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Input placeholder="环境名称" value={envForm.name} onChange={(e) => setEnvForm({ ...envForm, name: e.target.value })} />
+          <Select value={envForm.kind} style={{ width: '100%' }} onChange={(v) => setEnvForm({ ...envForm, kind: v })} options={[{ value: 'dev', label: '开发 dev' }, { value: 'test', label: '测试 test' }, { value: 'prod', label: '生产 prod' }]} />
+          <Input placeholder="目标地址，如 https://bi.example.com" value={envForm.baseUrl} onChange={(e) => setEnvForm({ ...envForm, baseUrl: e.target.value })} />
+          <Input.TextArea placeholder="说明（可选）" value={envForm.description} onChange={(e) => setEnvForm({ ...envForm, description: e.target.value })} />
+        </Space>
+      </Modal>
+
+      {/* 部署包新建弹窗 */}
+      <Modal title="新建部署包" open={pkgModal} onOk={savePkg} onCancel={() => setPkgModal(false)} okText="创建" cancelText="取消" width={640}>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Input placeholder="部署包名称" value={pkgForm.name} onChange={(e) => setPkgForm({ ...pkgForm, name: e.target.value })} />
+          <Input placeholder="版本号，如 1.0.0" value={pkgForm.version} onChange={(e) => setPkgForm({ ...pkgForm, version: e.target.value })} />
+          <Select mode="multiple" placeholder="选择纳入部署的大屏" style={{ width: '100%' }} value={pkgForm.screenIds} onChange={(v) => setPkgForm({ ...pkgForm, screenIds: v })} options={dashboards.map((d) => ({ value: d.id, label: d.name }))} />
+          <Select placeholder="目标环境" style={{ width: '100%' }} value={pkgForm.envId || undefined} onChange={(v) => setPkgForm({ ...pkgForm, envId: v })} options={envs.map((e) => ({ value: e.id, label: `${e.name}（${e.kind}）` }))} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Switch checked={pkgForm.includeGlobalVars} onChange={(v) => setPkgForm({ ...pkgForm, includeGlobalVars: v })} />
+            <span>打包全局变量（实现模块间数据互通）</span>
           </div>
-        </div>
-        <div className="card">
-          <b style={{ color: "#e6edf3" }}>执行日志</b>
-          <pre style={{ background: "#0b111b", padding: 12, borderRadius: 8, fontSize: 12.5, color: "#4ade80", overflow: "auto", maxHeight: 220, margin: "10px 0 0" }}>
-{`# 命令行批量构建示例\nnpm run build -- --screen=all\n${log.join("\n") || "（点击左侧按钮触发导出 / 构建）"}`}</pre>
-        </div>
-      </div>
+          <div className="fp-sub">数据源环境级绑定（覆盖默认 endpoint，实现多环境多套配置）</div>
+          <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid rgba(42,66,108,.35)', borderRadius: 8, padding: 8 }}>
+            {dataSources.map((ds) => (
+              <div key={ds.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ width: 160, color: '#9aa7b4', fontSize: 12 }}>{ds.name}</span>
+                <Input size="small" value={pkgForm.bindings[ds.id]} onChange={(e) => setPkgForm({ ...pkgForm, bindings: { ...pkgForm.bindings, [ds.id]: e.target.value } })} />
+              </div>
+            ))}
+          </div>
+        </Space>
+      </Modal>
+
+      {/* 日志弹窗 */}
+      <Modal title="部署日志" open={!!logModal} onOk={() => setLogModal(null)} onCancel={() => setLogModal(null)} footer={<Button onClick={() => setLogModal(null)}>关闭</Button>}>
+        <pre style={{ background: '#0b111b', padding: 12, borderRadius: 8, fontSize: 12.5, color: '#4ade80', maxHeight: 320, overflow: 'auto' }}>
+{(logModal?.log || []).join('\n')}</pre>
+      </Modal>
     </div>
   )
 }

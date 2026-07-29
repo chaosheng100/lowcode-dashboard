@@ -33,7 +33,10 @@ import {
   dataEntries,
   workflows,
   carousels,
-  plugins
+  plugins,
+  deployEnvs,
+  deployPackages,
+  deployRecords
 } from './seed'
 
 const DEFAULT_DELAY = 320
@@ -120,6 +123,9 @@ const handlers: Record<string, Handler> = {
   ...crud('carousels', carousels),
   ...crud('plugins', plugins),
   ...crud('reports', reports),
+  ...crud('deployEnvs', deployEnvs),
+  ...crud('deployPackages', deployPackages),
+  ...crud('deployRecords', deployRecords),
 
   'GET /api/dashboards': ({ query }) =>
     paginate(dashboards, query, (d, kw) => d.name.includes(kw) || d.ownerName.includes(kw)),

@@ -29,6 +29,9 @@ import type {
   WorkflowDTO,
   CarouselDTO,
   PluginDTO,
+  DeployEnvDTO,
+  DeployPackageDTO,
+  DeployRecordDTO,
   DsKind,
   SqlVendor,
   ChannelKind,
@@ -390,3 +393,12 @@ export const plugins: PluginDTO[] = [
   { id: 'pl_2', name: '瀑布图', author: '社区', version: '0.9.2', installed: false, desc: '瀑布式占比分析图', rating: 4.2 },
   { id: 'pl_3', name: '词云', author: '社区', version: '1.1.0', installed: true, desc: '文本词频可视化', rating: 4.5 }
 ]
+
+// ====================== 独立部署（企业级）：环境 / 包 / 记录 ======================
+export const deployEnvs: DeployEnvDTO[] = [
+  { id: 'env_dev', name: '开发环境', kind: 'dev', baseUrl: 'https://dev-bi.example.com', description: '研发联调与功能验证', createdAt: '2026-07-01' },
+  { id: 'env_test', name: '测试环境', kind: 'test', baseUrl: 'https://test-bi.example.com', description: '预发验证与回归', createdAt: '2026-07-05' },
+  { id: 'env_prod', name: '生产环境', kind: 'prod', baseUrl: 'https://bi.example.com', description: '对外正式发布环境', createdAt: '2026-07-08' }
+]
+export const deployPackages: DeployPackageDTO[] = []
+export const deployRecords: DeployRecordDTO[] = []

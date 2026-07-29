@@ -40,7 +40,7 @@ React 18 + Vite + TS + Zustand 的低代码大屏设计器，**以 Avue Data（V
 - 多源：`src/twin/sources/` — `TwinSource` 接口 + 工厂 + `SimulatedSource`(完整)/`IndustrialSource`(OPC-UA/Modbus 桩)/`BimSource`(BIM 布局)/`GisSource`(GIS 经纬度)，均带入真实集成点的注释。
 - 闭环控制：`src/twin/control.ts` — `TwinControlHub.dispatch` → 执行器(默认 mock，预留后端代理) → 写指令日志。
 - 组件：`TwinWidget.tsx`(嵌入画布 + 双向联动 + 仿真告警 + 决策沙盘 + 控制条 + 多源切换)、`AlarmListWidget.tsx`(读 store，摘要带+分级列表+点击反向定位)；`twinAlarm` 已全链路注册。
-- 编辑器改造：`src/features/TwinPage.tsx` **复用 TwinRenderer 内核**（移除重复 Three.js），保留拖拽/属性/关键帧，新增 仿真/控制/告警 面板与 liveSourceId 数据绑定。
+- 编辑器改造：`src/features/TwinPage.tsx` **复用 TwinSceneView 共享内核**（移除重复的 TwinRenderer 初始化/仿真/控制样板），保留拖拽/属性/关键帧，新增 仿真/控制/告警 面板与 liveSourceId 数据绑定。
 - 注册：`types.ts`(digitalTwin+twinAlarm + 新 props: sourceKind/showControl/showSim/maxItems 等)、widgetRegistry、WidgetRenderer、propSchemas、PropertyPanel(interactiveTypes)、componentAssetRegistry(businessType='twin')。
 - 示例：`/screen/overview` 种子嵌入 digitalTwin + twinAlarm，预览即见 3D+2D+告警 融合。
 - 验证：tsc --noEmit 0 错误；vite build 通过(4628 模块)；headless 预览 DOM 含 `<canvas>` + 孪生告警清单 + 决策沙盘 + HUD。
