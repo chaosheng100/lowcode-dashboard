@@ -16,7 +16,7 @@ export interface PropField {
   min?: number
   step?: number
   /** 动态选项来源：由 SchemaForm 从 store 注入（避免 schema 里硬编码数据源列表） */
-  dynamicOptions?: 'liveSources' | 'twinScenes'
+  dynamicOptions?: 'liveSources' | 'twinScenes' | 'iotDevices' | 'iotMetrics'
   /** 仅当此函数返回 true 时显示该字段 */
   show?: (props: WidgetProps) => boolean
 }
@@ -70,7 +70,10 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
   pieChart: [{ key: 'title', label: '标题', type: 'text' }],
   metric: [
     { key: 'label', label: '指标名', type: 'text' },
-    { key: 'unit', label: '单位', type: 'text' }
+    { key: 'unit', label: '单位', type: 'text' },
+    { key: 'iotDeviceId', label: '物联设备（绑定实时采集值）', type: 'select', dynamicOptions: 'iotDevices' },
+    { key: 'iotMetric', label: '设备指标', type: 'select', dynamicOptions: 'iotMetrics', show: (p) => !!p.iotDeviceId },
+    { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 500, step: 100, show: (p) => !!p.iotDeviceId }
   ],
   table: [{ key: 'title', label: '标题', type: 'text' }],
   echartLine: [

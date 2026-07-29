@@ -16,19 +16,27 @@ export interface TwinSceneOption {
   label: string
 }
 
+/** 物联设备动态选项（metrics 用于级联出设备指标选项） */
+export interface IoTDeviceOption {
+  value: string
+  label: string
+  metrics: string[]
+}
+
 interface Props {
   schema: PropField[]
   value: WidgetProps
   onChange: (patch: Partial<WidgetProps>) => void
   liveSources?: LiveSourceOption[]
   twinSceneOptions?: TwinSceneOption[]
+  iotDeviceOptions?: IoTDeviceOption[]
 }
 
 /**
  * Schema 驱动的属性表单（对齐 Avue AvueForm）。
  * 根据 propSchemas 自动渲染对应类型的输入控件，统一写回 updateComponentProps。
  */
-export default function SchemaForm({ schema, value, onChange, liveSources, twinSceneOptions }: Props) {
+export default function SchemaForm({ schema, value, onChange, liveSources, twinSceneOptions, iotDeviceOptions }: Props) {
   return (
     <>
       {schema.map((f) => {
@@ -51,9 +59,14 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
               ? (liveSources ?? []).map((d) => ({ value: `${d.kind}:${d.id}`, label: `${d.kind} · ${d.name}` }))
               : f.dynamicOptions === 'twinScenes'
               ? (twinSceneOptions ?? [])
+              : f.dynamicOptions === 'iotDevices'
+              ? (iotDeviceOptions ?? [])
+              : f.dynamicOptions === 'iotMetrics'
+              ? (iotDeviceOptions ?? []).find((d) => d.value === value.iotDeviceId)?.metrics.map((m) => ({ value: m, label: m })) ?? []
               : f.options ?? []
           const options = [
             ...(f.dynamicOptions === 'liveSources' ? [{ value: '', label: '— 不启用实时 —' }] : []),
+            ...(f.dynamicOptions === 'iotDevices' ? [{ value: '', label: '— 不绑定设备 —' }] : []),
             ...(f.dynamicOptions === 'twinScenes' ? [{ value: 'main', label: '示范工厂（默认）' }] : []),
             ...opts,
             ...(f.dynamicOptions === 'liveSources' && !opts.length

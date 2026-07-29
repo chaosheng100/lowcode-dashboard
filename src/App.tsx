@@ -2,20 +2,34 @@ import { initPersist } from './data/store/persist'
 import { openEditorWindow, openPreviewWindow } from './designer/window'
 import ProjectView from './ProjectView'
 import WindowApp from './designer/WindowApp'
+import RemoteWindowApp from './api/RemoteWindowApp'
+import ScreenListPage from './api/ScreenListPage'
 
 // 启动即加载已保存项目 + 开启实时保存（同源页签共享 localStorage）
-initPersist()
+// 仅在非 remote 模式下初始化本地持久化，避免覆盖 store
+const params = new URLSearchParams(location.search)
+const isRemote = params.get('remote') === 'true'
+if (!isRemote) initPersist()
 
 export default function App() {
-  // 独立页签入口：?mode=editor|preview&routeId=xxx → 在该页签内打开对应模式
   const params = new URLSearchParams(location.search)
   const mode = params.get('mode')
   const routeId = params.get('routeId')
+  const remote = params.get('remote') === 'true'
+  const screenList = params.get('screens') === 'list'
+
+  // 大屏列表（后端版）入口
+  if (screenList) return <ScreenListPage />
+
+  // 独立页签入口
   if ((mode === 'editor' || mode === 'preview') && routeId) {
+    if (remote) {
+      return <RemoteWindowApp mode={mode as 'editor' | 'preview'} screenId={routeId} />
+    }
     return <WindowApp mode={mode as 'editor' | 'preview'} routeId={routeId} />
   }
 
-  // 主应用：大屏管理台（点击卡片在新页签打开编辑/预览）
+  // 主应用：大屏管理台
   return (
     <ProjectView
       onOpenDesigner={(id) => openEditorWindow(id)}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Select, Tabs } from 'antd'
 import { api } from '../mock'
-import type { TwinSceneDTO } from '../mock/types'
+import type { TwinSceneDTO, IoTDeviceDTO } from '../mock/types'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import {
   deployStandardAsset,
@@ -20,9 +20,15 @@ import {
   unlinkTwinFromDashboard,
   type TwinWidgetKind
 } from './twinWidgetCatalog'
+import {
+  createIoTComponent,
+  syncIoTDeviceToDashboard,
+  iotComponentAssets,
+  type IoTWidgetKind
+} from './iotWidgetCatalog'
 import { Field, Modal, Tag } from './common'
 
-type LibraryAsset = ComponentAssetDefinition & { kind?: TwinWidgetKind }
+type LibraryAsset = ComponentAssetDefinition & { kind?: TwinWidgetKind | IoTWidgetKind }
 
 const PREVIEW_SCENE: TwinSceneDTO = {
   id: 'preview',
@@ -38,8 +44,22 @@ const PREVIEW_SCENE: TwinSceneDTO = {
   updatedAt: ''
 }
 
+const PREVIEW_IOT_DEVICE: IoTDeviceDTO = {
+  id: 'preview_iot',
+  name: 'PLC-01',
+  type: 'PLC',
+  status: 'online',
+  metrics: { 温度: 36.5, 压力: 8.2, 流量: 120 },
+  updatedAt: '2026-07-29'
+}
+
 function previewComponent(asset: LibraryAsset): ComponentInstance {
-  if (asset.businessType === 'twin' && asset.kind) return createTwinComponent(PREVIEW_SCENE, asset.kind)
+  if (asset.businessType === 'twin' && asset.kind) return createTwinComponent(PREVIEW_SCENE, asset.kind as TwinWidgetKind)
+  if (asset.category === '物联组态' && 'kind' in asset && asset.kind) {
+    const kind = asset.kind as IoTWidgetKind
+    if (kind === 'metrics') return createIoTComponent(PREVIEW_IOT_DEVICE, kind, '温度')
+    return createIoTComponent(PREVIEW_IOT_DEVICE, kind)
+  }
   const definition = widgetRegistry[asset.type]
   return {
     id: `preview_${asset.type}`,
@@ -61,32 +81,46 @@ function AssetPreview({ asset }: { asset: LibraryAsset }) {
 export default function ComponentLibrary() {
   const { data } = useApi(() => api.listWidgets({ pageSize: 50 }), [])
   const { data: twinData, reload: reloadTwins } = useApi(() => api.listTwinScenes({ pageSize: 100 }), [])
+  const { data: iotData } = useApi(() => api.listIoTDevices({ pageSize: 100 }), [])
   const routes = useDesignerStore((state) => state.routes)
   const updateRoute = useDesignerStore((state) => state.updateRoute)
   const dashboards = useMemo(() => routes.filter((route) => route.kind === 'dashboard'), [routes])
-  const assets = useMemo<LibraryAsset[]>(() => [...standardComponentAssets, ...twinComponentAssets], [])
+  const assets = useMemo<LibraryAsset[]>(() => [...standardComponentAssets, ...twinComponentAssets, ...iotComponentAssets], [])
   const categories = useMemo(() => ['全部', ...Array.from(new Set(assets.map((asset) => asset.category)))], [assets])
   const [category, setCategory] = useState('全部')
   const [deploying, setDeploying] = useState<LibraryAsset | null>(null)
   const [dashboardId, setDashboardId] = useState('')
   const [sceneId, setSceneId] = useState('')
+  const [deviceId, setDeviceId] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ message: string; routeId?: string } | null>(null)
   const items = assets.filter((asset) => category === '全部' || asset.category === category)
   const scenes = twinData?.list ?? []
+  const devices = iotData?.list ?? []
 
   useEffect(() => {
     if (!deploying) return
     setDashboardId((current) => dashboards.some((route) => route.id === current) ? current : dashboards[0]?.id ?? '')
     setSceneId((current) => scenes.some((scene) => scene.id === current) ? current : scenes[0]?.id ?? '')
-  }, [dashboards, deploying, scenes])
+    setDeviceId((current) => devices.some((d) => d.id === current) ? current : devices[0]?.id ?? '')
+  }, [dashboards, deploying, scenes, devices])
 
   const deploy = async () => {
     if (!deploying || !dashboardId) return
     const route = routes.find((item) => item.id === dashboardId && item.kind === 'dashboard')
     if (!route) return setNotice({ message: '目标大屏不存在，请重新选择' })
     setBusy(true)
-    if (deploying.businessType === 'twin' && deploying.kind) {
+    if (deploying.category === '物联组态' && deploying.kind) {
+      const device = devices.find((item) => item.id === deviceId)
+      if (!device) {
+        setBusy(false)
+        return setNotice({ message: '请选择可用的物联设备' })
+      }
+      const syncedAt = new Date().toISOString()
+      const kinds: IoTWidgetKind[] = [deploying.kind as IoTWidgetKind]
+      updateRoute(route.id, syncIoTDeviceToDashboard(route, device, syncedAt, kinds))
+      setBusy(false)
+    } else if (deploying.businessType === 'twin' && deploying.kind) {
       const scene = scenes.find((item) => item.id === sceneId)
       if (!scene) {
         setBusy(false)
@@ -102,7 +136,7 @@ export default function ComponentLibrary() {
         const previousRoute = routes.find((item) => item.id === scene.dashboardId)
         if (previousRoute) updateRoute(previousRoute.id, unlinkTwinFromDashboard(previousRoute, scene.id))
       }
-      updateRoute(route.id, syncTwinWidgetsToDashboard(route, response.data, syncedAt, [deploying.kind]))
+      updateRoute(route.id, syncTwinWidgetsToDashboard(route, response.data, syncedAt, [deploying.kind as TwinWidgetKind]))
       reloadTwins()
     } else {
       updateRoute(route.id, deployStandardAsset(route, deploying))
@@ -162,7 +196,13 @@ export default function ComponentLibrary() {
             <AssetPreview asset={asset} />
             <p>{asset.description}</p>
             <footer>
-              <span>{asset.businessType === 'twin' ? '场景数据驱动' : '设计器原生组件'}</span>
+              <span>{
+                asset.businessType === 'twin'
+                  ? '场景数据驱动'
+                  : asset.category === '物联组态'
+                  ? '物联数据驱动'
+                  : '设计器原生组件'
+              }</span>
               <Button type="primary" size="small" onClick={() => setDeploying(asset)}>投放到大屏</Button>
             </footer>
           </article>
@@ -184,6 +224,17 @@ export default function ComponentLibrary() {
               />
             </Field>
           )}
+          {deploying.category === '物联组态' && (
+            <Field label="物联设备">
+              <Select
+                style={{ width: '100%' }}
+                value={deviceId || undefined}
+                placeholder={devices.length ? '请选择设备' : '暂无可用设备'}
+                onChange={setDeviceId}
+                options={devices.map((d) => ({ value: d.id, label: `${d.name} · ${d.type} · ${Object.keys(d.metrics).length} 项指标` }))}
+              />
+            </Field>
+          )}
           <Field label="目标大屏">
             <Select
               style={{ width: '100%' }}
@@ -194,14 +245,18 @@ export default function ComponentLibrary() {
             />
           </Field>
           <p style={{ color: 'var(--sub)', fontSize: 12, lineHeight: 1.6 }}>
-            {deploying.businessType === 'twin' ? '投放时将建立场景与大屏绑定；同一场景业务组件会原位更新。' : '同一组件资产重复投放会更新已有实例，并保留已调整的布局。'}
+            {deploying.businessType === 'twin'
+              ? '投放时将建立场景与大屏绑定；同一场景业务组件会原位更新。'
+              : deploying.category === '物联组态'
+              ? '投放时按设备状态与指标生成大屏组件；重复投放会更新已有实例，并保留已调整的布局。'
+              : '同一组件资产重复投放会更新已有实例，并保留已调整的布局。'}
           </p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button disabled={busy} onClick={() => setDeploying(null)}>取消</Button>
             <Button
               type="primary"
               loading={busy}
-              disabled={!dashboardId || (deploying.businessType === 'twin' && !sceneId)}
+              disabled={!dashboardId || (deploying.businessType === 'twin' && !sceneId) || (deploying.category === '物联组态' && !deviceId)}
               onClick={deploy}
             >
               {busy ? '投放中...' : '确认投放'}

@@ -137,6 +137,7 @@ export const api = {
 
   // —— 物联组态 ——
   listIoTDevices: (q: PageQuery = {}) => mockFetch<PageResult<IoTDeviceDTO>>('GET', '/api/iotDevices', { query: q }),
+  getIoTDevice: (id: string) => mockFetch<IoTDeviceDTO | null>('GET', `/api/iotDevices/${id}`),
   saveIoTDevice: (body: Partial<IoTDeviceDTO>) =>
     mockFetch<IoTDeviceDTO>(body.id ? 'PATCH' : 'POST', `/api/iotDevices${body.id ? '/' + body.id : ''}`, { body }),
   deleteIoTDevice: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/iotDevices/${id}`),

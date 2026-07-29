@@ -3,9 +3,9 @@ import { App, Button, Form, Input, InputNumber, Select, Tabs } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
 import { api } from '../../mock'
-import type { DatasetDTO, DataSourceDTO, TwinSceneDTO } from '../../mock/types'
+import type { DatasetDTO, DataSourceDTO, TwinSceneDTO, IoTDeviceDTO } from '../../mock/types'
 import type { DataPoint } from '../../data/types'
-import type { TwinSceneOption } from './SchemaForm'
+import type { TwinSceneOption, IoTDeviceOption } from './SchemaForm'
 import CanvasPanel from './CanvasPanel'
 import SchemaForm from './SchemaForm'
 import { styleSchemas, dataSchemas } from './propSchemas'
@@ -33,6 +33,7 @@ export default function PropertyPanel() {
   const [datasets, setDatasets] = useState<DatasetDTO[]>([])
   const [dataSources, setDataSources] = useState<DataSourceDTO[]>([])
   const [twinSceneOptions, setTwinSceneOptions] = useState<TwinSceneOption[]>([])
+  const [iotDeviceOptions, setIotDeviceOptions] = useState<IoTDeviceOption[]>([])
 
   useEffect(() => {
     if (component && component.props.data) {
@@ -45,9 +46,10 @@ export default function PropertyPanel() {
     Promise.all([
       api.listDatasets({ pageSize: 50 }),
       api.listDataSources({ pageSize: 50 }),
-      api.listTwinScenes({ pageSize: 100 })
+      api.listTwinScenes({ pageSize: 100 }),
+      api.listIoTDevices({ pageSize: 100 })
     ])
-      .then(([dr, dsr, tsr]) => {
+      .then(([dr, dsr, tsr, iotR]) => {
         if (!alive) return
         if (dr.code === 0) setDatasets(dr.data.list)
         if (dsr.code === 0) setDataSources(dsr.data.list)
@@ -56,6 +58,15 @@ export default function PropertyPanel() {
             tsr.data.list.map((s: TwinSceneDTO) => ({
               value: s.id,
               label: `${s.name} · ${s.models.length}个模型`
+            }))
+          )
+        }
+        if (iotR.code === 0) {
+          setIotDeviceOptions(
+            iotR.data.list.map((d: IoTDeviceDTO) => ({
+              value: d.id,
+              label: `${d.name} · ${d.type}`,
+              metrics: Object.keys(d.metrics)
             }))
           )
         }
@@ -171,7 +182,35 @@ export default function PropertyPanel() {
               value={p}
               liveSources={liveSources}
               twinSceneOptions={twinSceneOptions}
-              onChange={(patch) => updateProps(component.id, patch)}
+              iotDeviceOptions={iotDeviceOptions}
+              onChange={(patch) => {
+                // 物联设备级联：选设备后自动关联首个指标并同步指标卡标签/数据；
+                // 解绑设备时清空指标选择；切换指标时同步标签。
+                if ('iotDeviceId' in patch) {
+                  const deviceId = patch.iotDeviceId
+                  if (!deviceId) {
+                    updateProps(component.id, { ...patch, iotMetric: undefined })
+                    return
+                  }
+                  const device = iotDeviceOptions.find((d) => d.value === deviceId)
+                  const firstMetric = device?.metrics[0]
+                  if (firstMetric) {
+                    const deviceName = device?.label.split(' · ')[0] ?? ''
+                    updateProps(component.id, {
+                      ...patch,
+                      iotMetric: firstMetric,
+                      label: `${deviceName} · ${firstMetric}`
+                    })
+                    return
+                  }
+                }
+                if ('iotMetric' in patch && patch.iotMetric) {
+                  const deviceName = iotDeviceOptions.find((d) => d.value === p.iotDeviceId)?.label.split(' · ')[0] ?? ''
+                  updateProps(component.id, { ...patch, label: `${deviceName} · ${patch.iotMetric}` })
+                  return
+                }
+                updateProps(component.id, patch)
+              }}
             />
           )}
           {hasData && (

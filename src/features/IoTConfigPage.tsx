@@ -3,11 +3,12 @@ import { Alert, Button, Checkbox, InputNumber, Popconfirm, Select, Spin, Switch 
 import { CloseOutlined } from '@ant-design/icons'
 import { api } from '../mock'
 import type { AlarmLevel, ChannelKind, IoTAlarmRuleDTO, IoTDeviceDTO } from '../mock/types'
-import type { ComponentInstance, RouteConfig } from '../data/types'
+import type { RouteConfig } from '../data/types'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { broadcastRoute } from '../designer/sync'
 import { Empty, Field, Input, Modal, Textarea } from './common'
 import { useApi } from './useApi'
+import { syncIoTDeviceToDashboard, unlinkIoTFromDashboard } from './iotWidgetCatalog'
 
 const STATUS_LABEL: Record<IoTDeviceDTO['status'], string> = { online: '在线', offline: '离线', alarm: '告警' }
 const LEVEL_LABEL: Record<AlarmLevel, string> = { info: '提示', warning: '警告', critical: '严重' }
@@ -25,57 +26,6 @@ interface IoTDashboardBinding {
 function dashboardBindings(route: RouteConfig): IoTDashboardBinding[] {
   const value = route.state.iotBindings
   return Array.isArray(value) ? value.filter((item): item is IoTDashboardBinding => Boolean(item && typeof item === 'object' && 'deviceId' in item)) : []
-}
-
-function metricComponentId(deviceId: string, metric: string) {
-  return `iot:${deviceId}:metric:${encodeURIComponent(metric)}`
-}
-
-function syncDeviceToDashboard(route: RouteConfig, device: IoTDeviceDTO): Partial<RouteConfig> {
-  const now = new Date().toISOString()
-  const bindings = dashboardBindings(route)
-  const bindingIndex = bindings.findIndex((binding) => binding.deviceId === device.id)
-  const row = bindingIndex >= 0 ? bindingIndex : bindings.length
-  const titleId = `iot:${device.id}:title`
-  const metricEntries = Object.entries(device.metrics)
-  const validIds = new Set([titleId, ...metricEntries.map(([metric]) => metricComponentId(device.id, metric))])
-  const existing = new Map(route.components.map((component) => [component.id, component]))
-  const title: ComponentInstance = {
-    id: titleId,
-    type: 'text',
-    style: existing.get(titleId)?.style ?? { x: 80, y: 150 + row * 210, w: 900, h: 42 },
-    props: {
-      ...existing.get(titleId)?.props,
-      content: `${device.name} · ${STATUS_LABEL[device.status]}`,
-      fontSize: 24,
-      color: device.status === 'alarm' ? '#f87171' : device.status === 'online' ? '#4ade80' : '#9aa7b4',
-      bold: true,
-      iotDeviceId: device.id
-    }
-  }
-  const metrics: ComponentInstance[] = metricEntries.map(([metric, value], index) => {
-    const id = metricComponentId(device.id, metric)
-    const current = existing.get(id)
-    return {
-      id,
-      type: 'metric',
-      style: current?.style ?? { x: 80 + (index % 5) * 330, y: 200 + row * 210 + Math.floor(index / 5) * 150, w: 290, h: 120 },
-      props: {
-        ...current?.props,
-        label: metric,
-        data: [{ name: device.name, value }],
-        unit: '',
-        iotDeviceId: device.id,
-        iotMetric: metric
-      }
-    }
-  })
-  const components = route.components.filter((component) => component.props.iotDeviceId !== device.id || validIds.has(component.id))
-  const nextComponents = components.filter((component) => !validIds.has(component.id)).concat(title, metrics)
-  const nextBindings = bindings.some((binding) => binding.deviceId === device.id)
-    ? bindings.map((binding) => binding.deviceId === device.id ? { ...binding, deviceName: device.name, syncedAt: now } : binding)
-    : [...bindings, { deviceId: device.id, deviceName: device.name, syncedAt: now }]
-  return { components: nextComponents, state: { ...route.state, iotBindings: nextBindings }, updatedAt: now }
 }
 
 function evaluateAlarm(rule: IoTAlarmRuleDTO, value: number | undefined) {
@@ -103,6 +53,7 @@ export default function IoTConfigPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | IoTDeviceDTO['status']>('all')
   const [deviceEditor, setDeviceEditor] = useState<IoTDeviceDTO | null | 'new'>(null)
   const [alarmEditor, setAlarmEditor] = useState(false)
+  const [deployOpen, setDeployOpen] = useState(false)
   const [dashboardId, setDashboardId] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -134,7 +85,7 @@ export default function IoTConfigPage() {
     }
     for (const route of dashboards) {
       if (dashboardBindings(route).some((binding) => binding.deviceId === response.data.id)) {
-        pushDashboardUpdate(route, syncDeviceToDashboard(route, response.data))
+        pushDashboardUpdate(route, syncIoTDeviceToDashboard(route, response.data, new Date().toISOString()))
       }
     }
     setSelectedId(response.data.id)
@@ -150,13 +101,8 @@ export default function IoTConfigPage() {
     if (response.code === 0) {
       for (const rule of (alarms.data?.list ?? []).filter((item) => item.deviceId === device.id)) await api.deleteIoTAlarm(rule.id)
       dashboards.forEach((route) => {
-        const bindings = dashboardBindings(route)
-        if (!bindings.some((binding) => binding.deviceId === device.id)) return
-        pushDashboardUpdate(route, {
-          components: route.components.filter((component) => component.props.iotDeviceId !== device.id),
-          state: { ...route.state, iotBindings: bindings.filter((binding) => binding.deviceId !== device.id) },
-          updatedAt: new Date().toISOString()
-        })
+        if (!dashboardBindings(route).some((binding) => binding.deviceId === device.id)) return
+        pushDashboardUpdate(route, unlinkIoTFromDashboard(route, device.id))
       })
       setSelectedId(null)
       devices.reload()
@@ -170,18 +116,15 @@ export default function IoTConfigPage() {
     if (!selected || !dashboardId) return
     const route = dashboards.find((item) => item.id === dashboardId)
     if (!route) return
-    pushDashboardUpdate(route, syncDeviceToDashboard(route, selected))
+    pushDashboardUpdate(route, syncIoTDeviceToDashboard(route, selected, new Date().toISOString()))
     setDashboardId('')
-    setNotice(`已将「${selected.name}」同步到「${route.name}」`)
+    setDeployOpen(false)
+    setNotice(`已将「${selected.name}」投放到「${route.name}」`)
   }
 
   const unbindDashboard = (route: RouteConfig) => {
     if (!selected) return
-    pushDashboardUpdate(route, {
-      components: route.components.filter((component) => component.props.iotDeviceId !== selected.id),
-      state: { ...route.state, iotBindings: dashboardBindings(route).filter((binding) => binding.deviceId !== selected.id) },
-      updatedAt: new Date().toISOString()
-    })
+    pushDashboardUpdate(route, unlinkIoTFromDashboard(route, selected.id))
     setNotice(`已解除与「${route.name}」的关联`)
   }
 
@@ -265,6 +208,7 @@ export default function IoTConfigPage() {
               <div className="iot-detail-head">
                 <div><div className="iot-device-title"><h2>{selected.name}</h2><span className={`iot-device-state ${selected.status}`}>{STATUS_LABEL[selected.status]}</span></div><p>{selected.type} · 更新于 {selected.updatedAt}</p></div>
                 <div>
+                  <Button type="primary" onClick={() => { setDashboardId(dashboards.filter((route) => !linkedDashboards.some((linked) => linked.id === route.id))[0]?.id ?? ''); setDeployOpen(true) }}>投放到大屏</Button>
                   <Button onClick={() => setDeviceEditor(selected)}>编辑</Button>
                   <Popconfirm title={`确定删除「${selected.name}」？相关告警与大屏绑定将一并清理。`} onConfirm={() => deleteDevice(selected)}>
                     <Button danger disabled={busy}>删除</Button>
@@ -302,22 +246,14 @@ export default function IoTConfigPage() {
                 <section className="iot-subpanel">
                   <div className="iot-section-head"><div><h3>关联大屏</h3><p>同步设备状态与指标卡</p></div><span>{linkedDashboards.length} 个</span></div>
                   <div className="iot-bind-row">
-                    <Select
-                      aria-label="选择关联大屏"
-                      placeholder="选择目标大屏"
-                      value={dashboardId || undefined}
-                      onChange={(v) => setDashboardId(v)}
-                      options={dashboards.filter((route) => !linkedDashboards.some((linked) => linked.id === route.id)).map((route) => ({ value: route.id, label: route.name }))}
-                      style={{ flex: 1, minWidth: 0 }}
-                    />
-                    <Button type="primary" onClick={bindDashboard} disabled={!dashboardId}>同步</Button>
+                    <Button type="primary" block onClick={() => { setDashboardId(dashboards.filter((route) => !linkedDashboards.some((linked) => linked.id === route.id))[0]?.id ?? ''); setDeployOpen(true) }}>投放到大屏</Button>
                   </div>
                   <div className="iot-dashboard-list">
                     {linkedDashboards.map((route) => {
                       const binding = dashboardBindings(route).find((item) => item.deviceId === selected.id)
-                      return <div key={route.id}><div><strong>{route.name}</strong><small>同步于 {binding?.syncedAt.slice(0, 16).replace('T', ' ')}</small></div><Button size="small" onClick={() => pushDashboardUpdate(route, syncDeviceToDashboard(route, selected))}>刷新</Button><Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('dashboard:open-designer', { detail: { routeId: route.id } }))}>打开</Button><Button size="small" danger onClick={() => unbindDashboard(route)}>解绑</Button></div>
+                      return <div key={route.id}><div><strong>{route.name}</strong><small>同步于 {binding?.syncedAt.slice(0, 16).replace('T', ' ')}</small></div><Button size="small" onClick={() => pushDashboardUpdate(route, syncIoTDeviceToDashboard(route, selected, new Date().toISOString()))}>刷新</Button><Button size="small" onClick={() => window.dispatchEvent(new CustomEvent('dashboard:open-designer', { detail: { routeId: route.id } }))}>打开</Button><Button size="small" danger onClick={() => unbindDashboard(route)}>解绑</Button></div>
                     })}
-                    {!linkedDashboards.length && <Empty>选择大屏后，设备组件会自动写入画布</Empty>}
+                    {!linkedDashboards.length && <Empty>投放大屏后，设备组件会自动写入画布</Empty>}
                   </div>
                 </section>
               </div>
@@ -328,6 +264,33 @@ export default function IoTConfigPage() {
 
       {deviceEditor && <DeviceModal item={deviceEditor === 'new' ? null : deviceEditor} busy={busy} onClose={() => setDeviceEditor(null)} onSave={saveDevice} />}
       {alarmEditor && selected && <AlarmModal device={selected} busy={busy} onClose={() => setAlarmEditor(false)} onSave={saveAlarm} />}
+
+      {/* 投放到大屏弹窗（与孪生模块一致）：选择目标大屏后生成摘要/指标卡/告警清单组件 */}
+      {deployOpen && selected && (
+        <Modal title="投放设备到大屏" onClose={() => setDeployOpen(false)}>
+          <p style={{ marginTop: 0, color: 'var(--sub)' }}>
+            {selected.name} · {selected.type} · {Object.keys(selected.metrics).length} 项指标
+          </p>
+          <Field label="目标大屏">
+            <Select
+              style={{ width: '100%' }}
+              value={dashboardId || undefined}
+              placeholder={dashboards.length ? '请选择大屏' : '暂无可用大屏'}
+              onChange={(v) => setDashboardId(v)}
+              options={dashboards
+                .filter((route) => !linkedDashboards.some((linked) => linked.id === route.id))
+                .map((route) => ({ value: route.id, label: `${route.name} · ${route.components.length} 个组件` }))}
+            />
+          </Field>
+          <p style={{ color: 'var(--sub)', fontSize: 12, lineHeight: 1.6 }}>
+            投放时将生成设备摘要、各指标卡与告警清单组件并建立绑定；重复投放会原位更新已投组件，保留已调整的布局。
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setDeployOpen(false)}>取消</Button>
+            <Button type="primary" disabled={!dashboardId} onClick={bindDashboard}>确认投放</Button>
+          </div>
+        </Modal>
+      )}
     </main>
   )
 }
