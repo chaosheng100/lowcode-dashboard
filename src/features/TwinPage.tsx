@@ -6,7 +6,7 @@ import { Input, Tag } from './common'
 import { TwinRenderer } from '../twin/TwinRenderer'
 import { TwinSim } from '../twin/TwinSim'
 import { TwinControlHub } from '../twin/control'
-import { useTwinRuntimeStore } from '../twin/twinRuntimeStore'
+import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import {
   healthToState,
@@ -69,14 +69,18 @@ interface TwinPageProps {
   onSave?: (patch: Partial<TwinScene>) => void
 }
 
+// 模块编辑器作为独立的孪生运行时会话（与大屏中的数字孪生组件互不串数据）
+const TWIN_MODULE_INSTANCE = 'twin-module'
+
 export default function TwinPage(_props: TwinPageProps = {}) {
   const { data: models } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
-  const rt = useTwinRuntimeStore()
+  const rt = useTwinRuntimeStore((s) => s.instances[TWIN_MODULE_INSTANCE]) ?? EMPTY_TWIN_INSTANCE
 
   const mountRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<TwinRenderer | null>(null)
   const simRef = useRef<TwinSim | null>(null)
-  const controlRef = useRef(new TwinControlHub())
+  const controlRef = useRef<TwinControlHub | null>(null)
+  if (!controlRef.current) controlRef.current = new TwinControlHub(TWIN_MODULE_INSTANCE)
 
   // 初始场景：从全局孪生场景库读取（模块与大屏共享同一份，实现互通 + 持久化）
   const activeSceneId = useDesignerStore.getState().activeTwinSceneId || 'main'
@@ -111,6 +115,11 @@ export default function TwinPage(_props: TwinPageProps = {}) {
     (ents: TwinEntity[]): TwinScene => ({ id: 'editor', name: '编辑场景', entities: ents, env: { lighting, fog } }),
     [lighting, fog]
   )
+
+  // 确保模块编辑器独立的运行时会话存在
+  useEffect(() => {
+    useTwinRuntimeStore.getState().ensureInstance(TWIN_MODULE_INSTANCE)
+  }, [])
 
   // ---- 初始化渲染器（复用内核，仅一次） ----
   useEffect(() => {
@@ -164,8 +173,8 @@ export default function TwinPage(_props: TwinPageProps = {}) {
         renderer.setEntityState(e.id, healthToState(s.health, s.temperature))
       })
       const res = simRef.current.tick(live)
-      useTwinRuntimeStore.getState().setPredictions(res.predictions)
-      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(a))
+      useTwinRuntimeStore.getState().setPredictions(TWIN_MODULE_INSTANCE, res.predictions)
+      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(TWIN_MODULE_INSTANCE, a))
     }, 2500)
 
     return () => {
@@ -189,7 +198,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
   }, [entities, lighting, fog])
 
   // 退出编辑页时清理编辑期产生的仿真告警，避免残留到告警清单组件
-  useEffect(() => () => { useTwinRuntimeStore.getState().clearAlarms() }, [])
+  useEffect(() => () => { useTwinRuntimeStore.getState().clearAlarms(TWIN_MODULE_INSTANCE) }, [])
 
   // 环境变更 → 渲染器
   useEffect(() => { rendererRef.current?.setLighting(lighting) }, [lighting])
@@ -305,7 +314,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
   const dispatchControl = async (action: ControlAction) => {
     const ent = entities.find((e) => e.id === selectedId)
     if (!ent) return
-    await controlRef.current.dispatch(ent, action)
+    await controlRef.current?.dispatch(ent, action)
   }
 
   const selected = entities.find((o) => o.id === selectedId)

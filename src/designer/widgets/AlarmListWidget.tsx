@@ -1,5 +1,5 @@
 import type { WidgetViewProps } from '../../data/types'
-import { useTwinRuntimeStore } from '../../twin/twinRuntimeStore'
+import { useTwinRuntimeStore, selectAllAlarms, selectAllPredictions } from '../../twin/twinRuntimeStore'
 import { ALARM_COLORS, type AlarmLevel } from '../../twin/twinTypes'
 
 // ============================================================
@@ -21,9 +21,9 @@ function levelText(l: AlarmLevel): string {
 export default function AlarmListWidget({ component, filter, onPick }: WidgetViewProps) {
   const p = component.props
   const filterField = p.filterField || 'entityId'
-  const alarms = useTwinRuntimeStore((s) => s.alarms)
-  const predictions = useTwinRuntimeStore((s) => s.predictions)
-  const rt = useTwinRuntimeStore()
+  // 聚合所有孪生实例的告警与预测（运行时状态按实例隔离，告警清单作为全局监控视图汇总）
+  const alarms = useTwinRuntimeStore(selectAllAlarms)
+  const predictions = useTwinRuntimeStore(selectAllPredictions)
 
   const predList = Object.values(predictions)
   const avgHealth = predList.length
@@ -34,7 +34,7 @@ export default function AlarmListWidget({ component, filter, onPick }: WidgetVie
   const shown = alarms.slice(0, maxItems)
 
   const onClick = (entityId: string) => {
-    rt.setSelectedEntity(entityId)
+    // 仅通过联动 filter 驱动孪生组件聚焦/选中，避免写入全局选中态导致跨实例串数据
     if (onPick) onPick({ field: filterField, value: entityId })
   }
 

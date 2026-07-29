@@ -28,12 +28,15 @@ const defaultExecutor: ControlExecutor = async (cmd) => {
 
 export class TwinControlHub {
   private executor: ControlExecutor
+  /** 所属孪生视图实例 id（用于把指令日志写入对应运行时会话，避免多实例串数据） */
+  private instanceId: string
 
-  constructor(executor: ControlExecutor = defaultExecutor) {
+  constructor(instanceId: string, executor: ControlExecutor = defaultExecutor) {
+    this.instanceId = instanceId
     this.executor = executor
   }
 
-  /** 下发一条控制指令；成功/失败都写入运行时 store 指令日志 */
+  /** 下发一条控制指令；成功/失败都写入运行时 store 指令日志（按 instanceId 隔离） */
   async dispatch(
     entity: TwinEntity,
     action: ControlAction,
@@ -51,7 +54,7 @@ export class TwinControlHub {
       status: res.ok ? 'ok' : 'failed',
       result: res.message
     }
-    useTwinRuntimeStore.getState().pushControl(cmd)
+    useTwinRuntimeStore.getState().pushControl(this.instanceId, cmd)
     return cmd
   }
 }

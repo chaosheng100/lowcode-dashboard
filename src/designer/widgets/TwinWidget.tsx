@@ -11,7 +11,7 @@ import {
 import { createSource } from '../../twin/sources/TwinSource'
 import { TwinSim } from '../../twin/TwinSim'
 import { TwinControlHub } from '../../twin/control'
-import { useTwinRuntimeStore } from '../../twin/twinRuntimeStore'
+import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../../twin/twinRuntimeStore'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { healthToState, STATE_COLORS, CONTROL_LABELS, type TwinEntityState, type ControlAction, type TwinScene } from '../../twin/twinTypes'
 
@@ -35,6 +35,9 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
   const rendererRef = useRef<TwinRenderer | null>(null)
   const p = component.props
   const sceneId = (p.sceneId as string) || 'main'
+  // 运行时状态按组件实例（component.id）隔离，避免同屏多个孪生组件互相串数据；
+  // 场景几何数据仍来自全局 twinScenes，因此多组件可共享同一场景、但各自独立遥测/选中/仿真。
+  const instanceId = component.id
   // 优先使用全局孪生场景库中同 sceneId 的场景，实现大屏组件与数字孪生模块数据互通；
   // 取不到时兜底回演示场景，保证永远有可渲染内容。
   const resolveScene = (id: string): TwinScene => {
@@ -43,7 +46,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
   }
   const sceneRef = useRef<TwinScene>(resolveScene(sceneId))
   const filterField = p.filterField || 'entityId'
-  const rt = useTwinRuntimeStore()
+  const rt = useTwinRuntimeStore((s) => s.instances[instanceId]) ?? EMPTY_TWIN_INSTANCE
 
   const [live, setLive] = useState<Record<string, EntityLive>>(() => {
     const init: Record<string, EntityLive> = {}
@@ -67,7 +70,13 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
 
   const liveRef = useRef<Record<string, TelemetrySample>>({})
   const simRef = useRef<TwinSim | null>( null)
-  const controlRef = useRef(new TwinControlHub())
+  const controlRef = useRef<TwinControlHub | null>(null)
+  if (!controlRef.current) controlRef.current = new TwinControlHub(instanceId)
+
+  // 确保本实例的运行时会话存在（与全局告警/仿真/选中隔离）
+  useEffect(() => {
+    useTwinRuntimeStore.getState().ensureInstance(instanceId)
+  }, [instanceId])
 
   // ---- 初始化渲染器（sceneId 变化时重建，使大屏组件与模块场景同源） ----
   useEffect(() => {
@@ -83,7 +92,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     renderer.setLabelVisible(p.showLabels !== false)
     renderer.setClickHandler((id) => {
       const { onPick, interactive, filterField } = cbRef.current
-      useTwinRuntimeStore.getState().setSelectedEntity(id)
+      useTwinRuntimeStore.getState().setSelectedEntity(instanceId, id)
       if (interactive !== false && onPick) onPick({ field: filterField, value: id })
     })
     rendererRef.current = renderer
@@ -118,7 +127,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     } else {
       const sourceKind = (p.sourceKind as 'simulated' | 'industrial' | 'bim' | 'gis') || 'simulated'
       const source = createSource(sourceKind, entities)
-      useTwinRuntimeStore.getState().setSourceStatus(source.status())
+      useTwinRuntimeStore.getState().setSourceStatus(instanceId, source.status())
       stopSim = subscribeTwinSource(source, entities, apply, 1500)
     }
 
@@ -126,8 +135,8 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     const simTimer = setInterval(() => {
       if (!simRef.current) return
       const res = simRef.current.tick(liveRef.current)
-      useTwinRuntimeStore.getState().setPredictions(res.predictions)
-      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(a))
+      useTwinRuntimeStore.getState().setPredictions(instanceId, res.predictions)
+      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(instanceId, a))
     }, 2000)
 
     return () => {
@@ -151,14 +160,14 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     if (f && f.field === filterField && f.value) {
       r.highlightEntity(f.value, 'warn')
       r.focusEntity(f.value)
-      useTwinRuntimeStore.getState().setSelectedEntity(f.value)
+      useTwinRuntimeStore.getState().setSelectedEntity(instanceId, f.value)
     } else {
       r.highlightEntity(null)
     }
   }, [filter, filterField])
 
   const onHudClick = (id: string) => {
-    useTwinRuntimeStore.getState().setSelectedEntity(id)
+    useTwinRuntimeStore.getState().setSelectedEntity(instanceId, id)
     if (p.interactive !== false && onPick) onPick({ field: filterField, value: id })
   }
 
@@ -172,7 +181,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
       maintenanceHours: scenario.maintenanceHours
     })
     setWhatIfLocal(res)
-    useTwinRuntimeStore.getState().setWhatIf(scenario, res)
+    useTwinRuntimeStore.getState().setWhatIf(instanceId, scenario, res)
   }
 
   // ---- 闭环控制：下发指令 ----
@@ -180,7 +189,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     const id = rt.selectedEntityId
     const ent = sceneRef.current.entities.find((e) => e.id === id)
     if (!ent) return
-    await controlRef.current.dispatch(ent, action)
+    await controlRef.current?.dispatch(ent, action)
   }
 
   const selectedEntity = rt.selectedEntityId ? sceneRef.current?.entities.find((e) => e.id === rt.selectedEntityId) : null
