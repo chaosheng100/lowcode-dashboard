@@ -73,7 +73,8 @@ const platformTree: RouteTreeNode[] = [
       { name: '分类标签', path: '/system/tags' },
       { name: '运行配置', path: '/system/runtime' },
       { name: '用户管理', path: '/system/users' },
-      { name: '大屏分析', path: '/system/analysis' }
+      { name: '大屏分析', path: '/system/analysis' },
+      { name: '系统监控', path: '/system/monitor' }
     ]
   },
   {
@@ -88,7 +89,12 @@ const platformTree: RouteTreeNode[] = [
   {
     name: '其他系统',
     path: '/others',
-    children: [{ name: 'AI模型平台', path: '/others/ai-platform' }]
+    children: [
+      { name: 'AI模型平台', path: '/others/ai-platform' },
+      { name: '调度任务', path: '/others/scheduler' },
+      { name: '数据同步', path: '/others/sync' },
+      { name: '通知中心', path: '/others/notify' }
+    ]
   }
 ]
 

@@ -10,6 +10,32 @@ import { openPreviewWindow } from "../designer/window"
 import { syncReportToDashboard, unlinkReportFromDashboard } from "./reportWidgetCatalog"
 import { Field, Modal } from "./common"
 
+// 后端通用目录服务返回的记录可能缺字段（例如 r-1 测试数据缺 delivery/format/name），
+// 这里做防御性归一化，避免列表/编辑/预览渲染时因 undefined 崩溃。
+function normalizeReport(r: ReportDTO): ReportDTO {
+  return {
+    ...r,
+    name: r.name ?? "未命名报表",
+    sourceId: r.sourceId ?? "",
+    sourceName: r.sourceName ?? "",
+    format: Array.isArray(r.format) ? r.format : ["xlsx"],
+    schedule: r.schedule ?? "手动",
+    status: r.status ?? "paused",
+    delivery: Array.isArray(r.delivery) ? r.delivery : [],
+    lastRunAt: r.lastRunAt ?? "",
+    lastRunStatus: r.lastRunStatus ?? "never",
+    dashboardId: r.dashboardId ?? "",
+    lastSyncAt: r.lastSyncAt ?? "",
+    updatedAt: r.updatedAt ?? "",
+    design: r.design ?? {
+      title: r.name ?? "未命名报表",
+      subtitle: "",
+      columns: ["字段", "数值"],
+      rows: [["示例", "0"]]
+    }
+  }
+}
+
 type View = { mode: "list" } | { mode: "edit" | "preview"; item: ReportDTO }
 type StatusFilter = "all" | ReportStatus | "failed"
 
@@ -30,7 +56,7 @@ export default function ReportManagement() {
   const [linkDashboardId, setLinkDashboardId] = useState("")
   const [busyId, setBusyId] = useState("")
 
-  const reports = data?.list ?? []
+  const reports = (data?.list ?? []).map(normalizeReport)
   const filtered = useMemo(() => {
     const query = keyword.trim().toLowerCase()
     return reports
@@ -49,7 +75,7 @@ export default function ReportManagement() {
   const save = async (id: string, patch: Partial<ReportDTO>) => {
     const response = await api.saveReport({ id, ...patch })
     if (response.code !== 0) throw new Error(response.message)
-    setView((cur) => cur.mode === "list" ? cur : { ...cur, item: response.data })
+    setView((cur) => cur.mode === "list" ? cur : { ...cur, item: normalizeReport(response.data) })
     reload()
   }
 
@@ -57,7 +83,7 @@ export default function ReportManagement() {
     const response = await api.saveReport(newReport())
     if (response.code !== 0) { setNotice(response.message); return }
     reload()
-    setView({ mode: "edit", item: response.data })
+    setView({ mode: "edit", item: normalizeReport(response.data) })
   }
 
   const duplicateReport = async (report: ReportDTO) => {

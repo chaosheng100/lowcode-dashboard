@@ -326,13 +326,168 @@ export interface ExtensionDTO {
   quota: string
 }
 
+export type WidgetLifecycleStatus = 'draft' | 'published' | 'deprecated' | 'offline'
 export interface WidgetDefDTO {
+  id?: string
   type: string
   name: string
   icon: string
   category: string
   version: string
   desc: string
+  /** 后端组件生命周期状态（可选，老定义兼容） */
+  status?: WidgetLifecycleStatus
+}
+
+/** 组件版本 */
+export interface WidgetVersionDTO {
+  id: string
+  widgetId: string
+  version: string
+  changelog: string
+  createdAt: string
+}
+
+/** 组件中心统计：按状态 / 按分类聚合 */
+export interface WidgetStatsDTO {
+  byStatus: Record<string, number>
+  byCategory: Record<string, number>
+}
+
+/** 通知 / 消息 */
+export type NotificationLevel = 'info' | 'warning' | 'error' | 'success'
+export interface NotificationDTO {
+  id: string
+  title: string
+  content: string
+  level: NotificationLevel
+  read: boolean
+  createdAt: string
+}
+
+/** 调度任务 */
+export interface SchedulerJobDTO {
+  id: string
+  name: string
+  cron: string
+  enabled: boolean
+  lastRunAt?: string
+  lastResult?: string
+  durationMs?: number
+  updatedAt?: string
+}
+
+/** 数据同步任务 */
+export interface SyncTaskDTO {
+  id: string
+  name: string
+  source?: string
+  target?: string
+  enabled?: boolean
+  lastRows?: number
+  lastStatus?: string
+  lastRunAt?: string
+  updatedAt?: string
+}
+
+/** 组织 */
+export interface OrgDTO {
+  id: string
+  name: string
+  parentId?: string
+  desc?: string
+  createdAt?: string
+}
+
+/** 告警规则 */
+export interface AlertRuleDTO {
+  id: string
+  name: string
+  metric?: string
+  op?: string
+  threshold?: number
+  level?: string
+  enabled?: boolean
+  updatedAt?: string
+}
+
+/** 系统参数 */
+export interface SysParamDTO {
+  key: string
+  value: string
+  desc?: string
+}
+
+/** 系统运行指标 */
+export interface SystemMetricsDTO {
+  uptimeSec: number
+  memory: number | string
+  counts: Record<string, number>
+  [key: string]: unknown
+}
+
+/** 审计 / 系统日志 */
+export interface AuditLogDTO {
+  id: string
+  level?: string
+  action?: string
+  operator?: string
+  detail?: string
+  createdAt?: string
+  [key: string]: unknown
+}
+
+/** 静态资源引用关系 */
+export interface AssetRefDTO {
+  assetId: string
+  count: number
+  screens: { id: string; name: string }[]
+}
+
+// —— AI 智能结果 ——
+export interface AIPredictResultDTO {
+  forecast: number[]
+  trend: string
+  confidence: number
+}
+export interface AIRecommendResultDTO {
+  widgets: string[]
+  layout: string
+  reason: string
+}
+export interface AIAnalyzeResultDTO {
+  insights: string[]
+}
+
+// —— 开发工具 ——
+export interface CodeGenResultDTO {
+  code: string
+  files: string[]
+}
+export type DevEnvDTO = Record<string, unknown>
+
+// —— 资源统计 ——
+export type AssetStatsDTO = Record<string, unknown>
+
+// —— 开放能力注册表 ——
+export interface CapabilityResourceDTO {
+  kind: string
+  name: string
+  basePath: string
+  ops: string[]
+  actions: string[]
+  count: number
+  consumableBy: string[]
+}
+export interface CapabilityModuleDTO {
+  key: string
+  name: string
+  resources: CapabilityResourceDTO[]
+}
+export interface CapabilityRegistryDTO {
+  version: string
+  generatedAt: string
+  modules: CapabilityModuleDTO[]
 }
 
 export type ReportStatus = 'enabled' | 'paused'

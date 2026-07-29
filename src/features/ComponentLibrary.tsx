@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Select, Tabs } from 'antd'
+import { Alert, Button, Select, Table, Tabs, type TableProps } from 'antd'
 import { api } from '../mock'
-import type { TwinSceneDTO, IoTDeviceDTO } from '../mock/types'
+import type {
+  TwinSceneDTO,
+  IoTDeviceDTO,
+  WidgetDefDTO,
+  WidgetVersionDTO,
+  WidgetLifecycleStatus
+} from '../mock/types'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import {
   deployStandardAsset,
@@ -26,7 +32,19 @@ import {
   iotComponentAssets,
   type IoTWidgetKind
 } from './iotWidgetCatalog'
-import { Field, Modal, Tag } from './common'
+import { Field, Input, Modal, Tag, Textarea } from './common'
+
+const WIDGET_STATUS: Record<WidgetLifecycleStatus, { label: string; color: string }> = {
+  draft: { label: '草稿', color: '#94a3b8' },
+  published: { label: '已上架', color: '#4ade80' },
+  deprecated: { label: '已弃用', color: '#facc15' },
+  offline: { label: '已下架', color: '#f87171' }
+}
+const LIFECYCLE_ACTIONS: { status: WidgetLifecycleStatus; label: string }[] = [
+  { status: 'published', label: '上架' },
+  { status: 'deprecated', label: '弃用' },
+  { status: 'offline', label: '下架' }
+]
 
 type LibraryAsset = ComponentAssetDefinition & { kind?: TwinWidgetKind | IoTWidgetKind }
 
@@ -79,7 +97,8 @@ function AssetPreview({ asset }: { asset: LibraryAsset }) {
 }
 
 export default function ComponentLibrary() {
-  const { data } = useApi(() => api.listWidgets({ pageSize: 50 }), [])
+  const { data, reload } = useApi(() => api.listWidgets({ pageSize: 50 }), [])
+  const { data: stats } = useApi(() => api.getWidgetStats(), [])
   const { data: twinData, reload: reloadTwins } = useApi(() => api.listTwinScenes({ pageSize: 100 }), [])
   const { data: iotData } = useApi(() => api.listIoTDevices({ pageSize: 100 }), [])
   const routes = useDesignerStore((state) => state.routes)
@@ -94,9 +113,90 @@ export default function ComponentLibrary() {
   const [deviceId, setDeviceId] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ message: string; routeId?: string } | null>(null)
+  // 组件中心：生命周期操作 + 版本弹层
+  const [statusBusy, setStatusBusy] = useState<string | null>(null)
+  const [versionFor, setVersionFor] = useState<WidgetDefDTO | null>(null)
+  const [versions, setVersions] = useState<WidgetVersionDTO[] | null>(null)
+  const [vForm, setVForm] = useState({ version: '', changelog: '' })
+  const [vBusy, setVBusy] = useState(false)
   const items = assets.filter((asset) => category === '全部' || asset.category === category)
   const scenes = twinData?.list ?? []
   const devices = iotData?.list ?? []
+
+  const widgetId = (w: WidgetDefDTO) => w.id ?? w.type
+
+  const setLifecycle = async (w: WidgetDefDTO, status: WidgetLifecycleStatus) => {
+    const id = widgetId(w)
+    setStatusBusy(id)
+    await api.setWidgetLifecycle(id, status)
+    setStatusBusy(null)
+    reload()
+  }
+
+  const openVersions = async (w: WidgetDefDTO) => {
+    setVersionFor(w)
+    setVersions(null)
+    setVForm({ version: '', changelog: '' })
+    const r = await api.getWidgetVersions(widgetId(w))
+    if (r.code === 0) setVersions(r.data)
+  }
+
+  const publishVersion = async () => {
+    if (!versionFor || !vForm.version.trim()) return
+    setVBusy(true)
+    const r = await api.publishWidgetVersion(widgetId(versionFor), { version: vForm.version.trim(), changelog: vForm.changelog.trim() })
+    setVBusy(false)
+    if (r.code === 0) {
+      setVForm({ version: '', changelog: '' })
+      const vr = await api.getWidgetVersions(widgetId(versionFor))
+      if (vr.code === 0) setVersions(vr.data)
+      reload()
+    }
+  }
+
+  const widgetRows = data?.list ?? []
+  const widgetColumns: TableProps<WidgetDefDTO>['columns'] = [
+    { title: '类型', dataIndex: 'type', key: 'type' },
+    { title: '名称', dataIndex: 'name', key: 'name' },
+    { title: '分类', dataIndex: 'category', key: 'category', render: (v: string) => <Tag>{v}</Tag> },
+    { title: '版本', dataIndex: 'version', key: 'version' },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (s?: WidgetLifecycleStatus) => {
+        const cur = s ?? 'draft'
+        const m = WIDGET_STATUS[cur]
+        return <span className={'status-dot ' + (cur === 'published' ? 'active' : 'disabled')}>{m.label}</span>
+      }
+    },
+    {
+      title: '生命周期',
+      key: 'lifecycle',
+      render: (_, w) => (
+        <span style={{ display: 'inline-flex', gap: 4 }}>
+          {LIFECYCLE_ACTIONS.map((a) => (
+            <Button
+              key={a.status}
+              size="small"
+              loading={statusBusy === widgetId(w) && w.status !== a.status}
+              disabled={statusBusy === widgetId(w) || w.status === a.status}
+              onClick={() => setLifecycle(w, a.status)}
+            >
+              {a.label}
+            </Button>
+          ))}
+        </span>
+      )
+    },
+    {
+      title: '操作',
+      key: 'op',
+      render: (_, w) => (
+        <Button size="small" type="link" onClick={() => openVersions(w)}>版本</Button>
+      )
+    }
+  ]
 
   useEffect(() => {
     if (!deploying) return
@@ -160,6 +260,18 @@ export default function ComponentLibrary() {
         </div>
       </div>
 
+      {/* 组件中心状态统计条 */}
+      {stats && (
+        <div className="component-library-summary" style={{ marginTop: 0, marginBottom: 14 }} aria-label="组件状态统计">
+          {Object.entries(stats.byStatus).map(([k, v]) => (
+            <span key={'s' + k}>{WIDGET_STATUS[k as WidgetLifecycleStatus]?.label ?? k} <strong>{v}</strong></span>
+          ))}
+          {Object.entries(stats.byCategory).map(([k, v]) => (
+            <span key={'c' + k}>{k} <strong>{v}</strong></span>
+          ))}
+        </div>
+      )}
+
       {/* 投放结果提示：带快捷操作（打开编辑器 / 预览大屏） */}
       {notice && (
         <Alert
@@ -208,6 +320,50 @@ export default function ComponentLibrary() {
           </article>
         ))}
       </div>
+
+      {/* 组件中心 · 已注册组件：生命周期 + 版本 */}
+      <div className="component-library-widgets" style={{ marginTop: 18 }}>
+        <h3 className="fp-sub" style={{ marginBottom: 8 }}>组件中心 · 已注册组件（生命周期 / 版本）</h3>
+        <Table<WidgetDefDTO>
+          size="small"
+          rowKey={(w) => widgetId(w)}
+          pagination={false}
+          dataSource={widgetRows}
+          locale={{ emptyText: '暂无已注册组件' }}
+          columns={widgetColumns}
+        />
+      </div>
+
+      {/* 版本弹层：列出版本 + 表单发布新版本 */}
+      {versionFor && (
+        <Modal title={`组件版本 · ${versionFor.name}（${versionFor.type}）`} onClose={() => setVersionFor(null)} width={520}>
+          {versions === null ? (
+            <div className="muted2">加载版本中…</div>
+          ) : (
+            <>
+              <Table<WidgetVersionDTO>
+                size="small"
+                rowKey="id"
+                pagination={false}
+                locale={{ emptyText: '暂无版本' }}
+                dataSource={versions}
+                columns={[
+                  { title: '版本', dataIndex: 'version', key: 'version' },
+                  { title: '说明', dataIndex: 'changelog', key: 'changelog', render: (v: string) => <span className="muted">{v || '—'}</span> },
+                  { title: '时间', dataIndex: 'createdAt', key: 'createdAt', render: (v: string) => <span className="muted">{v || '—'}</span> }
+                ]}
+              />
+              <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                <Field label="新版本号"><Input value={vForm.version} placeholder="如 1.1.0" onChange={(e) => setVForm({ ...vForm, version: e.target.value })} /></Field>
+                <Field label="变更说明"><Textarea value={vForm.changelog} placeholder="本次变更内容" onChange={(e) => setVForm({ ...vForm, changelog: e.target.value })} /></Field>
+                <div className="fp-toolbar" style={{ justifyContent: 'flex-end' }}>
+                  <Button type="primary" loading={vBusy} disabled={!vForm.version.trim()} onClick={publishVersion}>发布新版本</Button>
+                </div>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
 
       {/* 投放弹窗：Esc/遮罩关闭由 antd Modal 托管（busy 时禁止关闭） */}
       {deploying && (

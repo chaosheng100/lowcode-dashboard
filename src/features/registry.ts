@@ -25,6 +25,10 @@ import IoTConfigPage from './IoTConfigPage'
 import ReportManagement from './ReportManagement'
 import CarouselPage from './CarouselPage'
 import DeployPage from './DeployPage'
+import SchedulerPage from './SchedulerPage'
+import SyncTaskPage from './SyncTaskPage'
+import NotificationPage from './NotificationPage'
+import SystemMonitorPage from './SystemMonitorPage'
 import './features.css'
 
 /**
@@ -67,5 +71,10 @@ export const featurePages: Record<string, ComponentType> = {
   '/extension/deploy': DeployPage,
   // 其他系统 / 帮助
   '/others/ai-platform': AIPlatformPage,
-  '/help': HelpPage
+  '/others/scheduler': SchedulerPage,
+  '/others/sync': SyncTaskPage,
+  '/others/notify': NotificationPage,
+  '/help': HelpPage,
+  // 系统管理（新增监控）
+  '/system/monitor': SystemMonitorPage
 }

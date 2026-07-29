@@ -29,7 +29,7 @@ export default function App() {
     return <WindowApp mode={mode as 'editor' | 'preview'} routeId={routeId} />
   }
 
-  // 主应用：大屏管理台
+  // 主应用：大屏管理台（路由树 + 内容区，本地 localStorage 持久化）
   return (
     <ProjectView
       onOpenDesigner={(id) => openEditorWindow(id)}

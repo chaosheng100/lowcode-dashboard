@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>低代码大屏平台系统建设计划书 V1.0</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2333; --border:#2d3748;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950;
+    --warn:#d29922; --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Microsoft YaHei","PingFang SC",sans-serif;line-height:1.75;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 32px 80px}
+  header.hero{padding:56px 0 32px;border-bottom:2px solid var(--border);margin-bottom:40px}
+  .hero h1{font-size:34px;letter-spacing:1px;background:linear-gradient(90deg,#58a6ff,#bc8cff,#3fb950);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero .sub{color:var(--muted);margin-top:12px;font-size:15px}
+  .hero .meta{display:flex;gap:24px;margin-top:20px;flex-wrap:wrap}
+  .hero .meta span{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 16px;font-size:13px;color:var(--muted)}
+  h2{font-size:24px;margin:56px 0 20px;padding-left:14px;border-left:4px solid var(--accent)}
+  h3{font-size:18px;margin:32px 0 14px;color:var(--accent)}
+  h4{font-size:15px;margin:20px 0 10px;color:var(--purple)}
+  p{margin:10px 0;color:#c9d1d9}
+  ul,ol{margin:10px 0 10px 24px;color:#c9d1d9}
+  li{margin:6px 0}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+  th{background:var(--panel2);color:var(--accent);text-align:left;padding:10px 12px;border:1px solid var(--border);white-space:nowrap}
+  td{padding:9px 12px;border:1px solid var(--border);vertical-align:top}
+  tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+  code{background:#21262d;border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:Consolas,monospace;font-size:12.5px;color:#79c0ff}
+  pre{background:#0a0e14;border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:14px 0;font-size:12.5px;line-height:1.6}
+  pre code{background:none;border:none;padding:0}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin:16px 0}
+  .tag{display:inline-block;border-radius:4px;padding:1px 9px;font-size:12px;margin-right:6px;border:1px solid}
+  .tag.done{color:var(--accent2);border-color:var(--accent2);background:rgba(63,185,80,.1)}
+  .tag.gap{color:var(--danger);border-color:var(--danger);background:rgba(248,81,73,.1)}
+  .tag.part{color:var(--warn);border-color:var(--warn);background:rgba(210,153,34,.1)}
+  .tag.new{color:var(--accent);border-color:var(--accent);background:rgba(88,166,255,.1)}
+  .flow{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px;margin:20px 0;text-align:center;font-family:Consolas,monospace;font-size:13px;color:#79c0ff;white-space:pre;overflow-x:auto;text-align:left;line-height:1.9}
+  .ears{border-left:3px solid var(--purple);padding:8px 16px;background:rgba(188,140,255,.06);margin:8px 0;font-size:13.5px}
+  .ears b{color:var(--purple)}
+  .toc{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px 32px;column-count:2;column-gap:48px}
+  .toc a{color:var(--accent);text-decoration:none;display:block;padding:3px 0;font-size:14px}
+  .toc a:hover{text-decoration:underline}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>低代码大屏平台系统建设计划书</h1>
+  <div class="sub">组件中心 · AI 智能 · 开发工具 · 资源管理 · 系统管理 · 插件管理 · 基础支撑 —— 七大模块前后端一体化建设方案</div>
+  <div class="meta">
+    <span>版本 V1.0</span><span>日期 2026-07-29</span><span>密级 内部</span>
+    <span>前端 React 18 + Vite + TS</span><span>后端 NestJS + Prisma + SQLite/PG</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#s1">一、背景与建设目标</a>
+  <a href="#s2">二、行业标杆参考</a>
+  <a href="#s3">三、总体架构设计</a>
+  <a href="#s4">四、现状盘点与差距分析</a>
+  <a href="#s5">五、七大模块详细设计</a>
+  <a href="#s6">六、标准化开放接口契约</a>
+  <a href="#s7">七、模块间数据流转闭环</a>
+  <a href="#s8">八、可扩展性与高可用设计</a>
+  <a href="#s9">九、里程碑与验收标准</a>
+</nav>
+
+<h2 id="s1">一、背景与建设目标</h2>
+<div class="card">
+<p>平台已完成低代码大屏设计器（画布编辑 / 组件拖拽 / 预览发布）、大屏管理列表、36 条基础路由功能页与 NestJS 后端骨架（项目 / 大屏 / 运行时 / 数据服务 / 生态 / 实时 / 资产 / 审计 / 通用目录九大服务模块）。前端请求适配层 <code>mockFetch</code> 已直通真实后端，统一 <code>{code, data, message}</code> 信封。</p>
+<p><b>本期目标：</b>将平台从「大屏工具」升级为「企业级平台系统」——补齐七大核心模块的功能闭环，且所有模块产出均可被大屏管理系统以<b>标准化开放接口</b>（能力注册表 <code>GET /api/open/capabilities</code>）统一引用与编排。</p>
+<ul>
+  <li><b>闭环完整：</b>每个模块具备「创建 → 管理 → 消费 → 监控」全生命周期能力，不留只读死角。</li>
+  <li><b>标准引用：</b>七大模块的资源以统一资源描述符对外暴露，设计器 / 编排引擎按同一协议消费。</li>
+  <li><b>前后端同构：</b>后端 NestJS 模块化落库（Prisma），前端功能页真实接口驱动，无孤儿 mock。</li>
+  <li><b>可扩展高可用：</b>微内核 + 插件化 + 通用资源目录（kind 驱动），新增领域零迁移成本。</li>
+</ul>
+</div>
+
+<h2 id="s2">二、行业标杆参考</h2>
+<table>
+  <tr><th>标杆产品</th><th>可借鉴的设计</th><th>本平台落地方式</th></tr>
+  <tr><td>阿里云 DataV</td><td>组件包管理、蓝图编辑器（节点编排）、资产分组、发布快照</td><td>组件中心版本 / 生命周期管理；大屏发布版本快照（已有 ScreenVersion）</td></tr>
+  <tr><td>GoView</td><td>分层架构：数据层→组件层→配置层→渲染层；JSON Schema 单一事实来源</td><td>Schema 驱动画布（已有）；数据层统一 Connector 注册表（static / http-api）</td></tr>
+  <tr><td>JeecgBoot / JimuBI</td><td>RBAC 精细权限、系统监控（JVM/Redis）、AI 流程编排、Online 表单</td><td>系统管理模块：角色权限 + 运行指标 + 审计日志查询 + 告警规则</td></tr>
+  <tr><td>网易 Datav 实践</td><td>Designer / Admin / UI Components / Server / Datasource Access 五子系统</td><td>designer、management、features、server(NestJS)、data connectors 五分区对应</td></tr>
+  <tr><td>Grafana</td><td>Plugin manifest + 依赖声明 + 启停热插拔；Provisioning</td><td>插件管理模块：manifest 校验、依赖检查、install/enable/disable 状态机</td></tr>
+</table>
+
+<h2 id="s3">三、总体架构设计</h2>
+<div class="flow">┌─────────────────────────  前端 react-lowcode-dashboard  ─────────────────────────┐
+│  大屏管理层 management     设计器层 designer(画布/资源面板/能力映射)                │
+│  功能页层 features(27+ 页) ← useApi ← mock/api.ts(类型化门面) ← mockFetch 直通      │
+│  基础数据层 data(routes/capabilities/types/store)                                  │
+└──────────────────────────────────┬───────────────────────────────────────────────┘
+                        HTTP {code,data,message} / WebSocket
+┌──────────────────────────────────┴───────────────────────────────────────────────┐
+│                      后端 lowcode-dashboard-server (NestJS)                        │
+│  开放能力层  open/capabilities ── 标准化资源描述符注册表（本期新增）                 │
+│  业务模块    project screen runtime data ecology realtime asset audit             │
+│  平台模块    platform(组件版本/AI/开发工具/系统管理/插件运维/调度/同步/通知)★新增   │
+│  通用底座    catalog(Resource 表 kind 驱动) · Prisma · SQLite/PostgreSQL · 缓存    │
+└───────────────────────────────────────────────────────────────────────────────────┘</div>
+<p>核心决策：<b>新增 <code>platform</code> 模块承载七大模块缺口能力</b>，复用 <code>CatalogService</code> 的通用 Resource 表（kind + JSON data），新增领域<b>零 Prisma 迁移</b>；行为型接口（版本、生命周期、安装、运行、预测）在 platform 内实现业务语义。</p>
+
+<h2 id="s4">四、现状盘点与差距分析</h2>
+<table>
+  <tr><th>模块</th><th>已有能力</th><th>本期补齐缺口</th></tr>
+  <tr><td><b>1 组件中心</b></td><td><span class="tag done">已有</span>组件列表查询、前端组件库页 / 组件菜单页、设计器物料面板</td><td><span class="tag gap">缺口</span>组件 CRUD、<b>版本管理</b>（版本链 / 变更日志）、<b>生命周期</b>（草稿→上架→弃用→下架）、状态监控统计</td></tr>
+  <tr><td><b>2 AI 智能</b></td><td><span class="tag done">已有</span>AI 模型 / 机器人 CRUD、对话 chat、代码生成 generate</td><td><span class="tag gap">缺口</span><b>数据预测</b> predict、<b>智能推荐</b> recommend（组件/布局）、<b>智能分析</b> analyze（洞察生成）</td></tr>
+  <tr><td><b>3 开发工具</b></td><td><span class="tag done">已有</span>全局变量、代码仓库片段、页面编排（设计器本体）、独立构建 standaloneBuilder</td><td><span class="tag gap">缺口</span><b>代码生成服务端化</b> dev/codegen（Schema→可运行代码）、运行环境 / 调试信息接口 dev/env</td></tr>
+  <tr><td><b>4 资源管理</b></td><td><span class="tag done">已有</span>多分类上传 + 静态服务、素材库 / 地图资源页、设计器资源面板</td><td><span class="tag gap">缺口</span><b>引用追踪</b>（哪些大屏引用了该资源）、资源统计、分类 / 权限字段维护</td></tr>
+  <tr><td><b>5 系统管理</b></td><td><span class="tag done">已有</span>用户 CRUD + 状态、内置角色、审计写入（文件）、运行参数页(mock)</td><td><span class="tag gap">缺口</span><b>审计日志查询 API</b>、<b>系统监控指标</b> metrics、<b>组织架构</b> orgs、<b>系统参数</b> params、<b>告警规则</b> alerts</td></tr>
+  <tr><td><b>6 插件管理</b></td><td><span class="tag done">已有</span>生态注册 / 审核 / 市场（ecology）、插件列表 / 启停位</td><td><span class="tag gap">缺口</span><b>安装 / 卸载 / 更新状态机</b>、启用 / 禁用运维接口、<b>依赖检查</b> deps</td></tr>
+  <tr><td><b>7 其他系统</b></td><td><span class="tag done">已有</span>实时推送（WS）、消息通道 CRUD、部署环境 / 包 / 记录</td><td><span class="tag gap">缺口</span><b>通知中心</b> notifications、<b>任务调度</b> schedulerJobs（含手动触发）、<b>数据同步</b> syncTasks（含执行记录）</td></tr>
+  <tr><td><b>开放层</b></td><td><span class="tag part">部分</span>前端静态能力映射 capabilities.ts</td><td><span class="tag gap">缺口</span><b>GET /api/open/capabilities</b> 实时能力注册表，大屏系统统一引用入口</td></tr>
+</table>
+
+<h2 id="s5">五、七大模块详细设计</h2>
+
+<h3>5.1 组件中心模块</h3>
+<div class="card">
+<h4>需求描述（EARS）</h4>
+<div class="ears"><b>Ubiquitous</b>：系统应始终维护每个组件的唯一标识、当前版本号与生命周期状态。</div>
+<div class="ears"><b>Event-driven</b>：当管理员发布组件新版本时，系统应生成不可变版本记录（版本号 + 变更日志 + 时间戳）并更新当前版本指针。</div>
+<div class="ears"><b>State-driven</b>：当组件处于 <code>deprecated / offline</code> 状态时，设计器物料面板不应再提供该组件的新增拖入。</div>
+<div class="ears"><b>Unwanted</b>：若删除被大屏引用的组件定义，系统应拒绝并返回引用清单。</div>
+<h4>接口设计</h4>
+<table>
+  <tr><th>接口</th><th>说明</th></tr>
+  <tr><td><code>GET/POST/PATCH/DELETE /api/widgets(/:id)</code></td><td>组件定义全量 CRUD（检索 / 分类 / 分页）</td></tr>
+  <tr><td><code>GET /api/widgets/:id/versions</code> · <code>POST /api/widgets/:id/versions</code></td><td>版本链查询 / 发布新版本 {version, changelog}</td></tr>
+  <tr><td><code>POST /api/widgets/:id/lifecycle</code></td><td>生命周期流转 {status: draft|published|deprecated|offline}</td></tr>
+  <tr><td><code>GET /api/widgets/stats</code></td><td>状态监控：按状态 / 分类计数</td></tr>
+</table>
+</div>
+
+<h3>5.2 AI 智能模块</h3>
+<div class="card">
+<div class="ears"><b>Event-driven</b>：当调用方提交时间序列与步长时，系统应返回等长预测序列及置信区间。</div>
+<div class="ears"><b>Where</b>：在设计器请求推荐时，系统应结合场景关键词返回推荐组件清单与布局建议。</div>
+<table>
+  <tr><th>接口</th><th>说明</th></tr>
+  <tr><td><code>POST /api/ai/predict</code></td><td>数据预测：{series, steps} → {forecast, trend, confidence}（线性回归 + 移动平均）</td></tr>
+  <tr><td><code>POST /api/ai/recommend</code></td><td>智能推荐：{scene, dataShape?} → {widgets[], layout, reason}</td></tr>
+  <tr><td><code>POST /api/ai/analyze</code></td><td>智能分析：{data} → {insights[]}（极值 / 趋势 / 波动 / 异常点洞察）</td></tr>
+  <tr><td><code>POST /api/ai/chat</code> · <code>POST /api/ai/generate</code></td><td>已有：自然语言交互 / 代码生成（预留真实 LLM 接入位）</td></tr>
+</table>
+<p class="ears" style="border-color:var(--warn)"><b>If</b> 未配置真实大模型密钥，<b>then</b> 系统应以内置规则引擎离线降级，接口契约不变。</p>
+</div>
+
+<h3>5.3 开发工具模块</h3>
+<div class="card">
+<table>
+  <tr><th>接口</th><th>说明</th></tr>
+  <tr><td><code>POST /api/dev/codegen</code></td><td>{schema, target: html|react} → {code, files[]}：大屏 Schema 服务端生成可运行代码</td></tr>
+  <tr><td><code>GET /api/dev/env</code></td><td>运行环境 / 调试信息：node 版本、已注册路由数、资源 kind 统计</td></tr>
+  <tr><td><code>globalVars / codeSnippets</code> CRUD</td><td>已有，前端页联动设计器变量引用</td></tr>
+</table>
+<p>页面编排 / 拖拽配置 / 预览由设计器本体承载（已交付），本模块聚焦服务端生成与调试支撑。</p>
+</div>
+
+<h3>5.4 资源管理模块</h3>
+<div class="card">
+<div class="ears"><b>Event-driven</b>：当查询资源引用时，系统应扫描全部大屏配置，返回引用该资源 URL 的大屏清单。</div>
+<table>
+  <tr><th>接口</th><th>说明</th></tr>
+  <tr><td><code>GET /api/assets/:id/references</code></td><td>引用追踪：返回 {screens[], count}</td></tr>
+  <tr><td><code>GET /api/assets/stats</code></td><td>按分类 / 类型的资源统计</td></tr>
+  <tr><td><code>PATCH /api/assets/:id</code></td><td>维护分类、权限（public / role: xxx）、标签</td></tr>
+  <tr><td><code>POST /api/assets/upload</code> 等</td><td>已有：多分类上传 + 静态文件服务</td></tr>
+</table>
+</div>
+
+<h3>5.5 系统管理模块</h3>
+<div class="card">
+<div class="ears"><b>Ubiquitous</b>：系统应对全部写操作记录审计日志（操作者 / 动作 / 对象 / 时间）。</div>
+<div class="ears"><b>If</b> 监控指标超过告警规则阈值，<b>then</b> 系统应生成告警通知写入通知中心。</div>
+<table>
+  <tr><th>接口</th><th>说明</th></tr>
+  <tr><td><code>GET /api/system/logs</code></td><td>审计日志分页查询（动作 / 关键词过滤）</td></tr>
+  <tr><td><code>GET /api/system/metrics</code></td><td>监控指标：uptime、内存、CPU、请求计数、资源总量</td></tr>
+  <tr><td><code>orgs</code> CRUD</td><td>组织架构（树形 parentId）</td></tr>
+  <tr><td><code>GET/PATCH /api/system/params</code></td><td>系统参数（键值，替代前端 mock 运行参数）</td></tr>
+  <tr><td><code>alertRules</code> CRUD</td><td>告警规则（指标 / 阈值 / 通知通道）</td></tr>
+  <tr><td><code>users / roles</code></td><td>已有：用户与角色权限</td></tr>
+</table>
+</div>
+
+<h3>5.6 插件管理模块</h3>
+<div class="card">
+<h4>插件状态机</h4>
+<div class="flow">registered ──install──▶ installed ──enable──▶ enabled
+     ▲                     │  ▲                  │
+     │                     │  └──── disable ─────┘
+     └──── uninstall ──────┘        update: installed/enabled → 版本+1</div>
+<div class="ears"><b>Unwanted</b>：若插件声明的依赖未安装或版本不满足，安装 / 启用应失败并返回缺失依赖清单。</div>
+<table>
+  <tr><th>接口</th><th>说明</th></tr>
+  <tr><td><code>POST /api/plugins/:id/install|uninstall|enable|disable|update</code></td><td>插件运维状态机（校验依赖）</td></tr>
+  <tr><td><code>GET /api/plugins/:id/deps</code></td><td>依赖检查：{deps[], satisfied}</td></tr>
+  <tr><td><code>ecology 注册 / 审核 / 市场</code></td><td>已有：第三方插件提交与审核流</td></tr>
+</table>
+</div>
+
+<h3>5.7 其他系统模块（基础支撑）</h3>
+<div class="card">
+<table>
+  <tr><th>能力</th><th>接口</th><th>说明</th></tr>
+  <tr><td>消息通知</td><td><code>GET/POST /api/notifications</code>、<code>POST /:id/read</code>、<code>POST /readAll</code></td><td>站内通知中心；调度失败 / 告警自动写入</td></tr>
+  <tr><td>任务调度</td><td><code>schedulerJobs</code> CRUD + <code>POST /:id/run</code></td><td>cron 表达式登记 + 手动触发，记录 lastRunAt / lastResult</td></tr>
+  <tr><td>数据同步</td><td><code>syncTasks</code> CRUD + <code>POST /:id/run</code></td><td>源→目标同步任务，执行记录（行数 / 耗时 / 状态）</td></tr>
+  <tr><td>实时推送</td><td>WS <code>/api/realtime</code></td><td>已有：订阅 / 广播</td></tr>
+</table>
+</div>
+
+<h2 id="s6">六、标准化开放接口契约（大屏系统统一引用）</h2>
+<div class="card">
+<p>所有模块产出通过<b>能力注册表</b>对大屏管理系统暴露，实现「一个入口、统一协议、可编排」：</p>
+<pre><code>GET /api/open/capabilities
+→ {
+  "code": 0,
+  "data": {
+    "version": "1.0",
+    "envelope": { "code": "number(0=成功)", "data": "T", "message": "string" },
+    "modules": [
+      {
+        "key": "component-hub", "name": "组件中心",
+        "resources": [
+          { "kind": "widget", "name": "可视化组件", "basePath": "/api/widgets",
+            "ops": ["list","get","create","patch","delete"],
+            "actions": ["versions","lifecycle","stats"],
+            "count": 12, "consumableBy": ["designer.material","dashboard.orchestrate"] }
+        ]
+      },
+      { "key": "ai", ... }, { "key": "devtools", ... }, { "key": "resource", ... },
+      { "key": "system", ... }, { "key": "plugin", ... }, { "key": "infra", ... }
+    ]
+  }, "message": "ok"
+}</code></pre>
+<ul>
+  <li><b>资源描述符</b>五要素：<code>kind</code>（类型）、<code>basePath</code>（入口）、<code>ops</code>（标准 CRUD 能力）、<code>actions</code>（行为动作）、<code>consumableBy</code>（可被哪些编排点消费）。</li>
+  <li>大屏设计器「能力映射」面板由静态 <code>capabilities.ts</code> 升级为<b>实时拉取</b>本注册表，动态感知后端能力与资源数量。</li>
+  <li>统一信封 <code>{code, data, message}</code>、统一分页 <code>{list, total, page, pageSize}</code>，任何新模块按此协议接入即被自动编排。</li>
+</ul>
+</div>
+
+<h2 id="s7">七、模块间数据流转闭环</h2>
+<div class="flow">组件中心(widget/版本) ─┐
+资源管理(素材/地图)  ─┤                        ┌─▶ 大屏发布(Screen 版本快照)
+AI 智能(推荐/预测)   ─┼─▶ 能力注册表 ─▶ 设计器画布 ─┤
+开发工具(变量/代码)  ─┤   open/capabilities        └─▶ 运行时 runtime(缓存读取)
+插件管理(扩展组件)   ─┘                                      │
+                                                              ▼
+系统管理(权限/参数) ──守卫全链路          审计日志 ◀── 全部写操作
+基础支撑：调度任务──▶数据同步──▶数据源/数据集──▶画布组件绑定
+          告警规则──超阈值──▶通知中心──▶前端消息中心/WS 推送</div>
+<p>闭环要点：任一模块的「产出」（组件、素材、模型、变量、插件）都经能力注册表进入设计器消费；任一「运行事件」（调度、同步、告警）都回流通知中心与审计日志，形成生产 → 消费 → 监控 → 反馈的完整回路。</p>
+
+<h2 id="s8">八、可扩展性与高可用设计</h2>
+<div class="grid">
+<div class="card"><h4>可扩展性</h4><ul>
+  <li><b>微内核 + kind 驱动：</b>通用 Resource 表承载元数据型领域，新增领域 = 新增 kind + 路由登记，零迁移。</li>
+  <li><b>Connector 注册表：</b>数据源类型（static / http-api / sql / mqtt）按接口注册可插拔。</li>
+  <li><b>插件状态机：</b>第三方组件 / 数据源 / 动作经审核后热接入物料体系。</li>
+  <li><b>前后端契约先行：</b>信封 + 分页 + 资源描述符三协议固定，双端独立演进。</li>
+</ul></div>
+<div class="card"><h4>高可用</h4><ul>
+  <li><b>存储分级：</b>开发 SQLite 零配置，生产切 PostgreSQL 仅改 DATABASE_URL。</li>
+  <li><b>缓存分级：</b>运行时读取走内存缓存，生产可无缝切 Redis。</li>
+  <li><b>发布快照：</b>大屏发布生成不可变版本，支持秒级回滚。</li>
+  <li><b>容器化：</b>已备 Dockerfile / docker-compose，可水平扩展多实例 + 前置负载均衡。</li>
+  <li><b>降级策略：</b>AI 无外部模型时规则引擎降级；后端不可达时前端信封返回 code=-1 可控提示。</li>
+</ul></div>
+</div>
+
+<h2 id="s9">九、里程碑与验收标准</h2>
+<table>
+  <tr><th>阶段</th><th>交付物</th><th>验收标准</th></tr>
+  <tr><td>M1 计划评审</td><td>本计划书</td><td>七模块范围 / 契约确认</td></tr>
+  <tr><td>M2 后端补齐</td><td>platform 模块（组件版本 / AI / 开发工具 / 系统 / 插件运维 / 调度同步通知 / 能力注册表）</td><td>NestJS 构建通过；新接口 curl 冒烟全绿</td></tr>
+  <tr><td>M3 前端接入</td><td>api 门面增补 + 组件中心版本操作 + 调度 / 同步 / 通知 / 监控新页 + 能力映射实时化</td><td><code>tsc --noEmit</code> 0 错误；vite build 成功</td></tr>
+  <tr><td>M4 联调验收</td><td>前后端联调记录</td><td>七模块页面均可对真实后端完成读写闭环</td></tr>
+</table>
+<p class="ears" style="border-color:var(--accent2)"><b>总验收口径</b>：① 每个模块至少一条「创建→消费→监控」链路可演示；② <code>GET /api/open/capabilities</code> 覆盖全部七模块资源；③ 前端零 TypeScript 错误、后端零构建错误。</p>
+
+<footer>低代码大屏平台 · 平台系统建设计划书 V1.0 · 2026-07-29 · 参考：阿里云 DataV / GoView / JeecgBoot·JimuBI / Grafana 插件体系</footer>
+</div>
+</body>
+</html>

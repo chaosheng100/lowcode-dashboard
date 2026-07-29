@@ -35,7 +35,28 @@ import type {
   DataEntryDTO,
   WorkflowDTO,
   CarouselDTO,
-  PluginDTO
+  PluginDTO,
+  // 新增 DTO（组件中心 / AI / 开发工具 / 系统 / 插件 / 通知 / 调度 / 同步 / 开放能力）
+  WidgetVersionDTO,
+  WidgetStatsDTO,
+  WidgetLifecycleStatus,
+  NotificationDTO,
+  NotificationLevel,
+  SchedulerJobDTO,
+  SyncTaskDTO,
+  OrgDTO,
+  AlertRuleDTO,
+  SysParamDTO,
+  SystemMetricsDTO,
+  AuditLogDTO,
+  AssetRefDTO,
+  AssetStatsDTO,
+  AIPredictResultDTO,
+  AIRecommendResultDTO,
+  AIAnalyzeResultDTO,
+  CodeGenResultDTO,
+  DevEnvDTO,
+  CapabilityRegistryDTO
 } from './types'
 
 export const api = {
@@ -170,7 +191,79 @@ export const api = {
   listDeployRecords: (q: PageQuery = {}) => mockFetch<PageResult<DeployRecordDTO>>('GET', '/api/deployRecords', { query: q }),
   saveDeployRecord: (body: Partial<DeployRecordDTO>) =>
     mockFetch<DeployRecordDTO>(body.id ? 'PATCH' : 'POST', `/api/deployRecords${body.id ? '/' + body.id : ''}`, { body }),
-  deleteDeployRecord: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/deployRecords/${id}`)
+  deleteDeployRecord: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/deployRecords/${id}`),
+
+  // —— 组件中心：组件生命周期 / 版本 / 统计 ——
+  saveWidget: (body: Partial<WidgetDefDTO>) =>
+    mockFetch<WidgetDefDTO>(body.type ? 'PATCH' : 'POST', `/api/widgets${body.type ? '/' + body.type : ''}`, { body }),
+  deleteWidget: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/widgets/${id}`),
+  getWidgetStats: () => mockFetch<WidgetStatsDTO>('GET', '/api/widgets/stats'),
+  getWidgetVersions: (id: string) => mockFetch<WidgetVersionDTO[]>('GET', `/api/widgets/${id}/versions`),
+  publishWidgetVersion: (id: string, body: { version: string; changelog: string }) =>
+    mockFetch<WidgetVersionDTO>('POST', `/api/widgets/${id}/versions`, { body }),
+  setWidgetLifecycle: (id: string, status: WidgetLifecycleStatus) =>
+    mockFetch<{ status: WidgetLifecycleStatus }>('POST', `/api/widgets/${id}/lifecycle`, { body: { status } }),
+
+  // —— AI 智能：预测 / 推荐 / 分析 ——
+  aiPredict: (body: { series: number[]; steps: number }) =>
+    mockFetch<AIPredictResultDTO>('POST', '/api/ai/predict', { body }),
+  aiRecommend: (body: { scene: string }) =>
+    mockFetch<AIRecommendResultDTO>('POST', '/api/ai/recommend', { body }),
+  aiAnalyze: (body: { data: unknown }) =>
+    mockFetch<AIAnalyzeResultDTO>('POST', '/api/ai/analyze', { body }),
+
+  // —— 开发工具：代码生成 / 环境 ——
+  codegen: (body: { schema: unknown; target: string }) =>
+    mockFetch<CodeGenResultDTO>('POST', '/api/dev/codegen', { body }),
+  getDevEnv: () => mockFetch<DevEnvDTO>('GET', '/api/dev/env'),
+
+  // —— 资源：统计 / 引用关系 ——
+  getAssetStats: () => mockFetch<AssetStatsDTO>('GET', '/api/assets/stats'),
+  getAssetReferences: (id: string) => mockFetch<AssetRefDTO>('GET', `/api/assets/${id}/references`),
+
+  // —— 系统：日志 / 指标 / 组织 / 参数 / 告警规则 ——
+  getSystemLogs: (q: PageQuery = {}) => mockFetch<PageResult<AuditLogDTO>>('GET', '/api/system/logs', { query: q }),
+  getSystemMetrics: () => mockFetch<SystemMetricsDTO>('GET', '/api/system/metrics'),
+  listOrgs: (q: PageQuery = {}) => mockFetch<PageResult<OrgDTO>>('GET', '/api/orgs', { query: q }),
+  saveOrg: (body: Partial<OrgDTO>) =>
+    mockFetch<OrgDTO>(body.id ? 'PATCH' : 'POST', `/api/orgs${body.id ? '/' + body.id : ''}`, { body }),
+  deleteOrg: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/orgs/${id}`),
+  getSystemParams: () => mockFetch<SysParamDTO[]>('GET', '/api/system/params'),
+  patchSystemParam: (key: string, value: string) =>
+    mockFetch<SysParamDTO>('PATCH', '/api/system/params', { body: { key, value } }),
+  listAlertRules: (q: PageQuery = {}) => mockFetch<PageResult<AlertRuleDTO>>('GET', '/api/alertRules', { query: q }),
+  saveAlertRule: (body: Partial<AlertRuleDTO>) =>
+    mockFetch<AlertRuleDTO>(body.id ? 'PATCH' : 'POST', `/api/alertRules${body.id ? '/' + body.id : ''}`, { body }),
+  deleteAlertRule: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/alertRules/${id}`),
+
+  // —— 插件：生命周期 / 依赖 ——
+  pluginAction: (id: string, action: 'install' | 'uninstall' | 'enable' | 'disable' | 'update') =>
+    mockFetch<PluginDTO>('POST', `/api/plugins/${id}/${action}`),
+  getPluginDeps: (id: string) => mockFetch<{ deps: string[] }>('GET', `/api/plugins/${id}/deps`),
+
+  // —— 通知 / 消息 ——
+  listNotifications: (q: PageQuery = {}) => mockFetch<PageResult<NotificationDTO>>('GET', '/api/notifications', { query: q }),
+  sendNotification: (body: { title: string; content: string; level: NotificationLevel }) =>
+    mockFetch<NotificationDTO>('POST', '/api/notifications', { body }),
+  readNotification: (id: string) => mockFetch<{ ok: boolean }>('POST', `/api/notifications/${id}/read`),
+  readAllNotifications: () => mockFetch<{ ok: boolean }>('POST', '/api/notifications/readAll'),
+
+  // —— 调度任务 ——
+  listSchedulerJobs: (q: PageQuery = {}) => mockFetch<PageResult<SchedulerJobDTO>>('GET', '/api/schedulerJobs', { query: q }),
+  saveSchedulerJob: (body: Partial<SchedulerJobDTO>) =>
+    mockFetch<SchedulerJobDTO>(body.id ? 'PATCH' : 'POST', `/api/schedulerJobs${body.id ? '/' + body.id : ''}`, { body }),
+  deleteSchedulerJob: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/schedulerJobs/${id}`),
+  runSchedulerJob: (id: string) => mockFetch<SchedulerJobDTO>('POST', `/api/schedulerJobs/${id}/run`),
+
+  // —— 数据同步任务 ——
+  listSyncTasks: (q: PageQuery = {}) => mockFetch<PageResult<SyncTaskDTO>>('GET', '/api/syncTasks', { query: q }),
+  saveSyncTask: (body: Partial<SyncTaskDTO>) =>
+    mockFetch<SyncTaskDTO>(body.id ? 'PATCH' : 'POST', `/api/syncTasks${body.id ? '/' + body.id : ''}`, { body }),
+  deleteSyncTask: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/syncTasks/${id}`),
+  runSyncTask: (id: string) => mockFetch<SyncTaskDTO>('POST', `/api/syncTasks/${id}/run`),
+
+  // —— 开放能力注册表 ——
+  getOpenCapabilities: () => mockFetch<CapabilityRegistryDTO>('GET', '/api/open/capabilities')
 }
 
 export type { RequestOptions }

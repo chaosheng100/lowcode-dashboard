@@ -104,6 +104,7 @@ export const routeCapabilities: RouteCapability[] = [
   { routeId: '/system/runtime', routeName: '运行配置', domain: '系统管理', capability: 'theme', description: '运行配置中的主题沉淀为画布配色与全局观感。' },
   { routeId: '/system/users', routeName: '用户管理', domain: '系统管理', capability: 'permission', description: '用户与角色决定画布编辑器的协作权限与可见性。' },
   { routeId: '/system/analysis', routeName: '大屏分析', domain: '系统管理', capability: 'analytics', description: '分析能力对画布运行态做监控与性能/异常分析。' },
+  { routeId: '/system/monitor', routeName: '系统监控', domain: '系统管理', capability: 'analytics', description: '运行指标与审计日志沉淀为画布健康度监控能力。' },
 
   // —— 插件管理 ——
   { routeId: '/plugins', routeName: '插件管理', domain: '插件管理', capability: 'extension', description: '插件能力总入口，扩展画布组件生态。' },
@@ -115,7 +116,10 @@ export const routeCapabilities: RouteCapability[] = [
 
   // —— 其他系统 ——
   { routeId: '/others', routeName: '其他系统', domain: '其他系统', capability: 'extension', description: '外部系统能力可作为画布数据/组件扩展来源。' },
-  { routeId: '/others/ai-platform', routeName: 'AI模型平台', domain: '其他系统', capability: 'ai', description: '外部 AI 平台模型接入画布智能组件。' }
+  { routeId: '/others/ai-platform', routeName: 'AI模型平台', domain: '其他系统', capability: 'ai', description: '外部 AI 平台模型接入画布智能组件。' },
+  { routeId: '/others/scheduler', routeName: '调度任务', domain: '其他系统', capability: 'extension', description: '定时调度能力可驱动画布数据/组件的周期性刷新。' },
+  { routeId: '/others/sync', routeName: '数据同步', domain: '其他系统', capability: 'extension', description: '数据同步能力为画布提供持续更新的数据集。' },
+  { routeId: '/others/notify', routeName: '通知中心', domain: '其他系统', capability: 'extension', description: '通知能力为画布提供实时消息与告警推送。' }
 ]
 
 /** 按路由 id 取能力映射 */
