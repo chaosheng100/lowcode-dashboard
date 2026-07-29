@@ -3,13 +3,9 @@ import { Button, ColorPicker, InputNumber } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Input, Tag } from './common'
-import { TwinRenderer } from '../twin/TwinRenderer'
-import { TwinSim } from '../twin/TwinSim'
-import { TwinControlHub } from '../twin/control'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import {
-  healthToState,
   CONTROL_LABELS,
   type ControlAction,
   type GeoType,
@@ -17,13 +13,14 @@ import {
   type TwinEntity,
   type TwinScene
 } from '../twin/twinTypes'
+import { TwinSceneView, type TwinSceneViewController } from '../twin/TwinSceneView'
 
 // ============================================================
-// 数字孪生 3D 编辑器（复用 TwinRenderer 内核，不再维护独立 Three.js 场景）
+// 数字孪生 3D 编辑器（复用 TwinSceneView 共享内核，不再各自维护重复渲染/仿真/控制样板）
 // 功能：拖拽式场景搭建、模型选中/拖拽/旋转/缩放、关键帧轨迹、日照/夜景/雾效；
 //       + 仿真面板（TwinSim 健康指数/RUL）、控制面板（TwinControlHub 闭环下发）、
 //       + 告警面板（运行时 store 预测性维护告警）、实体数据绑定（liveSourceId）。
-// 编辑与展示共用同一内核（TwinRenderer），实现“一次建模、到处渲染”。
+// 编辑与展示共用同一内核（TwinSceneView），实现“一次建模、到处渲染”。
 // ============================================================
 
 type Keyframe = { time: number; x: number; z: number; rotationY: number }
@@ -72,20 +69,20 @@ interface TwinPageProps {
 // 模块编辑器作为独立的孪生运行时会话（与大屏中的数字孪生组件互不串数据）
 const TWIN_MODULE_INSTANCE = 'twin-module'
 
-export default function TwinPage(_props: TwinPageProps = {}) {
+export default function TwinPage(props: TwinPageProps = {}) {
+  const { scene: externalScene, readOnly, onSave } = props
   const { data: models } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
   const rt = useTwinRuntimeStore((s) => s.instances[TWIN_MODULE_INSTANCE]) ?? EMPTY_TWIN_INSTANCE
 
-  const mountRef = useRef<HTMLDivElement>(null)
-  const rendererRef = useRef<TwinRenderer | null>(null)
-  const simRef = useRef<TwinSim | null>(null)
-  const controlRef = useRef<TwinControlHub | null>(null)
-  if (!controlRef.current) controlRef.current = new TwinControlHub(TWIN_MODULE_INSTANCE)
+  // 命令式接口（拖拽/属性/关键帧/控制操作经由共享内核 TwinSceneView）
+  const viewRef = useRef<TwinSceneViewController | null>(null)
+  const liveRef = useRef<Record<string, TelemetrySample>>({})
 
-  // 初始场景：从全局孪生场景库读取（模块与大屏共享同一份，实现互通 + 持久化）
-  const activeSceneId = useDesignerStore.getState().activeTwinSceneId || 'main'
-  const storeScene = useDesignerStore.getState().twinScenes[activeSceneId]
-  const initialEntities = (storeScene?.entities?.length ? storeScene.entities : buildDefaultEntities())
+  // 初始场景：优先使用外部传入的 scene（列表 → 编辑器互通），
+  // 否则从全局孪生场景库读取（模块与大屏共享同一份，实现互通 + 持久化）
+  const activeSceneId = externalScene?.id ?? (useDesignerStore.getState().activeTwinSceneId || 'main')
+  const storeScene = externalScene ?? useDesignerStore.getState().twinScenes[activeSceneId]
+  const initialEntities = storeScene?.entities?.length ? storeScene.entities : buildDefaultEntities()
   const entitiesRef = useRef<TwinEntity[]>(initialEntities)
   const [entities, setEntities] = useState<TwinEntity[]>(initialEntities)
 
@@ -103,7 +100,6 @@ export default function TwinPage(_props: TwinPageProps = {}) {
   const lastRef = useRef(performance.now())
   const [playing, setPlaying] = useState(false)
 
-  const liveRef = useRef<Record<string, TelemetrySample>>({})
   const draggingRef = useRef<string | null>(null)
 
   const syncRefs = useCallback(() => {
@@ -116,51 +112,12 @@ export default function TwinPage(_props: TwinPageProps = {}) {
     [lighting, fog]
   )
 
-  // 确保模块编辑器独立的运行时会话存在
+  // 同步 refs
+  useEffect(() => { syncRefs() }, [syncRefs])
+
+  // 随机游走遥测：仅填充 liveRef，渲染/仿真由 TwinSceneView 统一消费（模块编辑器自带数据源）
   useEffect(() => {
-    useTwinRuntimeStore.getState().ensureInstance(TWIN_MODULE_INSTANCE)
-  }, [])
-
-  // ---- 初始化渲染器（复用内核，仅一次） ----
-  useEffect(() => {
-    const el = mountRef.current
-    if (!el) return
-    const renderer = new TwinRenderer(el, sceneOf(entitiesRef.current), { lighting, fog })
-    renderer.setClickHandler((id) => setSelectedId(id))
-    rendererRef.current = renderer
-    simRef.current = new TwinSim(entitiesRef.current)
-
-    const canvas = renderer.getCanvas()
-    const onDown = (ev: PointerEvent) => {
-      if (ev.button !== 0) return
-      const id = renderer.pickEntityAt(ev.clientX, ev.clientY)
-      if (id) {
-        draggingRef.current = id
-        renderer.setControlsEnabled(false)
-        setSelectedId(id)
-      }
-    }
-    const onMove = (ev: PointerEvent) => {
-      if (!draggingRef.current) return
-      const gp = renderer.groundPointAt(ev.clientX, ev.clientY)
-      if (gp) renderer.updateEntityTransform(draggingRef.current, { x: gp.x, z: gp.z })
-    }
-    const onUp = () => {
-      if (!draggingRef.current) return
-      const id = draggingRef.current
-      draggingRef.current = null
-      renderer.setControlsEnabled(true)
-      const t = renderer.getEntityTransform(id)
-      if (t) setEntities((prev) => prev.map((e) => (e.id === id ? { ...e, x: t.x, y: t.y, z: t.z } : e)))
-    }
-    canvas.addEventListener('pointerdown', onDown)
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-
-    // 仿真 tick：遥测随机游走 → 状态/告警/预测写入运行时 store
-    const simTimer = setInterval(() => {
-      if (!simRef.current) return
-      const live: Record<string, TelemetrySample> = {}
+    const tick = () => {
       entitiesRef.current.forEach((e) => {
         const prev = liveRef.current[e.id] ?? { temperature: e.metrics?.temperature ?? 40, health: e.metrics?.health ?? 80, load: e.metrics?.load ?? 40 }
         const s: TelemetrySample = {
@@ -169,40 +126,76 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           load: clamp(prev.load + (Math.random() - 0.5) * 16, 0, 100)
         }
         liveRef.current[e.id] = s
-        live[e.id] = s
-        renderer.setEntityState(e.id, healthToState(s.health, s.temperature))
       })
-      const res = simRef.current.tick(live)
-      useTwinRuntimeStore.getState().setPredictions(TWIN_MODULE_INSTANCE, res.predictions)
-      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(TWIN_MODULE_INSTANCE, a))
-    }, 2500)
+    }
+    tick()
+    const timer = setInterval(tick, 2500)
+    return () => clearInterval(timer)
+  }, [])
 
+  // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
+  useEffect(() => {
+    const id = externalScene?.id ?? (useDesignerStore.getState().activeTwinSceneId || 'main')
+    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog })
+  }, [entities, lighting, fog, externalScene])
+
+  // 场景变更时通过 onSave 回调写回 API（防抖 1.5s，避免频繁请求）
+  useEffect(() => {
+    if (!onSave) return
+    const timer = setTimeout(() => {
+      const scene: TwinScene = { id: activeSceneId, name: storeScene?.name ?? '', entities, env: { lighting, fog } }
+      onSave(scene)
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [entities, lighting, fog, onSave, activeSceneId, storeScene?.name])
+
+  // 退出编辑页时：清理仿真告警 + 最终回写 API
+  useEffect(() => () => {
+    useTwinRuntimeStore.getState().clearAlarms(TWIN_MODULE_INSTANCE)
+    // 最终保存：确保不丢失未触发的防抖
+    if (onSave) {
+      const scene: TwinScene = { id: activeSceneId, name: storeScene?.name ?? '', entities: entitiesRef.current, env: { lighting, fog } }
+      onSave(scene)
+    }
+  }, [])
+
+  // ---- 拖拽放置 / 选中 / 移动（经由共享内核的 renderer 接口） ----
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    const canvas = view.getCanvas()
+    if (!canvas) return
+    const onDown = (ev: PointerEvent) => {
+      if (ev.button !== 0) return
+      const id = view.pickEntityAt(ev.clientX, ev.clientY)
+      if (id) {
+        draggingRef.current = id
+        view.setControlsEnabled(false)
+        setSelectedId(id)
+      }
+    }
+    const onMove = (ev: PointerEvent) => {
+      if (!draggingRef.current) return
+      const gp = view.groundPointAt(ev.clientX, ev.clientY)
+      if (gp) view.updateEntityTransform(draggingRef.current, { x: gp.x, z: gp.z })
+    }
+    const onUp = () => {
+      if (!draggingRef.current) return
+      const id = draggingRef.current
+      draggingRef.current = null
+      view.setControlsEnabled(true)
+      const t = view.getEntityTransform(id)
+      if (t) setEntities((prev) => prev.map((e) => (e.id === id ? { ...e, x: t.x, y: t.y, z: t.z } : e)))
+    }
+    canvas.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
     return () => {
       canvas.removeEventListener('pointerdown', onDown)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      clearInterval(simTimer)
-      renderer.dispose()
-      rendererRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // 同步 refs
-  useEffect(() => { syncRefs() }, [syncRefs])
-
-  // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
-  useEffect(() => {
-    const id = useDesignerStore.getState().activeTwinSceneId || 'main'
-    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog })
-  }, [entities, lighting, fog])
-
-  // 退出编辑页时清理编辑期产生的仿真告警，避免残留到告警清单组件
-  useEffect(() => () => { useTwinRuntimeStore.getState().clearAlarms(TWIN_MODULE_INSTANCE) }, [])
-
-  // 环境变更 → 渲染器
-  useEffect(() => { rendererRef.current?.setLighting(lighting) }, [lighting])
-  useEffect(() => { rendererRef.current?.setFog(fog) }, [fog])
 
   // ---- 关键帧播放（独立 rAF，驱动渲染器实体变换） ----
   useEffect(() => {
@@ -242,7 +235,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           }
           pose = pose2
         }
-        rendererRef.current?.updateEntityTransform(e.id, pose)
+        viewRef.current?.updateEntityTransform(e.id, pose)
       }
     }
     loop()
@@ -255,17 +248,17 @@ export default function TwinPage(_props: TwinPageProps = {}) {
     const idx = parseInt(ev.dataTransfer.getData('text/plain'), 10)
     if (isNaN(idx) || idx < 0 || idx >= PRESETS.length) return
     const preset = PRESETS[idx]
-    const renderer = rendererRef.current
-    if (!renderer) return
-    const gp = renderer.groundPointAt(ev.clientX, ev.clientY)
+    const view = viewRef.current
+    if (!view) return
+    const gp = view.groundPointAt(ev.clientX, ev.clientY)
     const ent = makeEntity(preset, gp?.x ?? 0, gp?.z ?? 0)
-    renderer.addEntity(ent)
+    view.addEntity(ent)
     setEntities((prev) => [...prev, ent])
   }, [])
 
   const deleteSelected = () => {
     if (!selectedId) return
-    rendererRef.current?.removeEntity(selectedId)
+    viewRef.current?.removeEntity(selectedId)
     setEntities((prev) => prev.filter((o) => o.id !== selectedId))
     setKeyframes((prev) => {
       const n = { ...prev }
@@ -278,18 +271,18 @@ export default function TwinPage(_props: TwinPageProps = {}) {
   const updateSelected = (patch: Partial<TwinEntity>) => {
     if (!selectedId) return
     setEntities((prev) => prev.map((o) => (o.id === selectedId ? { ...o, ...patch } : o)))
-    const r = rendererRef.current
-    if (!r) return
-    if (patch.color) r.setEntityColor(selectedId, patch.color)
+    const view = viewRef.current
+    if (!view) return
+    if (patch.color) view.setEntityColor(selectedId, patch.color)
     if (patch.x !== undefined || patch.z !== undefined || patch.rotationY !== undefined || patch.scale !== undefined) {
-      const t = r.getEntityTransform(selectedId)
-      if (t) r.updateEntityTransform(selectedId, { x: patch.x ?? t.x, y: t.y, z: patch.z ?? t.z, rotationY: patch.rotationY ?? t.rotationY, scale: patch.scale })
+      const t = view.getEntityTransform(selectedId)
+      if (t) view.updateEntityTransform(selectedId, { x: patch.x ?? t.x, y: t.y, z: patch.z ?? t.z, rotationY: patch.rotationY ?? t.rotationY, scale: patch.scale })
     }
   }
 
   const recordKeyframe = () => {
     if (!selectedId) return
-    const t = rendererRef.current?.getEntityTransform(selectedId)
+    const t = viewRef.current?.getEntityTransform(selectedId)
     if (!t) return
     const kf: Keyframe = { time: parseFloat(currentTime.toFixed(2)), x: t.x, z: t.z, rotationY: t.rotationY }
     setKeyframes((prev) => {
@@ -314,7 +307,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
   const dispatchControl = async (action: ControlAction) => {
     const ent = entities.find((e) => e.id === selectedId)
     if (!ent) return
-    await controlRef.current?.dispatch(ent, action)
+    await viewRef.current?.dispatchControl(ent, action)
   }
 
   const selected = entities.find((o) => o.id === selectedId)
@@ -334,16 +327,17 @@ export default function TwinPage(_props: TwinPageProps = {}) {
     <div className="feature-page">
       <div className="fp-head">
         <div>
-          <h2 className="fp-title">数字孪生 3D 编辑器</h2>
+          <h2 className="fp-title">数字孪生 3D 编辑器{readOnly ? '（预览）' : ''}</h2>
           <p className="fp-sub">
-            拖拽搭建 · 关键帧轨迹 · 日照/夜景/雾效 · {entities.length} 个场景对象 · {totalKeyframes} 个关键帧 · 仿真/控制/告警已接入
+            {readOnly ? '场景预览 · ' : '拖拽搭建 · 关键帧轨迹 · '}日照/夜景/雾效 · {entities.length} 个场景对象 · {totalKeyframes} 个关键帧{readOnly ? '' : ' · 仿真/控制/告警已接入'}
           </p>
         </div>
         <span className="fp-count">预置模型 91 种</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 260px', gap: 12 }}>
-        {/* 左：模型库 */}
+      <div style={{ display: 'grid', gridTemplateColumns: readOnly ? '1fr' : '180px 1fr 260px', gap: 12 }}>
+        {/* 左：模型库（预览模式隐藏） */}
+        {!readOnly && (
         <div>
           <div className="muted2" style={{ marginBottom: 8 }}>模型库（拖拽到画布放置）</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 360, overflow: 'auto' }}>
@@ -375,8 +369,9 @@ export default function TwinPage(_props: TwinPageProps = {}) {
             </div>
           )}
         </div>
+        )}
 
-        {/* 中：3D 视口 */}
+        {/* 中：3D 视口（共享内核 TwinSceneView） */}
         <div>
           <div className="flex" style={{ marginBottom: 8 }}>
             <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} onClick={() => setLighting('day')}>☀ 日照</Button>
@@ -387,17 +382,28 @@ export default function TwinPage(_props: TwinPageProps = {}) {
             </span>
           </div>
           <div
-            ref={mountRef}
             style={{ width: '100%', height: 420, background: '#05080f', borderRadius: 10, border: '1px solid #1a2433', overflow: 'hidden' }}
             onDragOver={(ev) => ev.preventDefault()}
             onDrop={handleDrop}
-          />
+          >
+            <TwinSceneView
+              ref={viewRef}
+              key={activeSceneId}
+              scene={sceneOf(entitiesRef.current)}
+              instanceId={TWIN_MODULE_INSTANCE}
+              options={{ lighting, fog }}
+              getTelemetry={() => liveRef.current}
+              simIntervalMs={2500}
+              onSelectEntity={(id) => setSelectedId(id)}
+            />
+          </div>
           {entities.length === 0 && (
             <div className="muted2" style={{ textAlign: 'center', marginTop: 8 }}>从模型库拖拽模型到 3D 视口放置</div>
           )}
         </div>
 
-        {/* 右：属性 / 仿真 / 控制 / 告警 */}
+        {/* 右：属性 / 仿真 / 控制 / 告警（预览模式隐藏编辑控件） */}
+        {!readOnly && (
         <div>
           {selected ? (
             <div className="sec">
@@ -489,9 +495,11 @@ export default function TwinPage(_props: TwinPageProps = {}) {
             </div>
           </div>
         </div>
+        )}
       </div>
 
-      {/* 时间轴 */}
+      {/* 时间轴（预览模式仅显示，不可编辑） */}
+      {!readOnly && (
       <div className="sec" style={{ marginTop: 4 }}>
         <div className="sec-head">
           <div>
@@ -547,6 +555,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           <polygon points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`} fill="#ef4444" />
         </svg>
       </div>
+      )}
     </div>
   )
 }

@@ -3,8 +3,9 @@ import { App, Button, Form, Input, InputNumber, Select, Tabs } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
 import { api } from '../../mock'
-import type { DatasetDTO, DataSourceDTO } from '../../mock/types'
+import type { DatasetDTO, DataSourceDTO, TwinSceneDTO } from '../../mock/types'
 import type { DataPoint } from '../../data/types'
+import type { TwinSceneOption } from './SchemaForm'
 import CanvasPanel from './CanvasPanel'
 import SchemaForm from './SchemaForm'
 import { styleSchemas, dataSchemas } from './propSchemas'
@@ -31,6 +32,7 @@ export default function PropertyPanel() {
   const [dataText, setDataText] = useState('')
   const [datasets, setDatasets] = useState<DatasetDTO[]>([])
   const [dataSources, setDataSources] = useState<DataSourceDTO[]>([])
+  const [twinSceneOptions, setTwinSceneOptions] = useState<TwinSceneOption[]>([])
 
   useEffect(() => {
     if (component && component.props.data) {
@@ -42,12 +44,21 @@ export default function PropertyPanel() {
     let alive = true
     Promise.all([
       api.listDatasets({ pageSize: 50 }),
-      api.listDataSources({ pageSize: 50 })
+      api.listDataSources({ pageSize: 50 }),
+      api.listTwinScenes({ pageSize: 100 })
     ])
-      .then(([dr, dsr]) => {
+      .then(([dr, dsr, tsr]) => {
         if (!alive) return
         if (dr.code === 0) setDatasets(dr.data.list)
         if (dsr.code === 0) setDataSources(dsr.data.list)
+        if (tsr.code === 0) {
+          setTwinSceneOptions(
+            tsr.data.list.map((s: TwinSceneDTO) => ({
+              value: s.id,
+              label: `${s.name} · ${s.models.length}个模型`
+            }))
+          )
+        }
       })
       .catch(() => {})
     return () => {
@@ -159,6 +170,7 @@ export default function PropertyPanel() {
               schema={dataSchema}
               value={p}
               liveSources={liveSources}
+              twinSceneOptions={twinSceneOptions}
               onChange={(patch) => updateProps(component.id, patch)}
             />
           )}

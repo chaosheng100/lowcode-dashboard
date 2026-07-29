@@ -29,6 +29,8 @@ interface Props<T extends PluginItem> {
   renderEditor?: (item: T, save: (patch: Partial<T>) => Promise<void>) => ReactNode
   /** 预览视图（全屏）；不提供则提示无独立预览 */
   renderPreview?: (item: T) => ReactNode
+  /** 卡片自定义操作区（在"进入编辑器/预览/重命名/删除"之前插入） */
+  renderActions?: (item: T) => ReactNode
 }
 
 type View<T> =
@@ -43,7 +45,7 @@ type View<T> =
  */
 export default function PluginManagement<T extends PluginItem>({
   title, subtitle, countLabel, fetcher, saveItem, deleteItem, blankItem,
-  renderThumb, renderMeta, renderTags, renderEditor, renderPreview
+  renderThumb, renderMeta, renderTags, renderEditor, renderPreview, renderActions
 }: Props<T>) {
   const { data, loading, error, reload } = useApi(() => fetcher(), [])
   const [view, setView] = useState<View<T>>({ mode: 'list' })
@@ -163,6 +165,7 @@ export default function PluginManagement<T extends PluginItem>({
                 ))}
                 {renderTags?.(it)}
                 <div className="mg-open-row">
+                  {renderActions?.(it)}
                   <span className="mg-open" onClick={() => setView({ mode: 'edit', item: it })}>进入编辑器 →</span>
                   <span className="mg-preview" onClick={() => setView({ mode: 'preview', item: it })}>预览</span>
                   <span

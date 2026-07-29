@@ -10,18 +10,25 @@ export interface LiveSourceOption {
   name: string
 }
 
+/** 孪生场景动态选项 */
+export interface TwinSceneOption {
+  value: string
+  label: string
+}
+
 interface Props {
   schema: PropField[]
   value: WidgetProps
   onChange: (patch: Partial<WidgetProps>) => void
   liveSources?: LiveSourceOption[]
+  twinSceneOptions?: TwinSceneOption[]
 }
 
 /**
  * Schema 驱动的属性表单（对齐 Avue AvueForm）。
  * 根据 propSchemas 自动渲染对应类型的输入控件，统一写回 updateComponentProps。
  */
-export default function SchemaForm({ schema, value, onChange, liveSources }: Props) {
+export default function SchemaForm({ schema, value, onChange, liveSources, twinSceneOptions }: Props) {
   return (
     <>
       {schema.map((f) => {
@@ -42,11 +49,14 @@ export default function SchemaForm({ schema, value, onChange, liveSources }: Pro
           const opts =
             f.dynamicOptions === 'liveSources'
               ? (liveSources ?? []).map((d) => ({ value: `${d.kind}:${d.id}`, label: `${d.kind} · ${d.name}` }))
+              : f.dynamicOptions === 'twinScenes'
+              ? (twinSceneOptions ?? [])
               : f.options ?? []
           const options = [
-            ...(f.dynamicOptions ? [{ value: '', label: '— 不启用实时 —' }] : []),
+            ...(f.dynamicOptions === 'liveSources' ? [{ value: '', label: '— 不启用实时 —' }] : []),
+            ...(f.dynamicOptions === 'twinScenes' ? [{ value: 'main', label: '示范工厂（默认）' }] : []),
             ...opts,
-            ...(f.dynamicOptions && !opts.length
+            ...(f.dynamicOptions === 'liveSources' && !opts.length
               ? [
                   { value: 'sql:orders', label: 'SQL · 订单量轮询' },
                   { value: 'ws:metrics', label: 'WebSocket · 系统指标流' },
