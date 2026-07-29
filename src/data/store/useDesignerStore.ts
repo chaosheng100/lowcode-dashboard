@@ -3,6 +3,7 @@ import { genId } from '../utils/id'
 import { makeThumb } from '../utils/thumb'
 import { widgetRegistry } from '../registry/widgetRegistry'
 import { buildPlatformProject, DEFAULT_ROUTE_ID } from '../routes/platformRoutes'
+import { createDemoScene } from '../../twin/sceneFactory'
 import type {
   DesignerState,
   RouteConfig,
@@ -54,6 +55,10 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   selectedRouteId: DEFAULT_ROUTE_ID,
   selectedId: null, // 当前选中的组件
   filter: null, // 联动全局筛选 { field, value }
+
+  // —— 数字孪生场景库（模块编辑器与大屏数字孪生组件共享同一份场景数据，实现互通 + 持久化）——
+  twinScenes: { main: createDemoScene() },
+  activeTwinSceneId: 'main',
 
   // —— 视图 / 选择 ——
   setMode: (mode) => set({ mode, selectedId: null }),
@@ -228,6 +233,42 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   // —— 联动筛选 —— 
   setFilter: (filter: Filter) => set({ filter }),
   clearFilter: () => set({ filter: null }),
+
+  // —— 数字孪生场景库 —— 
+  setActiveTwinScene: (id) => set({ activeTwinSceneId: id }),
+  /** 新增或覆盖一个孪生场景（id 为键） */
+  upsertTwinScene: (scene) => set((s) => ({ twinScenes: { ...s.twinScenes, [scene.id]: scene } })),
+  /** 编辑场景的实体集合与环境（模块编辑器写回，使大屏组件同步） */
+  updateTwinSceneEntities: (id, entities, env) =>
+    set((s) => {
+      const cur = s.twinScenes[id]
+      if (!cur) return s
+      return { twinScenes: { ...s.twinScenes, [id]: { ...cur, entities, env } } }
+    }),
+  /** 新建空白场景，返回其 id 并设为当前编辑场景 */
+  addTwinScene: (name) => {
+    const id = `twin_${Date.now().toString(36)}`
+    set((s) => ({
+      twinScenes: { ...s.twinScenes, [id]: { id, name, entities: [], env: { lighting: 'day', fog: false } } },
+      activeTwinSceneId: id
+    }))
+    return id
+  },
+  /** 删除场景（main 不允许删除） */
+  removeTwinScene: (id) =>
+    set((s) => {
+      if (id === 'main') return s
+      const next = { ...s.twinScenes }
+      delete next[id]
+      return { twinScenes: next, activeTwinSceneId: s.activeTwinSceneId === id ? 'main' : s.activeTwinSceneId }
+    }),
+  /** 重命名场景 */
+  renameTwinScene: (id, name) =>
+    set((s) => {
+      const cur = s.twinScenes[id]
+      if (!cur) return s
+      return { twinScenes: { ...s.twinScenes, [id]: { ...cur, name } } }
+    }),
 
   // —— 项目级：加载 / 导出 / 清空 —— 
   loadProject: (project) => {

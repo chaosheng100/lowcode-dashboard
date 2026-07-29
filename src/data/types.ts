@@ -2,6 +2,8 @@
 // 统一类型定义 —— 整个设计器共用，保证设计态/运行态类型一致
 // ============================================================
 
+import type { TwinScene } from '../twin/twinTypes'
+
 /** 组件类型（与组件注册表、渲染映射一一对应） */
 export type WidgetType =
   | 'text'
@@ -242,6 +244,16 @@ export interface DesignerState {
   // 联动筛选
   setFilter: (filter: Filter) => void
   clearFilter: () => void
+
+  // 数字孪生场景库（模块编辑器与大屏数字孪生组件共享）
+  twinScenes: Record<string, TwinScene>
+  activeTwinSceneId: string
+  setActiveTwinScene: (id: string) => void
+  upsertTwinScene: (scene: TwinScene) => void
+  updateTwinSceneEntities: (id: string, entities: TwinScene['entities'], env: TwinScene['env']) => void
+  addTwinScene: (name: string) => string
+  removeTwinScene: (id: string) => void
+  renameTwinScene: (id: string, name: string) => void
 
   // 项目级操作
   loadProject: (project: Partial<DashboardProject>) => void

@@ -44,7 +44,8 @@ React 18 + Vite + TS + Zustand 的低代码大屏设计器，**以 Avue Data（V
 - 注册：`types.ts`(digitalTwin+twinAlarm + 新 props: sourceKind/showControl/showSim/maxItems 等)、widgetRegistry、WidgetRenderer、propSchemas、PropertyPanel(interactiveTypes)、componentAssetRegistry(businessType='twin')。
 - 示例：`/screen/overview` 种子嵌入 digitalTwin + twinAlarm，预览即见 3D+2D+告警 融合。
 - 验证：tsc --noEmit 0 错误；vite build 通过(4628 模块)；headless 预览 DOM 含 `<canvas>` + 孪生告警清单 + 决策沙盘 + HUD。
-- 待深化（非阻塞）：各源的**真实**协议接入(OPC-UA/Modbus 点位、IFC 解析、GIS 瓦片)、TwinSim healthModel 接后端 ML、control 执行器接 `proxy/control`、孪生按需懒加载(当前单 chunk 3.2MB)。
+- **场景库互通修复（2026-07-29 后续，用户反馈两 bug）**：根因——`TwinPage`(模块)用本地 state、`TwinWidget`(大屏)硬编码 `createDemoScene()`，两者各持独立场景 → ①模块与大屏孪生数据不互通 ②编辑数据无统一存储（切换路由即丢失/表现为残留）。修复：在 `useDesignerStore` 增加 `twinScenes: Record<string,TwinScene>`（默认 main=createDemoScene()）+ `activeTwinSceneId` + CRUD actions；`TwinPage` 编辑经 `updateTwinSceneEntities` 写回 store、`TwinWidget` 经 `props.sceneId`（默认 main）从 store 读取同一场景 → 互通 + 持久化（切换路由不丢）；`TwinPage` 卸载 `clearAlarms` 避免编辑期告警残留。`propSchemas`/`widgetRegistry` 已暴露 `sceneId` 配置（默认 'main'）。
+- 待深化（非阻塞）：各源的**真实**协议接入(OPC-UA/Modbus 点位、IFC 解析、GIS 瓦片)、TwinSim healthModel 接后端 ML、control 执行器接 `proxy/control`、孪生按需懒加载(当前单 chunk 3.2MB)、TwinWidget 订阅 store 场景变化实时重建以做到"模块编辑→大屏秒级联动"。
 
 ## 技术栈约定
 - 运行时：managed node 22.22.2（C:\Users\潘超盛\.workbuddy\binaries\node\versions\22.22.2\node.exe）

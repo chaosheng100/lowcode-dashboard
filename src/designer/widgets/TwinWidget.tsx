@@ -12,7 +12,8 @@ import { createSource } from '../../twin/sources/TwinSource'
 import { TwinSim } from '../../twin/TwinSim'
 import { TwinControlHub } from '../../twin/control'
 import { useTwinRuntimeStore } from '../../twin/twinRuntimeStore'
-import { healthToState, STATE_COLORS, CONTROL_LABELS, type TwinEntityState, type ControlAction } from '../../twin/twinTypes'
+import { useDesignerStore } from '../../data/store/useDesignerStore'
+import { healthToState, STATE_COLORS, CONTROL_LABELS, type TwinEntityState, type ControlAction, type TwinScene } from '../../twin/twinTypes'
 
 // ============================================================
 // TwinWidget：嵌入数据大屏的「数字孪生组件」（进阶/高级能力落地）
@@ -32,8 +33,15 @@ const CONTROL_ACTIONS: ControlAction[] = ['start', 'stop', 'reset']
 export default function TwinWidget({ component, filter, onPick }: WidgetViewProps) {
   const mountRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<TwinRenderer | null>(null)
-  const sceneRef = useRef(createDemoScene())
   const p = component.props
+  const sceneId = (p.sceneId as string) || 'main'
+  // 优先使用全局孪生场景库中同 sceneId 的场景，实现大屏组件与数字孪生模块数据互通；
+  // 取不到时兜底回演示场景，保证永远有可渲染内容。
+  const resolveScene = (id: string): TwinScene => {
+    const s = useDesignerStore.getState().twinScenes[id]
+    return s ?? createDemoScene()
+  }
+  const sceneRef = useRef<TwinScene>(resolveScene(sceneId))
   const filterField = p.filterField || 'entityId'
   const rt = useTwinRuntimeStore()
 
@@ -61,11 +69,13 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
   const simRef = useRef<TwinSim | null>( null)
   const controlRef = useRef(new TwinControlHub())
 
-  // ---- 初始化渲染器（仅一次） ----
+  // ---- 初始化渲染器（sceneId 变化时重建，使大屏组件与模块场景同源） ----
   useEffect(() => {
     const el = mountRef.current
     if (!el) return
-    const renderer = new TwinRenderer(el, sceneRef.current, {
+    const scene = resolveScene(sceneId)
+    sceneRef.current = scene
+    const renderer = new TwinRenderer(el, scene, {
       lighting: p.lighting === 'night' ? 'night' : 'day',
       fog: !!p.fog,
       autoRotate: !!p.autoRotate
@@ -77,7 +87,8 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
       if (interactive !== false && onPick) onPick({ field: filterField, value: id })
     })
     rendererRef.current = renderer
-    simRef.current = new TwinSim(sceneRef.current.entities)
+    simRef.current = new TwinSim(scene.entities)
+    liveRef.current = {}
 
     const ro = new ResizeObserver(() => renderer.resize())
     ro.observe(el)
@@ -87,7 +98,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
       rendererRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [sceneId])
 
   // ---- 实时遥测：多源适配 or liveClient，并驱动孪生体状态 ----
   useEffect(() => {
@@ -124,7 +135,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
       stopLive?.()
       clearInterval(simTimer)
     }
-  }, [p.liveSourceId, p.liveIntervalMs, p.sourceKind])
+  }, [sceneId, p.liveSourceId, p.liveIntervalMs, p.sourceKind])
 
   // ---- 属性变更 → 渲染器 ----
   useEffect(() => { rendererRef.current?.setLighting(p.lighting === 'night' ? 'night' : 'day') }, [p.lighting])
@@ -172,7 +183,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     await controlRef.current.dispatch(ent, action)
   }
 
-  const selectedEntity = rt.selectedEntityId ? sceneRef.current.entities.find((e) => e.id === rt.selectedEntityId) : null
+  const selectedEntity = rt.selectedEntityId ? sceneRef.current?.entities.find((e) => e.id === rt.selectedEntityId) : null
   const pred = rt.selectedEntityId ? rt.predictions[rt.selectedEntityId] : undefined
 
   return (

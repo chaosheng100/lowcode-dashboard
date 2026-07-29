@@ -7,6 +7,7 @@ import { TwinRenderer } from '../twin/TwinRenderer'
 import { TwinSim } from '../twin/TwinSim'
 import { TwinControlHub } from '../twin/control'
 import { useTwinRuntimeStore } from '../twin/twinRuntimeStore'
+import { useDesignerStore } from '../data/store/useDesignerStore'
 import {
   healthToState,
   CONTROL_LABELS,
@@ -77,13 +78,15 @@ export default function TwinPage(_props: TwinPageProps = {}) {
   const simRef = useRef<TwinSim | null>(null)
   const controlRef = useRef(new TwinControlHub())
 
-  // 初始场景：优先用传入场景，否则用演示工厂，保证编辑器非空
-  const initialEntities = (_props.scene?.entities?.length ? _props.scene.entities : buildDefaultEntities())
+  // 初始场景：从全局孪生场景库读取（模块与大屏共享同一份，实现互通 + 持久化）
+  const activeSceneId = useDesignerStore.getState().activeTwinSceneId || 'main'
+  const storeScene = useDesignerStore.getState().twinScenes[activeSceneId]
+  const initialEntities = (storeScene?.entities?.length ? storeScene.entities : buildDefaultEntities())
   const entitiesRef = useRef<TwinEntity[]>(initialEntities)
   const [entities, setEntities] = useState<TwinEntity[]>(initialEntities)
 
-  const [lighting, setLighting] = useState<'day' | 'night'>(_props.scene?.env.lighting ?? 'day')
-  const [fog, setFog] = useState<boolean>(_props.scene?.env.fog ?? false)
+  const [lighting, setLighting] = useState<'day' | 'night'>(storeScene?.env?.lighting ?? 'day')
+  const [fog, setFog] = useState<boolean>(storeScene?.env?.fog ?? false)
   const [activePreset, setActivePreset] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [keyframes, setKeyframes] = useState<Record<string, Keyframe[]>>({})
@@ -178,6 +181,16 @@ export default function TwinPage(_props: TwinPageProps = {}) {
 
   // 同步 refs
   useEffect(() => { syncRefs() }, [syncRefs])
+
+  // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
+  useEffect(() => {
+    const id = useDesignerStore.getState().activeTwinSceneId || 'main'
+    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog })
+  }, [entities, lighting, fog])
+
+  // 退出编辑页时清理编辑期产生的仿真告警，避免残留到告警清单组件
+  useEffect(() => () => { useTwinRuntimeStore.getState().clearAlarms() }, [])
+
   // 环境变更 → 渲染器
   useEffect(() => { rendererRef.current?.setLighting(lighting) }, [lighting])
   useEffect(() => { rendererRef.current?.setFog(fog) }, [fog])

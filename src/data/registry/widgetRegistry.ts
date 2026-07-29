@@ -208,6 +208,7 @@ export const widgetRegistry: WidgetRegistry = {
       autoRotate: false,
       interactive: true,
       filterField: 'entityId',
+      sceneId: 'main',
       sourceKind: 'simulated'
     }
   },

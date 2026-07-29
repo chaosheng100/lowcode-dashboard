@@ -108,6 +108,7 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
     { key: 'optionJson', label: 'ECharts option (JSON，支持任意图表)', type: 'textarea' }
   ],
   digitalTwin: [
+    { key: 'sceneId', label: '孪生场景 ID（与数字孪生模块共享，默认 main）', type: 'text' },
     { key: 'filterField', label: '联动字段 (filterField)', type: 'text' },
     { key: 'liveSourceId', label: '实时数据源（驱动孪生体指标）', type: 'select', dynamicOptions: 'liveSources' },
     { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 300, step: 100, show: (p) => !!p.liveSourceId }
