@@ -19,6 +19,10 @@ export type WidgetType =
   | 'echartGauge'
   | 'echartRadar'
   | 'echartCustom'
+  // 数字孪生（嵌入大屏的三维场景组件）
+  | 'digitalTwin'
+  // 数字孪生告警清单（仿真预测性维护产出，联动反向定位）
+  | 'twinAlarm'
 
 /** 图表数据位点 */
 export interface DataPoint {
@@ -75,6 +79,27 @@ export interface WidgetProps {
   iotMetric?: string
   /** 实时刷新间隔 ms（轮询型） */
   liveIntervalMs?: number
+  // 数字孪生组件
+  /** 光照：日照/夜景 */
+  lighting?: 'day' | 'night'
+  /** 雾效 */
+  fog?: boolean
+  /** 显示实体标签 */
+  showLabels?: boolean
+  /** 显示数据面板（HUD） */
+  showHud?: boolean
+  /** 相机自动旋转 */
+  autoRotate?: boolean
+  /** 关联的孪生场景 id（MVP 用默认演示场景） */
+  sceneId?: string
+  /** 多源接入类型：simulated / industrial / bim / gis（进阶多源适配器） */
+  sourceKind?: 'simulated' | 'industrial' | 'bim' | 'gis'
+  /** 显示闭环控制条 */
+  showControl?: boolean
+  /** 显示 What-if 决策沙盘 */
+  showSim?: boolean
+  /** 最大展示条数 */
+  maxItems?: number
 }
 
 /** CSS 风格定位尺寸（画布坐标系，单位 px） */

@@ -25,7 +25,9 @@ const DESCRIPTIONS: Record<WidgetType, string> = {
   echartPie: '可交互的占比构成图表',
   echartGauge: '目标进度与完成率展示',
   echartRadar: '多维能力与状态评估',
-  echartCustom: '基于 ECharts Option 的自定义图表'
+  echartCustom: '基于 ECharts Option 的自定义图表',
+  digitalTwin: '嵌入大屏的三维数字孪生场景，支持与大屏图表双向联动',
+  twinAlarm: '孪生仿真预测性维护告警清单，点击告警反向定位三维实体'
 }
 
 export const standardComponentAssets: ComponentAssetDefinition[] = (
@@ -36,7 +38,7 @@ export const standardComponentAssets: ComponentAssetDefinition[] = (
   category: definition.category,
   description: DESCRIPTIONS[type],
   type,
-  businessType: 'general'
+  businessType: type === 'digitalTwin' || type === 'twinAlarm' ? 'twin' : 'general'
 }))
 
 function cloneProps(props: WidgetProps): WidgetProps {
@@ -54,7 +56,7 @@ export function createStandardAssetComponent(asset: ComponentAssetDefinition): C
       catalogKey: asset.key,
       catalogName: asset.name,
       catalogSourceId: `catalog:${asset.key}`,
-      businessType: 'general'
+      businessType: asset.businessType
     }
   }
 }

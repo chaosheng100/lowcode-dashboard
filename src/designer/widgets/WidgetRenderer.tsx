@@ -8,6 +8,8 @@ import MetricWidget from './MetricWidget'
 import TableWidget from './TableWidget'
 import ContainerWidget from './ContainerWidget'
 import EChartWidget from './EChartWidget'
+import TwinWidget from './TwinWidget'
+import AlarmListWidget from './AlarmListWidget'
 import type { WidgetType, WidgetViewProps } from '../../data/types'
 
 const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
@@ -24,7 +26,9 @@ const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
   echartPie: EChartWidget,
   echartGauge: EChartWidget,
   echartRadar: EChartWidget,
-  echartCustom: EChartWidget
+  echartCustom: EChartWidget,
+  digitalTwin: TwinWidget,
+  twinAlarm: AlarmListWidget
 }
 
 export default function WidgetRenderer({ component, filter, onPick }: WidgetViewProps) {

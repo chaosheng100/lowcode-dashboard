@@ -58,7 +58,9 @@
   --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 212, 255, 0.1);
 }
 
-html, body, #root { height: 100%; }
+/* antd <App> 组件会在 #root 下注入一层 .ant-app 包裹，默认无高度，
+   必须纳入高度链，否则其内部的 .win-app{height:100%} 会解析为 auto 而塌缩为 0 */
+html, body, #root, .ant-app { height: 100%; }
 body {
   background: var(--bg);
   background-image:
@@ -125,7 +127,8 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
  * 画布编辑区（Canvas Stage）
  * ============================================================ */
 .canvas-area {
-  flex: 1; position: relative; overflow: hidden;
+  flex: 1 1 auto; position: relative; overflow: hidden;
+  min-height: 0; min-width: 0;
   background: var(--bg-deep);
   background-image:
     linear-gradient(rgba(0, 212, 255, 0.025) 1px, transparent 1px),
@@ -242,7 +245,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
  * 独立窗口外壳
  * ============================================================ */
 .win-app { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.win-body { flex: 1; min-height: 0; display: flex; }
+.win-body { flex: 1 1 auto; min-height: 0; height: 100%; display: flex; flex-direction: column; }
 .win-bar {
   display: flex; align-items: center; gap: 10px;
   height: 48px; padding: 0 14px; flex: none;

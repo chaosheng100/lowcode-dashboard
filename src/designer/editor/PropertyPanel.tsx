@@ -9,7 +9,7 @@ import CanvasPanel from './CanvasPanel'
 import SchemaForm from './SchemaForm'
 import { styleSchemas, dataSchemas } from './propSchemas'
 
-const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie']
+const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie', 'digitalTwin', 'twinAlarm']
 /** 支持数据绑定的组件类型 */
 const dataTypes: WidgetType[] = [
   'lineChart', 'barChart', 'pieChart', 'metric', 'table',

@@ -1,48 +1,32 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Button, ColorPicker, InputNumber } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Input, Tag } from './common'
+import { TwinRenderer } from '../twin/TwinRenderer'
+import { TwinSim } from '../twin/TwinSim'
+import { TwinControlHub } from '../twin/control'
+import { useTwinRuntimeStore } from '../twin/twinRuntimeStore'
+import {
+  healthToState,
+  CONTROL_LABELS,
+  type ControlAction,
+  type GeoType,
+  type TelemetrySample,
+  type TwinEntity,
+  type TwinScene
+} from '../twin/twinTypes'
 
 // ============================================================
-// 数字孪生 3D 编辑器
-// 功能：拖拽式场景搭建、模型选中/拖拽/旋转/缩放、关键帧轨迹录制与回放、
-//       时间轴编辑、日照/夜景/雾效、91 种预置模型库。
-//
-// 交互：
-//   左键拖拽空处 → 旋转视角
-//   左键点击模型 → 选中
-//   左键拖拽模型 → 在地面平移
-//   右键拖拽 → 平移视角
-//   滚轮 → 缩放
-//   拖拽模型库预设到画布 → 放置模型
+// 数字孪生 3D 编辑器（复用 TwinRenderer 内核，不再维护独立 Three.js 场景）
+// 功能：拖拽式场景搭建、模型选中/拖拽/旋转/缩放、关键帧轨迹、日照/夜景/雾效；
+//       + 仿真面板（TwinSim 健康指数/RUL）、控制面板（TwinControlHub 闭环下发）、
+//       + 告警面板（运行时 store 预测性维护告警）、实体数据绑定（liveSourceId）。
+// 编辑与展示共用同一内核（TwinRenderer），实现“一次建模、到处渲染”。
 // ============================================================
 
-type GeoType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'torus' | 'plane'
+type Keyframe = { time: number; x: number; z: number; rotationY: number }
 
-interface PlacedObject {
-  id: string
-  modelId: string
-  name: string
-  geoType: GeoType
-  color: string
-  x: number
-  z: number
-  y: number
-  rotationY: number
-  scale: number
-}
-
-interface Keyframe {
-  time: number
-  x: number
-  z: number
-  rotationY: number
-}
-
-// 模型预设（与 91 种预置模型库对应，实际使用基元几何体）
 const PRESETS: { geoType: GeoType; name: string; color: string }[] = [
   { geoType: 'box', name: '建筑A', color: '#4f8cff' },
   { geoType: 'box', name: '建筑B', color: '#22d3ee' },
@@ -52,444 +36,275 @@ const PRESETS: { geoType: GeoType; name: string; color: string }[] = [
   { geoType: 'torus', name: '环形设施', color: '#ec4899' },
   { geoType: 'box', name: '厂房', color: '#64748b' },
   { geoType: 'cylinder', name: '烟囱', color: '#ef4444' },
-  { geoType: 'plane', name: '平台', color: '#3b82f6' },
+  { geoType: 'plane', name: '平台', color: '#3b82f6' }
 ]
 
-function createGeometry(type: GeoType, s: number): THREE.BufferGeometry {
-  switch (type) {
-    case 'cylinder': return new THREE.CylinderGeometry(0.4 * s, 0.4 * s, 1.2 * s, 24)
-    case 'sphere': return new THREE.SphereGeometry(0.5 * s, 24, 24)
-    case 'cone': return new THREE.ConeGeometry(0.5 * s, 1.5 * s, 24)
-    case 'torus': return new THREE.TorusGeometry(0.5 * s, 0.18 * s, 16, 32)
-    case 'plane': return new THREE.BoxGeometry(1.5 * s, 0.1 * s, 1.5 * s)
-    default: return new THREE.BoxGeometry(0.8 * s, 1 * s, 0.8 * s)
-  }
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v))
 }
 
 let idCounter = 0
 const nextId = () => `obj_${Date.now()}_${idCounter++}`
 
+function makeEntity(preset: (typeof PRESETS)[number], x: number, z: number): TwinEntity {
+  return {
+    id: nextId(),
+    name: preset.name,
+    geoType: preset.geoType,
+    color: preset.color,
+    x,
+    y: preset.geoType === 'plane' ? 0.05 : 0.6,
+    z,
+    rotationY: 0,
+    scale: 1,
+    state: 'normal',
+    metrics: { temperature: 40, health: 80, load: 40 }
+  }
+}
+
 interface TwinPageProps {
-  scene?: import('../mock/types').TwinSceneDTO
+  scene?: TwinScene
   readOnly?: boolean
-  onSave?: (patch: Partial<import('../mock/types').TwinSceneDTO>) => void
+  onSave?: (patch: Partial<TwinScene>) => void
 }
 
 export default function TwinPage(_props: TwinPageProps = {}) {
   const { data: models } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
-  const mountRef = useRef<HTMLDivElement>(null)
+  const rt = useTwinRuntimeStore()
 
-  // ---- UI state ----
-  const [lighting, setLighting] = useState<'day' | 'night'>('day')
-  const [fog, setFog] = useState(false)
-  const [activePreset, setActivePreset] = useState<number>(0)
-  const [placedObjects, setPlacedObjects] = useState<PlacedObject[]>([])
+  const mountRef = useRef<HTMLDivElement>(null)
+  const rendererRef = useRef<TwinRenderer | null>(null)
+  const simRef = useRef<TwinSim | null>(null)
+  const controlRef = useRef(new TwinControlHub())
+
+  // 初始场景：优先用传入场景，否则用演示工厂，保证编辑器非空
+  const initialEntities = (_props.scene?.entities?.length ? _props.scene.entities : buildDefaultEntities())
+  const entitiesRef = useRef<TwinEntity[]>(initialEntities)
+  const [entities, setEntities] = useState<TwinEntity[]>(initialEntities)
+
+  const [lighting, setLighting] = useState<'day' | 'night'>(_props.scene?.env.lighting ?? 'day')
+  const [fog, setFog] = useState<boolean>(_props.scene?.env.fog ?? false)
+  const [activePreset, setActivePreset] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [keyframes, setKeyframes] = useState<Record<string, Keyframe[]>>({})
+  const keyframesRef = useRef(keyframes)
 
-  // Timeline
   const [duration, setDuration] = useState(10)
   const [currentTime, setCurrentTime] = useState(0)
-  const [playing, setPlaying] = useState(false)
-
-  // ---- Three.js refs (不触发 React 重渲染) ----
-  const sceneRef = useRef<THREE.Scene | null>(null)
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const controlsRef = useRef<OrbitControls | null>(null)
-  const raycasterRef = useRef(new THREE.Raycaster())
-  const groundRef = useRef<THREE.Mesh | null>(null)
-  const objects3DRef = useRef<Map<string, THREE.Mesh>>(new Map())
-  const draggingRef = useRef<{ id: string; moved: boolean } | null>(null)
-  const selectedIdRef = useRef<string | null>(null)
-  const outlineRef = useRef<THREE.LineSegments | null>(null)
-  const animRef = useRef(0)
   const playingRef = useRef(false)
   const currentTimeRef = useRef(0)
-  const lastTickRef = useRef(0)
+  const lastRef = useRef(performance.now())
+  const [playing, setPlaying] = useState(false)
 
-  // 同步 ref
-  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
-  useEffect(() => { playingRef.current = playing }, [playing])
-  useEffect(() => { currentTimeRef.current = currentTime }, [currentTime])
+  const liveRef = useRef<Record<string, TelemetrySample>>({})
+  const draggingRef = useRef<string | null>(null)
 
-  // ---- 选中高亮：给/取消选中对象加线框 ----
-  const updateOutline = useCallback(() => {
-    if (outlineRef.current) {
-      sceneRef.current?.remove(outlineRef.current)
-      outlineRef.current.geometry.dispose()
-      ;(outlineRef.current.material as THREE.Material).dispose()
-      outlineRef.current = null
-    }
-    if (!selectedId || !sceneRef.current) return
-    const mesh = objects3DRef.current.get(selectedId)
-    if (!mesh) return
-    const edges = new THREE.EdgesGeometry(mesh.geometry)
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x4ade80, linewidth: 2 }))
-    line.position.copy(mesh.position)
-    line.rotation.copy(mesh.rotation)
-    line.scale.copy(mesh.scale)
-    sceneRef.current.add(line)
-    outlineRef.current = line
-  }, [selectedId])
+  const syncRefs = useCallback(() => {
+    entitiesRef.current = entities
+    keyframesRef.current = keyframes
+  }, [entities, keyframes])
 
-  useEffect(() => { updateOutline() }, [selectedId, placedObjects, updateOutline])
+  const sceneOf = useCallback(
+    (ents: TwinEntity[]): TwinScene => ({ id: 'editor', name: '编辑场景', entities: ents, env: { lighting, fog } }),
+    [lighting, fog]
+  )
 
-  // ---- 拖拽放置模型 ----
-  const handleDrop = useCallback((ev: React.DragEvent) => {
-    ev.preventDefault()
-    const presetIndex = parseInt(ev.dataTransfer.getData("text/plain"), 10)
-    if (isNaN(presetIndex) || presetIndex < 0 || presetIndex >= PRESETS.length) return
-    const preset = PRESETS[presetIndex]
-    const canvas = rendererRef.current?.domElement
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const pointer = new THREE.Vector2()
-    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1
-    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1
-    raycasterRef.current.setFromCamera(pointer, cameraRef.current!)
-    const hits = raycasterRef.current.intersectObject(groundRef.current!)
-    const pt = hits[0]?.point
-    if (!pt) return
-    const id = nextId()
-    const obj: PlacedObject = {
-      id, modelId: `preset_${presetIndex}`, name: preset.name, geoType: preset.geoType, color: preset.color,
-      x: pt.x, z: pt.z, y: preset.geoType === "plane" ? 0.05 : 0.6,
-      rotationY: 0, scale: 1
-    }
-    setPlacedObjects((prev) => [...prev, obj])
-  }, [])
-  // ---- 主场景初始化 ----
+  // ---- 初始化渲染器（复用内核，仅一次） ----
   useEffect(() => {
     const el = mountRef.current
     if (!el) return
-
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(lighting === 'day' ? '#0a1422' : '#05080f')
-    if (fog) scene.fog = new THREE.FogExp2(lighting === 'day' ? '#0a1422' : '#05080f', 0.035)
-    sceneRef.current = scene
-
-    const camera = new THREE.PerspectiveCamera(50, el.clientWidth / el.clientHeight, 0.1, 200)
-    camera.position.set(7, 6, 9)
-    cameraRef.current = camera
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setSize(el.clientWidth, el.clientHeight)
-    renderer.setPixelRatio(window.devicePixelRatio)
-    el.appendChild(renderer.domElement)
+    const renderer = new TwinRenderer(el, sceneOf(entitiesRef.current), { lighting, fog })
+    renderer.setClickHandler((id) => setSelectedId(id))
     rendererRef.current = renderer
+    simRef.current = new TwinSim(entitiesRef.current)
 
-    // OrbitControls：右键旋转、滚轮缩放
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
-    controls.enableDamping = true
-    controls.dampingFactor = 0.08
-    controls.maxPolarAngle = Math.PI / 2 - 0.05
-    controlsRef.current = controls
-
-    // 光照
-    scene.add(new THREE.AmbientLight(0xffffff, lighting === 'day' ? 0.85 : 0.2))
-    const dir = new THREE.DirectionalLight(lighting === 'day' ? 0xfff2cc : 0x4466ff, lighting === 'day' ? 1.0 : 0.5)
-    dir.position.set(5, 8, 5)
-    scene.add(dir)
-
-    // 地面
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 30),
-      new THREE.MeshStandardMaterial({ color: 0x0d1a2b, roughness: 1, metalness: 0.1 })
-    )
-    ground.rotation.x = -Math.PI / 2
-    ground.name = 'ground'
-    scene.add(ground)
-    groundRef.current = ground
-
-    // 网格辅助
-    const grid = new THREE.GridHelper(30, 30, 0x1a3050, 0x122038)
-    scene.add(grid)
-
-    // ---- 指针交互 ----
-    const dom = renderer.domElement
-    const ray = raycasterRef.current
-    const pointer = new THREE.Vector2()
-
-    const getGroundPoint = (ev: PointerEvent): THREE.Vector3 | null => {
-      const rect = dom.getBoundingClientRect()
-      pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1
-      pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1
-      ray.setFromCamera(pointer, camera)
-      const hits = ray.intersectObject(ground)
-      return hits[0]?.point ?? null
-    }
-
-    const getObjectHit = (ev: PointerEvent): { id: string; mesh: THREE.Mesh } | null => {
-      const rect = dom.getBoundingClientRect()
-      pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1
-      pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1
-      ray.setFromCamera(pointer, camera)
-      const meshes = Array.from(objects3DRef.current.values())
-      const hits = ray.intersectObjects(meshes)
-      if (!hits[0]) return null
-      const entry = Array.from(objects3DRef.current.entries()).find(([, m]) => m === hits[0].object)
-      return entry ? { id: entry[0], mesh: entry[1] } : null
-    }
-
-    const onPointerDown = (ev: PointerEvent) => {
-      if (ev.button !== 0) return // 只处理左键
-      const hit = getObjectHit(ev)
-      if (hit) {
-        // 选中并准备拖拽
-        setSelectedId(hit.id)
-        selectedIdRef.current = hit.id
-        draggingRef.current = { id: hit.id, moved: false }
-        controls.enabled = false
-      } else {
-        // 点击空处，OrbitControls 处理旋转
-        setSelectedId(null)
-        selectedIdRef.current = null
+    const canvas = renderer.getCanvas()
+    const onDown = (ev: PointerEvent) => {
+      if (ev.button !== 0) return
+      const id = renderer.pickEntityAt(ev.clientX, ev.clientY)
+      if (id) {
+        draggingRef.current = id
+        renderer.setControlsEnabled(false)
+        setSelectedId(id)
       }
     }
-
-    const onPointerMove = (ev: PointerEvent) => {
+    const onMove = (ev: PointerEvent) => {
       if (!draggingRef.current) return
-      const pt = getGroundPoint(ev)
-      if (!pt) return
-      const { id } = draggingRef.current
-      draggingRef.current.moved = true
-      // 更新 3D 对象位置
-      const mesh = objects3DRef.current.get(id)
-      if (mesh) {
-        mesh.position.x = pt.x
-        mesh.position.z = pt.z
-      }
-      // 更新 React state（节流：拖拽中只更新 ref，pointerup 时同步 state）
+      const gp = renderer.groundPointAt(ev.clientX, ev.clientY)
+      if (gp) renderer.updateEntityTransform(draggingRef.current, { x: gp.x, z: gp.z })
     }
-
-    const onPointerUp = () => {
+    const onUp = () => {
       if (!draggingRef.current) return
-      const { id, moved } = draggingRef.current
-      controls.enabled = true
+      const id = draggingRef.current
       draggingRef.current = null
-      if (moved) {
-        // 拖拽结束：同步位置到 state
-        const mesh = objects3DRef.current.get(id)
-        if (mesh) {
-          setPlacedObjects((prev) => prev.map((o) => o.id === id ? { ...o, x: mesh.position.x, z: mesh.position.z } : o))
-        }
-      }
+      renderer.setControlsEnabled(true)
+      const t = renderer.getEntityTransform(id)
+      if (t) setEntities((prev) => prev.map((e) => (e.id === id ? { ...e, x: t.x, y: t.y, z: t.z } : e)))
     }
+    canvas.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
 
-    dom.addEventListener('pointerdown', onPointerDown)
-    dom.addEventListener('pointermove', onPointerMove)
-    dom.addEventListener('pointerup', onPointerUp)
-
-    // ---- 动画循环 ----
-    const animate = () => {
-      animRef.current = requestAnimationFrame(animate)
-      controls.update()
-
-      // 播放关键帧动画
-      if (playingRef.current) {
-        const now = performance.now()
-        const dt = (now - lastTickRef.current) / 1000
-        lastTickRef.current = now
-        let t = currentTimeRef.current + dt
-        if (t >= duration) { t = 0 } // 循环
-        currentTimeRef.current = t
-        setCurrentTime(t)
-
-        // 插值每个对象的位置
-        for (const [id, mesh] of objects3DRef.current) {
-          const kfs = keyframes[id]
-          if (!kfs || kfs.length === 0) continue
-          const sorted = [...kfs].sort((a, b) => a.time - b.time)
-          if (t <= sorted[0].time) {
-            mesh.position.x = sorted[0].x
-            mesh.position.z = sorted[0].z
-            mesh.rotation.y = sorted[0].rotationY
-          } else if (t >= sorted[sorted.length - 1].time) {
-            const last = sorted[sorted.length - 1]
-            mesh.position.x = last.x
-            mesh.position.z = last.z
-            mesh.rotation.y = last.rotationY
-          } else {
-            // 找到 t 所在的两个关键帧之间
-            for (let i = 0; i < sorted.length - 1; i++) {
-              if (t >= sorted[i].time && t <= sorted[i + 1].time) {
-                const span = sorted[i + 1].time - sorted[i].time || 1
-                const alpha = (t - sorted[i].time) / span
-                mesh.position.x = THREE.MathUtils.lerp(sorted[i].x, sorted[i + 1].x, alpha)
-                mesh.position.z = THREE.MathUtils.lerp(sorted[i].z, sorted[i + 1].z, alpha)
-                mesh.rotation.y = THREE.MathUtils.lerp(sorted[i].rotationY, sorted[i + 1].rotationY, alpha)
-                break
-              }
-            }
-          }
+    // 仿真 tick：遥测随机游走 → 状态/告警/预测写入运行时 store
+    const simTimer = setInterval(() => {
+      if (!simRef.current) return
+      const live: Record<string, TelemetrySample> = {}
+      entitiesRef.current.forEach((e) => {
+        const prev = liveRef.current[e.id] ?? { temperature: e.metrics?.temperature ?? 40, health: e.metrics?.health ?? 80, load: e.metrics?.load ?? 40 }
+        const s: TelemetrySample = {
+          temperature: clamp(prev.temperature + (Math.random() - 0.5) * 9, 20, 95),
+          health: clamp(prev.health + (Math.random() - 0.5) * 7, 5, 100),
+          load: clamp(prev.load + (Math.random() - 0.5) * 16, 0, 100)
         }
-      }
-
-      // 同步线框位置
-      if (outlineRef.current) {
-        const selMesh = selectedIdRef.current ? objects3DRef.current.get(selectedIdRef.current) : null
-        if (selMesh) {
-          outlineRef.current.position.copy(selMesh.position)
-          outlineRef.current.rotation.copy(selMesh.rotation)
-        }
-      }
-
-      renderer.render(scene, camera)
-    }
-    lastTickRef.current = performance.now()
-    animate()
-
-    const onResize = () => {
-      if (!el) return
-      camera.aspect = el.clientWidth / el.clientHeight
-      camera.updateProjectionMatrix()
-      renderer.setSize(el.clientWidth, el.clientHeight)
-    }
-    window.addEventListener('resize', onResize)
+        liveRef.current[e.id] = s
+        live[e.id] = s
+        renderer.setEntityState(e.id, healthToState(s.health, s.temperature))
+      })
+      const res = simRef.current.tick(live)
+      useTwinRuntimeStore.getState().setPredictions(res.predictions)
+      res.alarms.forEach((a) => useTwinRuntimeStore.getState().pushAlarm(a))
+    }, 2500)
 
     return () => {
-      cancelAnimationFrame(animRef.current)
-      dom.removeEventListener('pointerdown', onPointerDown)
-      dom.removeEventListener('pointermove', onPointerMove)
-      dom.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('resize', onResize)
-      controls.dispose()
+      canvas.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      clearInterval(simTimer)
       renderer.dispose()
-      if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement)
-      sceneRef.current = null
+      rendererRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lighting, fog])
+  }, [])
 
-  // ---- 同步 placedObjects → Three.js 场景 ----
+  // 同步 refs
+  useEffect(() => { syncRefs() }, [syncRefs])
+  // 环境变更 → 渲染器
+  useEffect(() => { rendererRef.current?.setLighting(lighting) }, [lighting])
+  useEffect(() => { rendererRef.current?.setFog(fog) }, [fog])
+
+  // ---- 关键帧播放（独立 rAF，驱动渲染器实体变换） ----
   useEffect(() => {
-    const scene = sceneRef.current
-    if (!scene) return
-
-    // 移除已删除的对象
-    for (const [id, mesh] of objects3DRef.current) {
-      if (!placedObjects.find((o) => o.id === id)) {
-        scene.remove(mesh)
-        mesh.geometry.dispose()
-        ;(mesh.material as THREE.Material).dispose()
-        objects3DRef.current.delete(id)
-      }
-    }
-
-    // 添加新对象
-    for (const obj of placedObjects) {
-      if (objects3DRef.current.has(obj.id)) {
-        // 更新现有对象属性（位置/旋转/缩放由播放或拖拽控制，这里只同步非播放时）
-        if (!playingRef.current) {
-          const mesh = objects3DRef.current.get(obj.id)!
-          mesh.position.set(obj.x, obj.y, obj.z)
-          mesh.rotation.y = obj.rotationY
-          mesh.scale.setScalar(obj.scale)
+    let raf = 0
+    const loop = () => {
+      raf = requestAnimationFrame(loop)
+      if (!playingRef.current) return
+      const now = performance.now()
+      const dt = (now - lastRef.current) / 1000
+      lastRef.current = now
+      let t = currentTimeRef.current + dt
+      if (t >= duration) t = 0
+      currentTimeRef.current = t
+      setCurrentTime(t)
+      for (const e of entitiesRef.current) {
+        const kfs = keyframesRef.current[e.id]
+        if (!kfs || kfs.length === 0) continue
+        const sorted = [...kfs].sort((a, b) => a.time - b.time)
+        let pose: { x: number; z: number; rotationY: number }
+        if (t <= sorted[0].time) pose = { x: sorted[0].x, z: sorted[0].z, rotationY: sorted[0].rotationY }
+        else if (t >= sorted[sorted.length - 1].time) {
+          const lastK = sorted[sorted.length - 1]
+          pose = { x: lastK.x, z: lastK.z, rotationY: lastK.rotationY }
+        } else {
+          let pose2 = { x: sorted[0].x, z: sorted[0].z, rotationY: sorted[0].rotationY }
+          for (let i = 0; i < sorted.length - 1; i++) {
+            if (t >= sorted[i].time && t <= sorted[i + 1].time) {
+              const span = sorted[i + 1].time - sorted[i].time || 1
+              const a = (t - sorted[i].time) / span
+              pose2 = {
+                x: sorted[i].x + (sorted[i + 1].x - sorted[i].x) * a,
+                z: sorted[i].z + (sorted[i + 1].z - sorted[i].z) * a,
+                rotationY: sorted[i].rotationY + (sorted[i + 1].rotationY - sorted[i].rotationY) * a
+              }
+              break
+            }
+          }
+          pose = pose2
         }
-      } else {
-        const geo = createGeometry(obj.geoType, obj.scale)
-        const mat = new THREE.MeshStandardMaterial({ color: obj.color, metalness: 0.3, roughness: 0.6 })
-        const mesh = new THREE.Mesh(geo, mat)
-        mesh.position.set(obj.x, obj.y, obj.z)
-        mesh.rotation.y = obj.rotationY
-        scene.add(mesh)
-        objects3DRef.current.set(obj.id, mesh)
+        rendererRef.current?.updateEntityTransform(e.id, pose)
       }
     }
-    updateOutline()
-  }, [placedObjects, updateOutline])
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [duration])
 
   // ---- 操作 ----
+  const handleDrop = useCallback((ev: React.DragEvent) => {
+    ev.preventDefault()
+    const idx = parseInt(ev.dataTransfer.getData('text/plain'), 10)
+    if (isNaN(idx) || idx < 0 || idx >= PRESETS.length) return
+    const preset = PRESETS[idx]
+    const renderer = rendererRef.current
+    if (!renderer) return
+    const gp = renderer.groundPointAt(ev.clientX, ev.clientY)
+    const ent = makeEntity(preset, gp?.x ?? 0, gp?.z ?? 0)
+    renderer.addEntity(ent)
+    setEntities((prev) => [...prev, ent])
+  }, [])
+
   const deleteSelected = () => {
     if (!selectedId) return
-    setPlacedObjects((prev) => prev.filter((o) => o.id !== selectedId))
-    setKeyframes((prev) => { const n = { ...prev }; delete n[selectedId]; return n })
+    rendererRef.current?.removeEntity(selectedId)
+    setEntities((prev) => prev.filter((o) => o.id !== selectedId))
+    setKeyframes((prev) => {
+      const n = { ...prev }
+      delete n[selectedId]
+      return n
+    })
     setSelectedId(null)
   }
 
-  const updateSelected = (patch: Partial<PlacedObject>) => {
+  const updateSelected = (patch: Partial<TwinEntity>) => {
     if (!selectedId) return
-    setPlacedObjects((prev) => prev.map((o) => o.id === selectedId ? { ...o, ...patch } : o))
+    setEntities((prev) => prev.map((o) => (o.id === selectedId ? { ...o, ...patch } : o)))
+    const r = rendererRef.current
+    if (!r) return
+    if (patch.color) r.setEntityColor(selectedId, patch.color)
+    if (patch.x !== undefined || patch.z !== undefined || patch.rotationY !== undefined || patch.scale !== undefined) {
+      const t = r.getEntityTransform(selectedId)
+      if (t) r.updateEntityTransform(selectedId, { x: patch.x ?? t.x, y: t.y, z: patch.z ?? t.z, rotationY: patch.rotationY ?? t.rotationY, scale: patch.scale })
+    }
   }
 
   const recordKeyframe = () => {
     if (!selectedId) return
-    const mesh = objects3DRef.current.get(selectedId)
-    if (!mesh) return
-    const kf: Keyframe = {
-      time: parseFloat(currentTime.toFixed(2)),
-      x: mesh.position.x,
-      z: mesh.position.z,
-      rotationY: mesh.rotation.y
-    }
+    const t = rendererRef.current?.getEntityTransform(selectedId)
+    if (!t) return
+    const kf: Keyframe = { time: parseFloat(currentTime.toFixed(2)), x: t.x, z: t.z, rotationY: t.rotationY }
     setKeyframes((prev) => {
       const list = prev[selectedId] || []
-      // 同时间点覆盖
       const filtered = list.filter((k) => Math.abs(k.time - kf.time) > 0.05)
       return { ...prev, [selectedId]: [...filtered, kf].sort((a, b) => a.time - b.time) }
     })
   }
 
   const deleteKeyframe = (objId: string, time: number) => {
-    setKeyframes((prev) => ({
-      ...prev,
-      [objId]: (prev[objId] || []).filter((k) => Math.abs(k.time - time) > 0.05)
-    }))
+    setKeyframes((prev) => ({ ...prev, [objId]: (prev[objId] || []).filter((k) => Math.abs(k.time - time) > 0.05) }))
   }
 
   const play = () => {
-    if (playing) { setPlaying(false); return }
-    setCurrentTime(0)
-    currentTimeRef.current = 0
-    lastTickRef.current = performance.now()
-    setPlaying(true)
+    if (playing) { setPlaying(false); playingRef.current = false; return }
+    setCurrentTime(0); currentTimeRef.current = 0; lastRef.current = performance.now()
+    setPlaying(true); playingRef.current = true
+  }
+  const stop = () => { setPlaying(false); playingRef.current = false; setCurrentTime(0); currentTimeRef.current = 0 }
+  const scrub = (t: number) => { setCurrentTime(t); currentTimeRef.current = t }
+
+  const dispatchControl = async (action: ControlAction) => {
+    const ent = entities.find((e) => e.id === selectedId)
+    if (!ent) return
+    await controlRef.current.dispatch(ent, action)
   }
 
-  const stop = () => {
-    setPlaying(false)
-    setCurrentTime(0)
-    currentTimeRef.current = 0
-  }
+  const selected = entities.find((o) => o.id === selectedId)
+  const totalKeyframes = Object.values(keyframes).reduce((s, k) => s + k.length, 0)
+  const pred = selectedId ? rt.predictions[selectedId] : undefined
+  const entityAlarms = rt.alarms.filter((a) => a.entityId === selectedId)
 
-  const scrub = (t: number) => {
-    setCurrentTime(t)
-    currentTimeRef.current = t
-    // 手动定位到该时间点
-    for (const [id, mesh] of objects3DRef.current) {
-      const kfs = keyframes[id]
-      if (!kfs || kfs.length === 0) continue
-      const sorted = [...kfs].sort((a, b) => a.time - b.time)
-      if (t <= sorted[0].time) {
-        mesh.position.x = sorted[0].x; mesh.position.z = sorted[0].z; mesh.rotation.y = sorted[0].rotationY
-      } else if (t >= sorted[sorted.length - 1].time) {
-        const last = sorted[sorted.length - 1]
-        mesh.position.x = last.x; mesh.position.z = last.z; mesh.rotation.y = last.rotationY
-      } else {
-        for (let i = 0; i < sorted.length - 1; i++) {
-          if (t >= sorted[i].time && t <= sorted[i + 1].time) {
-            const span = sorted[i + 1].time - sorted[i].time || 1
-            const alpha = (t - sorted[i].time) / span
-            mesh.position.x = THREE.MathUtils.lerp(sorted[i].x, sorted[i + 1].x, alpha)
-            mesh.position.z = THREE.MathUtils.lerp(sorted[i].z, sorted[i + 1].z, alpha)
-            mesh.rotation.y = THREE.MathUtils.lerp(sorted[i].rotationY, sorted[i + 1].rotationY, alpha)
-            break
-          }
-        }
-      }
-    }
-  }
-
-  const selected = placedObjects.find((o) => o.id === selectedId)
-  const totalKeyframes = Object.values(keyframes).reduce((sum, kfs) => sum + kfs.length, 0)
-
-  // ---- 时间轴宽度 ----
   const TL_WIDTH = 760
   const TL_HEIGHT = 140
   const RULER_H = 22
   const ROW_H = 22
-  const objectsWithKfs = placedObjects.filter((o) => (keyframes[o.id]?.length ?? 0) > 0)
+  const objectsWithKfs = entities.filter((o) => (keyframes[o.id]?.length ?? 0) > 0)
   const tlRows = Math.max(objectsWithKfs.length, 1)
   const tlContentH = RULER_H + tlRows * ROW_H + 4
 
@@ -499,27 +314,24 @@ export default function TwinPage(_props: TwinPageProps = {}) {
         <div>
           <h2 className="fp-title">数字孪生 3D 编辑器</h2>
           <p className="fp-sub">
-            拖拽搭建 · 关键帧轨迹 · 日照/夜景/雾效 · {placedObjects.length} 个场景对象 · {totalKeyframes} 个关键帧
+            拖拽搭建 · 关键帧轨迹 · 日照/夜景/雾效 · {entities.length} 个场景对象 · {totalKeyframes} 个关键帧 · 仿真/控制/告警已接入
           </p>
         </div>
         <span className="fp-count">预置模型 91 种</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 240px', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 260px', gap: 12 }}>
         {/* 左：模型库 */}
         <div>
           <div className="muted2" style={{ marginBottom: 8 }}>模型库（拖拽到画布放置）</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 460, overflow: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 360, overflow: 'auto' }}>
             {PRESETS.map((p, i) => (
               <div
                 draggable
                 key={i}
                 className={'card' + (activePreset === i ? ' sel' : '')}
                 style={{ padding: 8, textAlign: 'center', cursor: 'grab', borderColor: activePreset === i ? 'var(--accent)' : undefined }}
-                onDragStart={(ev) => {
-                  ev.dataTransfer.setData("text/plain", String(i))
-                  ev.dataTransfer.effectAllowed = "copy"
-                }}
+                onDragStart={(ev) => { ev.dataTransfer.setData('text/plain', String(i)); ev.dataTransfer.effectAllowed = 'copy' }}
                 onClick={() => setActivePreset(i)}
               >
                 <div style={{ width: 32, height: 32, margin: '0 auto 4px', background: p.color, borderRadius: p.geoType === 'sphere' ? '50%' : 6, opacity: 0.8 }} />
@@ -530,7 +342,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           {(models?.list ?? []).length > 0 && (
             <div style={{ marginTop: 10 }}>
               <div className="muted2" style={{ marginBottom: 6 }}>在线模型库（共 91 种）</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 140, overflow: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 120, overflow: 'auto' }}>
                 {(models?.list ?? []).slice(0, 12).map((m) => (
                   <div key={m.id} className="card" style={{ padding: 4, textAlign: 'center' }}>
                     <img src={m.thumbnail} alt={m.name} width={36} height={36} style={{ borderRadius: 4 }} />
@@ -558,14 +370,12 @@ export default function TwinPage(_props: TwinPageProps = {}) {
             onDragOver={(ev) => ev.preventDefault()}
             onDrop={handleDrop}
           />
-          {placedObjects.length === 0 && (
-            <div className="muted2" style={{ textAlign: 'center', marginTop: 8 }}>
-              从模型库拖拽模型到 3D 视口放置
-            </div>
+          {entities.length === 0 && (
+            <div className="muted2" style={{ textAlign: 'center', marginTop: 8 }}>从模型库拖拽模型到 3D 视口放置</div>
           )}
         </div>
 
-        {/* 右：属性面板 */}
+        {/* 右：属性 / 仿真 / 控制 / 告警 */}
         <div>
           {selected ? (
             <div className="sec">
@@ -580,45 +390,48 @@ export default function TwinPage(_props: TwinPageProps = {}) {
                 </div>
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>颜色</span>
-                  <ColorPicker value={selected.color}
-                    onChange={(c) => {
-                      const hex = c.toHexString()
-                      updateSelected({ color: hex })
-                      const mesh = objects3DRef.current.get(selected.id)
-                      if (mesh) (mesh.material as THREE.MeshStandardMaterial).color.set(hex)
-                    }} />
+                  <ColorPicker value={selected.color} onChange={(c) => updateSelected({ color: c.toHexString() })} />
                 </div>
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>旋转°</span>
-                  <InputNumber style={{ width: '100%' }} value={Math.round(selected.rotationY * 180 / Math.PI)}
-                    onChange={(v) => {
-                      const rad = (v ?? 0) * Math.PI / 180
-                      updateSelected({ rotationY: rad })
-                      const mesh = objects3DRef.current.get(selected.id)
-                      if (mesh) mesh.rotation.y = rad
-                    }} />
+                  <InputNumber style={{ width: '100%' }} value={Math.round((selected.rotationY ?? 0) * 180 / Math.PI)}
+                    onChange={(v) => updateSelected({ rotationY: (v ?? 0) * Math.PI / 180 })} />
                 </div>
                 <div className="field">
                   <span className="field-label" style={{ width: 70 }}>缩放</span>
-                  <InputNumber style={{ width: '100%' }} step={0.1} value={selected.scale}
-                    onChange={(v) => {
-                      const s = v || 1
-                      updateSelected({ scale: s })
-                      const mesh = objects3DRef.current.get(selected.id)
-                      if (mesh) {
-                        mesh.geometry.dispose()
-                        mesh.geometry = createGeometry(selected.geoType, s)
-                        mesh.scale.setScalar(1)
-                      }
-                    }} />
+                  <InputNumber style={{ width: '100%' }} step={0.1} value={selected.scale ?? 1}
+                    onChange={(v) => updateSelected({ scale: v || 1 })} />
                 </div>
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
-                  <div className="muted2" style={{ marginBottom: 6 }}>
-                    关键帧轨迹（{keyframes[selected.id]?.length ?? 0} 个）
+                <div className="field">
+                  <span className="field-label" style={{ width: 70 }}>绑定源</span>
+                  <Input placeholder="liveSourceId（OPC-UA/WS/MQTT）" value={selected.bindings?.liveSourceId ?? ''}
+                    onChange={(e) => updateSelected({ bindings: { liveSourceId: e.target.value, fields: selected.bindings?.fields ?? {} } })} />
+                </div>
+
+                {pred && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)', fontSize: 11, color: '#9fb0c3' }}>
+                    仿真预测：健康指数 <b style={{ color: '#7dd3fc' }}>{pred.healthIndex}</b>
+                    {pred.rul != null && <> · RUL <b style={{ color: '#7dd3fc' }}>{pred.rul}h</b></>} · 状态 {pred.state}
                   </div>
-                  <Button size="small" block style={{ marginBottom: 6 }} onClick={recordKeyframe}>
-                    ⏺ 录制关键帧 @ {currentTime.toFixed(1)}s
-                  </Button>
+                )}
+
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+                  <div className="muted2" style={{ marginBottom: 6 }}>闭环控制</div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {(['start', 'stop', 'reset'] as ControlAction[]).map((a) => (
+                      <Button key={a} size="small" onClick={() => dispatchControl(a)}>{CONTROL_LABELS[a]}</Button>
+                    ))}
+                  </div>
+                  {entityAlarms.length > 0 && (
+                    <div style={{ marginTop: 6, color: '#f59e0b', fontSize: 11 }}>
+                      {entityAlarms[0].message}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+                  <div className="muted2" style={{ marginBottom: 6 }}>关键帧轨迹（{keyframes[selected.id]?.length ?? 0} 个）</div>
+                  <Button size="small" block style={{ marginBottom: 6 }} onClick={recordKeyframe}>⏺ 录制关键帧 @ {currentTime.toFixed(1)}s</Button>
                   {(keyframes[selected.id] ?? []).map((kf, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9fb0c3', marginBottom: 3 }}>
                       <span style={{ color: '#4ade80' }}>◆</span>
@@ -633,15 +446,15 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           ) : (
             <div className="sec">
               <div className="sec-title">属性面板</div>
-              <div className="muted2" style={{ marginTop: 8 }}>点击 3D 视口中的对象查看属性</div>
+              <div className="muted2" style={{ marginTop: 8 }}>点击 3D 视口中的对象查看属性 / 仿真 / 控制</div>
             </div>
           )}
 
           {/* 场景对象列表 */}
           <div className="sec">
-            <div className="sec-title">场景对象（{placedObjects.length}）</div>
-            <div style={{ maxHeight: 200, overflow: 'auto', marginTop: 8 }}>
-              {placedObjects.map((o) => (
+            <div className="sec-title">场景对象（{entities.length}）</div>
+            <div style={{ maxHeight: 160, overflow: 'auto', marginTop: 8 }}>
+              {entities.map((o) => (
                 <div key={o.id} className={'card' + (o.id === selectedId ? ' sel' : '')}
                   style={{ padding: '6px 8px', marginBottom: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
                   onClick={() => setSelectedId(o.id)}>
@@ -650,7 +463,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
                   {(keyframes[o.id]?.length ?? 0) > 0 && <Tag>{keyframes[o.id].length}帧</Tag>}
                 </div>
               ))}
-              {placedObjects.length === 0 && <div className="muted2">暂无对象</div>}
+              {entities.length === 0 && <div className="muted2">暂无对象</div>}
             </div>
           </div>
         </div>
@@ -665,8 +478,7 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           </div>
           <div className="flex" style={{ alignItems: 'center' }}>
             <span className="muted2">时长</span>
-            <InputNumber size="small" min={1} max={60} value={duration} style={{ width: 64 }}
-              onChange={(v) => setDuration(Math.max(1, v ?? 1))} />
+            <InputNumber size="small" min={1} max={60} value={duration} style={{ width: 64 }} onChange={(v) => setDuration(Math.max(1, v ?? 1))} />
             <span className="muted2">s</span>
             <span className="muted2" style={{ marginLeft: 12 }}>{currentTime.toFixed(1)}s / {duration}s</span>
             <Button size="small" onClick={play}>{playing ? '⏸ 暂停' : '▶ 播放'}</Button>
@@ -678,10 +490,8 @@ export default function TwinPage(_props: TwinPageProps = {}) {
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
             const x = e.clientX - rect.left
-            const t = Math.max(0, Math.min(duration, (x / TL_WIDTH) * duration))
-            scrub(t)
+            scrub(Math.max(0, Math.min(duration, (x / TL_WIDTH) * duration)))
           }}>
-          {/* 时间刻度 */}
           {Array.from({ length: duration + 1 }).map((_, i) => {
             const x = (i / duration) * TL_WIDTH
             return (
@@ -691,11 +501,8 @@ export default function TwinPage(_props: TwinPageProps = {}) {
               </g>
             )
           })}
-          {/* 对象轨道 */}
           {objectsWithKfs.length === 0 ? (
-            <text x={TL_WIDTH / 2 - 60} y={RULER_H + 30} fill="#6b7d8f" fontSize={12}>
-              选中对象后点击「录制关键帧」添加轨迹
-            </text>
+            <text x={TL_WIDTH / 2 - 60} y={RULER_H + 30} fill="#6b7d8f" fontSize={12}>选中对象后点击「录制关键帧」添加轨迹</text>
           ) : (
             objectsWithKfs.map((o, rowIdx) => {
               const y = RULER_H + rowIdx * ROW_H
@@ -707,33 +514,26 @@ export default function TwinPage(_props: TwinPageProps = {}) {
                   {kfs.map((kf, i) => {
                     const kx = (kf.time / duration) * TL_WIDTH
                     return (
-                      <g key={i}>
-                        <polygon
-                          points={`${kx-5},${y+10} ${kx},${y+4} ${kx+5},${y+10} ${kx},${y+16}`}
-                          fill={o.color}
-                          stroke="#0a0e1a"
-                          strokeWidth={0.5}
-                          style={{ cursor: 'pointer' }}
-                        />
-                      </g>
+                      <polygon key={i} points={`${kx - 5},${y + 10} ${kx},${y + 4} ${kx + 5},${y + 10} ${kx},${y + 16}`} fill={o.color} stroke="#0a0e1a" strokeWidth={0.5} style={{ cursor: 'pointer' }} />
                     )
                   })}
                 </g>
               )
             })
           )}
-          {/* 播放头 */}
-          <line
-            x1={(currentTime / duration) * TL_WIDTH} y1={0}
-            x2={(currentTime / duration) * TL_WIDTH} y2={Math.max(tlContentH, TL_HEIGHT)}
-            stroke="#ef4444" strokeWidth={1.5}
-          />
-          <polygon
-            points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`}
-            fill="#ef4444"
-          />
+          <line x1={(currentTime / duration) * TL_WIDTH} y1={0} x2={(currentTime / duration) * TL_WIDTH} y2={Math.max(tlContentH, TL_HEIGHT)} stroke="#ef4444" strokeWidth={1.5} />
+          <polygon points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`} fill="#ef4444" />
         </svg>
       </div>
     </div>
   )
+}
+
+function buildDefaultEntities(): TwinEntity[] {
+  const demo = [
+    { p: PRESETS[0], x: -4, z: -2 },
+    { p: PRESETS[2], x: 4, z: 2 },
+    { p: PRESETS[3], x: 0, z: 4 }
+  ]
+  return demo.map((d) => makeEntity(d.p, d.x, d.z))
 }

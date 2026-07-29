@@ -190,9 +190,41 @@ export const widgetRegistry: WidgetRegistry = {
         series: [{ type: 'scatter', symbolSize: 18, data: [12, 28, 20], itemStyle: { color: '#f59e0b' } }]
       }, null, 2)
     }
+  },
+  // —— 数字孪生：嵌入大屏的三维场景组件（与大屏图表双向联动） ——
+  digitalTwin: {
+    name: '数字孪生',
+    icon: '🌐',
+    category: '数字孪生',
+    defaultStyle: { x: 80, y: 80, w: 480, h: 360 },
+    defaultProps: {
+      title: '工厂数字孪生',
+      lighting: 'day',
+      fog: false,
+      showLabels: true,
+      showHud: true,
+      showControl: true,
+      showSim: true,
+      autoRotate: false,
+      interactive: true,
+      filterField: 'entityId',
+      sourceKind: 'simulated'
+    }
+  },
+  // —— 孪生告警清单：仿真预测性维护产出的告警，点击反向定位 3D 实体 ——
+  twinAlarm: {
+    name: '孪生告警',
+    icon: '⚠',
+    category: '数字孪生',
+    defaultStyle: { x: 620, y: 460, w: 360, h: 300 },
+    defaultProps: {
+      title: '孪生告警清单',
+      filterField: 'entityId',
+      maxItems: 30
+    }
   }
 }
 
-export const widgetCategories: string[] = ['基础', '图表', 'ECharts', '指标', '布局']
+export const widgetCategories: string[] = ['基础', '图表', 'ECharts', '指标', '布局', '数字孪生']
 
 export type { WidgetType, WidgetMeta }

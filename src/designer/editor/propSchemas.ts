@@ -43,6 +43,17 @@ export const styleSchemas: Partial<Record<WidgetType, PropField[]>> = {
   container: [
     { key: 'label', label: '标题', type: 'text' },
     { key: 'background', label: '背景色', type: 'text' }
+  ],
+  digitalTwin: [
+    { key: 'title', label: '场景标题', type: 'text' },
+    { key: 'lighting', label: '光照', type: 'select', options: [{ value: 'day', label: '日照' }, { value: 'night', label: '夜景' }] },
+    { key: 'fog', label: '雾效', type: 'boolean' },
+    { key: 'showLabels', label: '显示标签', type: 'boolean' },
+    { key: 'showHud', label: '显示数据面板', type: 'boolean' },
+    { key: 'showControl', label: '显示控制条', type: 'boolean' },
+    { key: 'showSim', label: '显示决策沙盘', type: 'boolean' },
+    { key: 'autoRotate', label: '相机自动旋转', type: 'boolean' },
+    { key: 'sourceKind', label: '数据源类型', type: 'select', options: [{ value: 'simulated', label: '模拟源' }, { value: 'industrial', label: '工业协议' }, { value: 'bim', label: 'BIM' }, { value: 'gis', label: 'GIS' }] }
   ]
 }
 
@@ -95,5 +106,15 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
   ],
   echartCustom: [
     { key: 'optionJson', label: 'ECharts option (JSON，支持任意图表)', type: 'textarea' }
+  ],
+  digitalTwin: [
+    { key: 'filterField', label: '联动字段 (filterField)', type: 'text' },
+    { key: 'liveSourceId', label: '实时数据源（驱动孪生体指标）', type: 'select', dynamicOptions: 'liveSources' },
+    { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 300, step: 100, show: (p) => !!p.liveSourceId }
+  ],
+  twinAlarm: [
+    { key: 'title', label: '标题', type: 'text' },
+    { key: 'filterField', label: '联动字段 (filterField)', type: 'text' },
+    { key: 'maxItems', label: '最大展示条数', type: 'number', min: 1, step: 1 }
   ]
 }
