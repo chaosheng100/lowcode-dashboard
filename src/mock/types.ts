@@ -26,6 +26,41 @@ export interface PageResult<T> {
   pageSize: number
 }
 
+// ---------------- 认证与权限（RBAC） ----------------
+export interface AuthRoleDTO {
+  code: string
+  name: string
+}
+export interface AuthUserDTO {
+  id: string
+  email: string
+  name: string
+  status: string
+  orgId: string | null
+  roles: AuthRoleDTO[]
+  permissions: string[]
+  lastLoginAt?: string
+  createdAt?: string
+}
+export interface RbacRoleDTO {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  isSystem: boolean
+  permissions: string[]
+}
+export interface RbacUserDTO {
+  id: string
+  email: string
+  name: string
+  status: string
+  orgId: string | null
+  lastLoginAt?: string
+  createdAt?: string
+  roles: AuthRoleDTO[]
+}
+
 // ---------------- 领域实体（与《全量路由功能计划书》数据结构对齐） ----------------
 
 export type DashboardStatus = 'draft' | 'published' | 'archived'

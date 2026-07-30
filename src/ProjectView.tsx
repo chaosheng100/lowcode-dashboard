@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import RoutePanel from './data/routes/RoutePanel'
 import AppRouter from './router/AppRouter'
+import UserMenu from './auth/UserMenu'
 import { useDesignerStore } from './data/store/useDesignerStore'
 
 interface Props {
@@ -28,6 +29,16 @@ export default function ProjectView({ onOpenDesigner, onOpenPreview }: Props) {
 
   return (
     <div className={'project-view' + (showRoutes ? ' show-routes' : '')}>
+      <div
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 16,
+          zIndex: 50,
+        }}
+      >
+        <UserMenu />
+      </div>
       <RoutePanel
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((v) => !v)}

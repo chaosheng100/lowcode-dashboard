@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>用户登录注册与权限（RBAC）功能建设计划书</title>
+<style>
+  :root { --bg:#0a0e1a; --card:#111a27; --line:#1e2a3a; --txt:#e6edf3; --muted:#9aa7b4; --accent:#3b82f6; --ok:#22c55e; --warn:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; line-height:1.7; }
+  .wrap { max-width: 1100px; margin:0 auto; padding:40px 28px 80px; }
+  h1 { font-size:30px; border-left:5px solid var(--accent); padding-left:14px; margin:0 0 6px; }
+  h2 { font-size:22px; margin:42px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  h3 { font-size:17px; margin:26px 0 10px; color:#cfe0ff; }
+  p, li { color:var(--txt); font-size:14.5px; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; margin-right:8px; }
+  .b-ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .b-warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  .b-acc { background:rgba(59,130,246,.15); color:var(--accent); }
+  code, pre { background:#0d1420; border:1px solid var(--line); border-radius:8px; }
+  code { padding:2px 6px; font-size:13px; color:#9fe0ff; }
+  pre { padding:14px 16px; overflow:auto; font-size:13px; color:#d6e2f0; }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:13.5px; }
+  th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; }
+  th { background:#0d1420; color:#cfe0ff; }
+  .flow { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .step { background:#0d1420; border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:13px; }
+  .arrow { color:var(--accent); font-size:18px; }
+  .note { border-left:4px solid var(--warn); background:rgba(245,158,11,.08); padding:10px 14px; border-radius:6px; color:#ffe6b3; }
+  .ok { border-left:4px solid var(--ok); background:rgba(34,197,94,.08); padding:10px 14px; border-radius:6px; color:#bdffce; }
+  .toc a { color:var(--accent); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>用户登录注册与权限（RBAC）功能建设计划书</h1>
+  <p class="sub">低代码大屏平台 · 统一身份认证与基于角色的访问控制 · 设计稿 v1.0</p>
+
+  <div class="card toc">
+    <b>目录</b>
+    <ol>
+      <li><a href="#goal">目标与范围</a></li>
+      <li><a href="#arch">总体架构</a></li>
+      <li><a href="#model">数据模型设计</a></li>
+      <li><a href="#backend">后端设计（Auth / RBAC）</a></li>
+      <li><a href="#perm">权限模型与角色设计</a></li>
+      <li><a href="#frontend">前端设计</a></li>
+      <li><a href="#api">接口契约</a></li>
+      <li><a href="#seed">种子数据</a></li>
+      <li><a href="#steps">落地步骤与验证</a></li>
+      <li><a href="#future">安全与后续演进</a></li>
+    </ol>
+  </div>
+
+  <h2 id="goal">1. 目标与范围</h2>
+  <div class="card">
+    <p><b>目标：</b>为低代码大屏平台构建一套完整的身份认证与权限体系，支撑「游客不可访问 → 注册/登录 → 按角色与权限使用平台功能 → 管理员管控用户与角色」的闭环。</p>
+    <p><b>本期范围：</b></p>
+    <ul>
+      <li><span class="badge b-ok">后端</span>注册、登录（JWT 双令牌）、刷新令牌、当前用户信息、登出。</li>
+      <li><span class="badge b-ok">后端</span>RBAC：角色、权限码、用户-角色关联；角色/用户管理接口受守卫 + 权限装饰器保护。</li>
+      <li><span class="badge b-ok">前端</span>登录页、注册页、Token 持久化与请求拦截器、路由守卫、401 自动登出、按权限隐藏元素、用户菜单。</li>
+      <li><span class="badge b-acc">零依赖</span>密码哈希与 JWT 均基于 Node 内置 <code>crypto</code> 实现，<b>不引入</b> passport / bcrypt / jsonwebtoken，规避离线环境的安装与编译风险。</li>
+    </ul>
+    <p class="note"><b>范围说明（重要）：</b>为避免一次性改造破坏既有 20+ 模块，本期将鉴权守卫<b>作用于新建的 Auth 与 RBAC 模块</b>（用户/角色管理接口），并在前端做「应用级登录门禁」。既有业务模块（大屏、组件中心、AI 等）的全局鉴权作为<b>后续步骤</b>，可通过把 <code>JwtAuthGuard</code> 提升为全局守卫 + 给公开接口加 <code>@Public()</code> 一键开启。</p>
+  </div>
+
+  <h2 id="arch">2. 总体架构</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="step">前端登录/注册</div><span class="arrow">→</span>
+      <div class="step">POST /api/auth/login|register</div><span class="arrow">→</span>
+      <div class="step">AuthService 校验 + 签发 JWT</div><span class="arrow">→</span>
+      <div class="step">前端存 Token（localStorage）</div>
+    </div>
+    <div class="flow" style="margin-top:10px">
+      <div class="step">前端请求带 Authorization</div><span class="arrow">→</span>
+      <div class="step">JwtAuthGuard 解析并挂载 user</div><span class="arrow">→</span>
+      <div class="step">RolesGuard 校验 @Roles/@RequirePermissions</div><span class="arrow">→</span>
+      <div class="step">受保护接口返回数据</div>
+    </div>
+    <p>令牌策略：<b>AccessToken</b>（短时效，默认 2h，放请求头）+ <b>RefreshToken</b>（长时效，默认 7d，用于无感续期）。Payload 预计算 <code>roles</code> 与 <code>perms</code>，避免在每次请求中回查数据库。</p>
+  </div>
+
+  <h2 id="model">3. 数据模型设计</h2>
+  <div class="card">
+    <p>在既有 <code>schema.prisma</code> 上扩展，保持 SQLite 兼容（无原生 enum/Json，统一用 <code>String</code>；权限列表以 JSON 字符串存储）：</p>
+    <pre>model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String?            // scrypt: salt:hash
+  status       String   @default("active")  // active | disabled
+  lastLoginAt  DateTime?
+  roles        Role[]              // 隐式多对多
+  orgId        String?
+  screens      Screen[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  code        String   @unique      // super_admin | admin | editor | viewer
+  name        String
+  description String?
+  permissions String   @default("[]") // JSON: ["user:manage","role:manage",...]
+  isSystem    Boolean  @default(false)
+  users       User[]                  // 隐式多对多
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}</pre>
+    <p>关系：User ⇄ Role 为<b>隐式多对多</b>（Prisma 自动生成中间表）；Role 的 <code>permissions</code> 为权限码数组的 JSON 字符串。</p>
+  </div>
+
+  <h2 id="backend">4. 后端设计（Auth / RBAC）</h2>
+  <div class="card">
+    <h3>4.1 目录结构</h3>
+    <pre>apps/api/src/
+├─ auth/
+│  ├─ auth.module.ts
+│  ├─ auth.controller.ts
+│  ├─ auth.service.ts
+│  ├─ dto/register.dto.ts  login.dto.ts
+│  ├─ guards/jwt-auth.guard.ts
+│  ├─ guards/roles.guard.ts
+│  ├─ decorators/public.decorator.ts
+│  ├─ decorators/roles.decorator.ts
+│  ├─ decorators/permissions.decorator.ts
+│  ├─ decorators/current-user.decorator.ts
+│  └─ utils/{password.util.ts, jwt.util.ts}
+└─ rbac/
+   ├─ rbac.module.ts
+   ├─ rbac.controller.ts   // 角色 CRUD + 分配给用户
+   └─ rbac.service.ts</pre>
+
+    <h3>4.2 密码哈希（Node crypto，零依赖）</h3>
+    <pre>// password.util.ts
+import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
+export function hashPassword(pwd: string): string {
+  const salt = randomBytes(16).toString('hex')
+  const hash = scryptSync(pwd, salt, 64).toString('hex')
+  return `${salt}:${hash}`
+}
+export function verifyPassword(pwd: string, stored: string): boolean {
+  const [salt, hash] = stored.split(':')
+  const h = scryptSync(pwd, salt, 64)
+  const hh = Buffer.from(hash, 'hex')
+  return h.length === hh.length && timingSafeEqual(h, hh)
+}</pre>
+
+    <h3>4.3 JWT 工具（HMAC-SHA256，零依赖）</h3>
+    <pre>// jwt.util.ts
+import { createHmac, timingSafeEqual } from 'crypto'
+const b64 = (s: string|Buffer) => Buffer.from(s).toString('base64url')
+function sign(payload: object, secret: string, expSec: number) {
+  const body = { ...payload, iat: Math.floor(Date.now()/1000), exp: Math.floor(Date.now()/1000)+expSec }
+  const h = b64(JSON.stringify({ alg:'HS256', typ:'JWT' }))
+  const p = b64(JSON.stringify(body))
+  const sig = createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url')
+  return `${h}.${p}.${sig}`
+}
+function verify(token: string, secret: string): any {
+  const [h,p,s] = token.split('.'); if(!h||!p||!s) throw new Error('bad token')
+  const sig = createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url')
+  if (sig.length!==s.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(s))) throw new Error('bad sig')
+  const payload = JSON.parse(Buffer.from(p,'base64url').toString())
+  if (payload.exp < Math.floor(Date.now()/1000)) throw new Error('expired')
+  return payload
+}</pre>
+
+    <h3>4.4 守卫与装饰器</h3>
+    <ul>
+      <li><code>JwtAuthGuard</code>：从 <code>Authorization: Bearer &lt;token&gt;</code> 解析，失败抛 401；成功把 payload 挂到 <code>req.user</code>。</li>
+      <li><code>RolesGuard</code>：读取 <code>@Roles('admin')</code> / <code>@RequirePermissions('user:manage')</code> 元数据，比对 <code>req.user.roles</code> 与 <code>req.user.perms</code>，不匹配抛 403。</li>
+      <li><code>@Public()</code>：标记接口跳过 JwtAuthGuard（登录/注册/刷新/开放能力）。</li>
+      <li><code>@CurrentUser()</code>：在控制器方法参数中注入当前用户。</li>
+    </ul>
+    <p class="ok"><b>应用方式：</b><code>AuthController</code> 与 <code>RbacController</code> 在类上挂 <code>@UseGuards(JwtAuthGuard, RolesGuard)</code>；登录/注册/刷新方法再叠加 <code>@Public()</code>。不污染既有 20+ 模块。</p>
+  </div>
+
+  <h2 id="perm">5. 权限模型与角色设计</h2>
+  <div class="card">
+    <p>权限码采用 <code>resource:action</code> 命名（参考 AWS IAM / Casbin）：</p>
+    <table>
+      <tr><th>资源</th><th>动作</th><th>权限码示例</th></tr>
+      <tr><td>用户</td><td>查看 / 管理</td><td><code>user:view</code> <code>user:manage</code></td></tr>
+      <tr><td>角色</td><td>查看 / 管理</td><td><code>role:view</code> <code>role:manage</code></td></tr>
+      <tr><td>大屏</td><td>查看 / 编辑 / 发布</td><td><code>screen:view</code> <code>screen:edit</code> <code>screen:publish</code></td></tr>
+      <tr><td>组件</td><td>查看 / 管理</td><td><code>widget:view</code> <code>widget:manage</code></td></tr>
+      <tr><td>系统</td><td>参数 / 日志 / 监控</td><td><code>system:params</code> <code>system:logs</code> <code>system:monitor</code></td></tr>
+    </table>
+    <h3>默认角色</h3>
+    <table>
+      <tr><th>角色</th><th>权限</th><th>说明</th></tr>
+      <tr><td><code>super_admin</code></td><td>全部（<code>*</code>）</td><td>系统内置，不可删</td></tr>
+      <tr><td><code>admin</code></td><td>用户/角色/系统/大屏/组件 全部管理</td><td>平台管理员</td></tr>
+      <tr><td><code>editor</code></td><td>大屏/组件 编辑与查看，无用户/角色管理</td><td>内容编辑</td></tr>
+      <tr><td><code>viewer</code></td><td>仅 <code>*:view</code></td><td>只读访客</td></tr>
+    </table>
+    <p class="note"><code>super_admin</code> 与 <code>admin</code> 列为系统角色（<code>isSystem=true</code>），<code>super_admin</code> 不可删除；权限校验支持通配符 <code>*</code> 表示全部。</p>
+  </div>
+
+  <h2 id="frontend">6. 前端设计</h2>
+  <div class="card">
+    <ul>
+      <li><span class="badge b-acc">存储</span><code>src/auth/store.ts</code>（zustand）持久化 <code>token / refreshToken / user / perms</code> 到 localStorage。</li>
+      <li><span class="badge b-acc">拦截器</span><code>src/api/client.ts</code> 的 <code>request()</code> 自动携带 <code>Authorization</code>；收到 <code>401</code> 清除 token 并跳转 <code>/login</code>。</li>
+      <li><span class="badge b-acc">门禁</span><code>src/App.tsx</code>：无 token 时渲染 <code>LoginPage</code>；登录后进入 <code>ProjectView</code>。</li>
+      <li><span class="badge b-acc">路由</span><code>/login</code> <code>/register</code> 加入 <code>featurePages</code>，<code>RequireAuth</code> 包裹受保护内容。</li>
+      <li><span class="badge b-acc">权限组件</span><code>&lt;Can perm="user:manage"&gt;…&lt;/Can&gt;</code>：无权限时渲染 <code>null</code>（或 fallback）。</li>
+      <li><span class="badge b-acc">用户菜单</span>顶部栏头像下拉：显示当前用户/角色、登出；菜单项按 <code>perms</code> 显隐（如「用户管理」「角色管理」仅管理员可见）。</li>
+    </ul>
+  </div>
+
+  <h2 id="api">7. 接口契约</h2>
+  <div class="card">
+    <table>
+      <tr><th>方法</th><th>路径</th><th>公开</th><th>权限</th><th>说明</th></tr>
+      <tr><td>POST</td><td><code>/api/auth/register</code></td><td>✅</td><td>—</td><td>{email,name,password} → {user}</td></tr>
+      <tr><td>POST</td><td><code>/api/auth/login</code></td><td>✅</td><td>—</td><td>{email,password} → {accessToken,refreshToken,user}</td></tr>
+      <tr><td>POST</td><td><code>/api/auth/refresh</code></td><td>✅</td><td>—</td><td>{refreshToken} → {accessToken,refreshToken}</td></tr>
+      <tr><td>GET</td><td><code>/api/auth/profile</code></td><td>❌</td><td>登录即可</td><td>返回当前用户信息 + 角色 + 权限</td></tr>
+      <tr><td>POST</td><td><code>/api/auth/logout</code></td><td>❌</td><td>登录即可</td><td>前端清 token（无状态）</td></tr>
+      <tr><td>GET</td><td><code>/api/rbac/roles</code></td><td>❌</td><td><code>role:view</code></td><td>角色列表</td></tr>
+      <tr><td>POST</td><td><code>/api/rbac/roles</code></td><td>❌</td><td><code>role:manage</code></td><td>新建角色</td></tr>
+      <tr><td>PATCH</td><td><code>/api/rbac/roles/:id</code></td><td>❌</td><td><code>role:manage</code></td><td>改名称/描述/权限</td></tr>
+      <tr><td>DELETE</td><td><code>/api/rbac/roles/:id</code></td><td>❌</td><td><code>role:manage</code></td><td>删角色（系统角色禁止）</td></tr>
+      <tr><td>GET</td><td><code>/api/rbac/users</code></td><td>❌</td><td><code>user:view</code></td><td>用户列表（含角色）</td></tr>
+      <tr><td>PATCH</td><td><code>/api/rbac/users/:id/roles</code></td><td>❌</td><td><code>user:manage</code></td><td>分配角色</td></tr>
+      <tr><td>PATCH</td><td><code>/api/rbac/users/:id/status</code></td><td>❌</td><td><code>user:manage</code></td><td>启停账号</td></tr>
+    </table>
+    <p>统一响应信封：<code>{ code, data, message }</code>（code=0 成功）。401/403 由守卫直接返回（兼容既有 <code>client.ts</code> 的拦截逻辑）。</p>
+  </div>
+
+  <h2 id="seed">8. 种子数据</h2>
+  <div class="card">
+    <p>新增 <code>scripts/seed-auth.mjs</code>：通过 Prisma 直接落库（绕过 HTTP 鉴权），建立：</p>
+    <ul>
+      <li>4 个默认角色（super_admin / admin / editor / viewer）及其权限码。</li>
+      <li>管理员账号 <code>admin@demo.com / Admin@123</code>（scrypt 哈希），绑定 super_admin。</li>
+      <li>一个只读演示账号 <code>viewer@demo.com / Viewer@123</code>，绑定 viewer。</li>
+    </ul>
+    <p>幂等：按 <code>email</code> 唯一键 upsert，可重复执行。</p>
+  </div>
+
+  <h2 id="steps">9. 落地步骤与验证</h2>
+  <div class="card">
+    <ol>
+      <li>后端：扩展 <code>schema.prisma</code>（User 字段 + Role 模型）→ <code>prisma generate</code> + <code>prisma db push</code>。</li>
+      <li>后端：实现 utils / decorators / guards / AuthModule / RbacModule，注册进 <code>app.module.ts</code>；修复 <code>@prisma/client</code> 客户端副本（沿用既有 cp 方案）。</li>
+      <li>后端：<code>scripts/seed-auth.mjs</code> 灌入角色与账号。</li>
+      <li>前端：<code>store.ts</code> / <code>client.ts</code> 拦截器 / 登录注册页 / 门禁 / Can 组件 / 用户菜单 / api 方法。</li>
+      <li>验证：<code>tsc --noEmit</code> + <code>vite build</code>（前端）；<code>nest build</code> 或 <code>tsc -p tsconfig.build.json</code>（后端）；起服务用 curl 跑通「注册→登录→带 token 调 profile→无 token 返回 401→超权返回 403」。</li>
+    </ol>
+    <p class="ok"><b>验收标准：</b>未登录访问 <code>/api/rbac/*</code> 返回 401；viewer 访问 <code>role:manage</code> 接口返回 403；admin 正常；前端登录后按权限显隐菜单、登出后跳登录页。</p>
+  </div>
+
+  <h2 id="future">10. 安全与后续演进</h2>
+  <div class="card">
+    <ul>
+      <li><b>全局鉴权一键开启：</b>将 <code>JwtAuthGuard</code> 提升为 <code>APP_GUARD</code>，并为既有公开接口（开放能力、seed 等）补 <code>@Public()</code>。</li>
+      <li><b>刷新令牌安全：</b>本期 RefreshToken 为无状态 JWT；后续可改为服务端存储（Redis/DB）支持吊销。</li>
+      <li><b>密码策略：</b>注册增加强度校验（长度/复杂度）与邮箱唯一提示；支持找回密码。</li>
+      <li><b>审计：</b>登录/权限变更事件写入既有 Audit 模块，形成安全审计轨迹。</li>
+      <li><b>多租户：</b>利用既有 <code>orgId</code> 字段做组织级数据隔离。</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

@@ -29,19 +29,36 @@ export default function AIAssistantPage() {
   const [genLoading, setGenLoading] = useState(false)
   const [busyBotId, setBusyBotId] = useState<string | null>(null)
 
+  // 把增量 delta 追加到「最后一条助手消息」，实现打字机式流式渲染
+  const appendToLastAssistant = (delta: string) =>
+    setMessages((m) => {
+      const copy = m.slice()
+      const last = copy[copy.length - 1]
+      if (last && last.role === 'a') copy[copy.length - 1] = { role: 'a', text: last.text + delta }
+      return copy
+    })
+  const setLastAssistant = (text: string) =>
+    setMessages((m) => {
+      const copy = m.slice()
+      if (copy[copy.length - 1]?.role === 'a') copy[copy.length - 1] = { role: 'a', text }
+      return copy
+    })
+
   const send = async () => {
     const text = input.trim()
     if (!text || chatLoading || !hasModel) return
-    setMessages((m) => [...m, { role: 'u', text }])
+    // 先压入空助手气泡，随后由 onDelta 逐块填充
+    setMessages((m) => [...m, { role: 'u', text }, { role: 'a', text: '' }])
     setInput('')
     setChatLoading(true)
     try {
-      const r = await api.aiChat(text)
+      const r = await api.aiChat(text, (delta) => appendToLastAssistant(delta))
       // 失败时不显示笼统的「服务异常」，而是把后端真实原因（如未配置密钥 / 模型不存在）透出
-      const reply = r.code === 0 ? r.data.reply : `⚠️ 对话失败：${r.message || '请稍后重试'}（可在「AI 模型管理」检查密钥与模型配置）`
-      setMessages((m) => [...m, { role: 'a', text: reply }])
+      if (r.code !== 0) {
+        setLastAssistant(`⚠️ 对话失败：${r.message || '请稍后重试'}（可在「AI 模型管理」检查密钥与模型配置）`)
+      }
     } catch {
-      setMessages((m) => [...m, { role: 'a', text: '（网络异常，请稍后重试）' }])
+      setLastAssistant('（网络异常，请稍后重试）')
     } finally {
       setChatLoading(false)
     }
@@ -50,9 +67,13 @@ export default function AIAssistantPage() {
   const runGen = async () => {
     if (genLoading || !hasModel) return
     setGenLoading(true)
+    setCode('')
     try {
-      const r = await api.aiGenerate(genPrompt, lang)
-      setCode(r.code === 0 ? r.data.code : `// 生成失败：${r.message || '请稍后重试'}（可在「AI 模型管理」检查密钥与模型配置）`)
+      // 逐块回填到 code 状态，实现代码流式输出
+      const r = await api.aiGenerate(genPrompt, lang, (delta) => setCode((c) => c + delta))
+      if (r.code !== 0) {
+        setCode(`// 生成失败：${r.message || '请稍后重试'}（可在「AI 模型管理」检查密钥与模型配置）`)
+      }
     } catch {
       setCode('// 网络异常，请稍后重试')
     } finally {
@@ -119,12 +140,17 @@ export default function AIAssistantPage() {
       {tab === 'chat' && (
         <div className="card" style={{ height: 420, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, overflow: 'auto', padding: 8 }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ textAlign: m.role === 'u' ? 'right' : 'left', margin: '8px 0' }}>
-                <span style={{ display: 'inline-block', padding: '8px 12px', borderRadius: 10, background: m.role === 'u' ? '#1c3a6e' : '#111a27', color: '#e6edf3', maxWidth: '80%' }}>{m.text}</span>
-              </div>
-            ))}
-            {chatLoading && <div style={{ textAlign: 'left', margin: '8px 0', color: '#9aa7b4', fontSize: 12 }}>助手正在思考…</div>}
+            {messages.map((m, i) => {
+              const streamingLast = m.role === 'a' && chatLoading && i === messages.length - 1
+              return (
+                <div key={i} style={{ textAlign: m.role === 'u' ? 'right' : 'left', margin: '8px 0' }}>
+                  <span style={{ display: 'inline-block', padding: '8px 12px', borderRadius: 10, background: m.role === 'u' ? '#1c3a6e' : '#111a27', color: '#e6edf3', maxWidth: '80%', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {m.text || (streamingLast ? '助手正在思考…' : '')}
+                    {streamingLast && m.text ? '▌' : ''}
+                  </span>
+                </div>
+              )
+            })}
           </div>
           <div className="flex" style={{ marginTop: 8 }}>
             <Input style={{ flex: 1 }} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="描述你的大屏需求…" disabled={!hasModel} />

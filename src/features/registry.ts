@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import UserManagement from './UserManagement'
+import RoleManagementPage from './RoleManagementPage'
 import DatasetManagement from './DatasetManagement'
 import ComponentLibrary from './ComponentLibrary'
 import DataSourcePage from './DataSourcePage'
@@ -39,6 +40,7 @@ import './features.css'
 export const featurePages: Record<string, ComponentType> = {
   // 系统
   '/system/users': UserManagement,
+  '/system/roles': RoleManagementPage,
   '/system/tags': CategoryPage,
   '/system/runtime': RuntimeConfig,
   '/system/analysis': AnalysisPage,

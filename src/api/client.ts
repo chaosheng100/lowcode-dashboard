@@ -7,6 +7,7 @@
 // - 失败时 code 为 HTTP 状态码，message 来自后端
 // ============================================================
 import type { ApiResp } from '../mock/types'
+import { getToken, clearAuthStorage } from '../auth/store'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
@@ -15,6 +16,8 @@ interface RequestOptions {
   body?: unknown
   headers?: Record<string, string>
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+  /** 跳过自动附加 Authorization（如登录接口） */
+  skipAuth?: boolean
 }
 
 function buildQuery(query?: Record<string, unknown>): string {
@@ -36,6 +39,11 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     'Content-Type': 'application/json',
     ...(opts.headers || {}),
   }
+  // 自动附加登录令牌
+  if (!opts.skipAuth) {
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+  }
 
   try {
     const res = await fetch(url, {
@@ -51,7 +59,17 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
       if (isJson) {
         const data = await res.json()
         // 后端全局异常过滤器也返回 { code, data, message }
-        if (data && typeof data.code === 'number') return data as ApiResp<T>
+        if (data && typeof data.code === 'number') {
+          // 401/403：登录态失效，清理并跳登录页（HashRouter 用 hash 跳转）
+          if (data.code === 401 || data.code === 403) {
+            clearAuthStorage()
+            const h = (location.hash || '').replace(/^#/, '')
+            if (h !== '/login' && h !== '/register') {
+              location.hash = '#/login'
+            }
+          }
+          return data as ApiResp<T>
+        }
       }
       return { code: res.status, message: res.statusText, data: null as unknown as T }
     }

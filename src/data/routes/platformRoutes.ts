@@ -73,6 +73,7 @@ const platformTree: RouteTreeNode[] = [
       { name: '分类标签', path: '/system/tags' },
       { name: '运行配置', path: '/system/runtime' },
       { name: '用户管理', path: '/system/users' },
+      { name: '角色权限', path: '/system/roles' },
       { name: '大屏分析', path: '/system/analysis' },
       { name: '系统监控', path: '/system/monitor' }
     ]

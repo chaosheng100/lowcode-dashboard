@@ -10,8 +10,9 @@ import type {
   DataSourceDTO,
   DatasetDTO,
   DatasetRow,
-  UserDTO,
-  RoleDTO,
+  AuthUserDTO,
+  RbacRoleDTO,
+  RbacUserDTO,
   ExtensionDTO,
   WidgetDefDTO,
   ReportDTO,
@@ -75,7 +76,11 @@ interface SseResult {
   error?: string
 }
 
-async function postSSE(path: string, body: unknown): Promise<SseResult> {
+async function postSSE(
+  path: string,
+  body: unknown,
+  onDelta?: (text: string) => void,
+): Promise<SseResult> {
   const url = `${SSE_BASE_URL}${path.replace(/^\/api/, '')}`
   const res = await fetch(url, {
     method: 'POST',
@@ -109,7 +114,10 @@ async function postSSE(path: string, body: unknown): Promise<SseResult> {
       if (!json) continue
       try {
         const p = JSON.parse(json)
-        if (p.type === 'done') donePayload = p
+        if (p.type === 'delta') {
+          // 逐块回调，驱动前端打字机式渲染
+          if (onDelta && typeof p.text === 'string') onDelta(p.text)
+        } else if (p.type === 'done') donePayload = p
         else if (p.type === 'error') errorMsg = p.message
       } catch {
         /* 忽略无法解析的帧 */
@@ -136,11 +144,40 @@ export const api = {
   queryDataset: (id: string, q: PageQuery = {}) =>
     mockFetch<{ list: DatasetRow[]; total: number }>('POST', `/api/datasets/${id}/query`, { query: q }),
 
-  // 用户与角色
-  listUsers: (q: PageQuery = {}) => mockFetch<PageResult<UserDTO>>('GET', '/api/users', { query: q }),
-  setUserStatus: (id: string, status: 'active' | 'disabled') =>
-    mockFetch<UserDTO>('PATCH', `/api/users/${id}/status`, { body: { status } }),
-  listRoles: () => mockFetch<RoleDTO[]>('GET', '/api/roles'),
+  // ============ 认证与权限（RBAC）============
+  auth: {
+    register: (body: { email: string; name: string; password: string; orgId?: string }) =>
+      mockFetch<{ id: string; email: string; name: string; status: string; orgId: string | null }>(
+        'POST',
+        '/api/auth/register',
+        { body, skipAuth: true },
+      ),
+    login: (body: { email: string; password: string }) =>
+      mockFetch<{ accessToken: string; refreshToken: string; user: AuthUserDTO }>('POST', '/api/auth/login', {
+        body,
+        skipAuth: true,
+      }),
+    refresh: (refreshToken: string) =>
+      mockFetch<{ accessToken: string; refreshToken: string }>('POST', '/api/auth/refresh', {
+        body: { refreshToken },
+        skipAuth: true,
+      }),
+    profile: () => mockFetch<AuthUserDTO>('GET', '/api/auth/profile'),
+    logout: () => mockFetch<{ ok: boolean }>('POST', '/api/auth/logout'),
+  },
+  rbac: {
+    listRoles: (q: PageQuery = {}) => mockFetch<RbacRoleDTO[]>('GET', '/api/rbac/roles', { query: q }),
+    createRole: (body: { code: string; name: string; description?: string; permissions?: string[] }) =>
+      mockFetch<RbacRoleDTO>('POST', '/api/rbac/roles', { body }),
+    updateRole: (id: string, body: { name?: string; description?: string; permissions?: string[] }) =>
+      mockFetch<RbacRoleDTO>('PATCH', `/api/rbac/roles/${id}`, { body }),
+    deleteRole: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/rbac/roles/${id}`),
+    listUsers: (q: PageQuery = {}) => mockFetch<PageResult<RbacUserDTO>>('GET', '/api/rbac/users', { query: q }),
+    setUserRoles: (id: string, roleCodes: string[]) =>
+      mockFetch<{ ok: boolean }>('PATCH', `/api/rbac/users/${id}/roles`, { body: { roleCodes } }),
+    setUserStatus: (id: string, status: 'active' | 'disabled') =>
+      mockFetch<{ ok: boolean }>('PATCH', `/api/rbac/users/${id}/status`, { body: { status } }),
+  },
 
   // 扩展
   listExtensions: () => mockFetch<ExtensionDTO[]>('GET', '/api/extensions/status'),
@@ -205,16 +242,16 @@ export const api = {
   saveAIBot: (body: Partial<AIBotDTO>) =>
     mockFetch<AIBotDTO>(body.id ? 'PATCH' : 'POST', `/api/aiBots${body.id ? '/' + body.id : ''}`, { body }),
   deleteAIBot: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiBots/${id}`),
-  // AI 对话 / 代码生成（SSE 流式后端；调用方契约不变）
-  aiChat: async (message: string) => {
-    const r = await postSSE('/api/ai/chat', { message, sessionId: aiChatSessionId })
+  // AI 对话 / 代码生成（SSE 流式后端；onDelta 逐块回调驱动前端流式渲染，调用方契约不变）
+  aiChat: async (message: string, onDelta?: (text: string) => void) => {
+    const r = await postSSE('/api/ai/chat', { message, sessionId: aiChatSessionId }, onDelta)
     if (r.error) return { code: 500, message: r.error, data: { reply: '', suggestion: '' } }
     if (!r.done) return { code: 500, message: '无响应', data: { reply: '', suggestion: '' } }
     if (r.done.sessionId) aiChatSessionId = r.done.sessionId
     return { code: 0, message: 'ok', data: { reply: r.done.reply ?? '', suggestion: '' } }
   },
-  aiGenerate: async (prompt: string, lang: string) => {
-    const r = await postSSE('/api/ai/generate', { prompt, lang, sessionId: aiGenSessionId })
+  aiGenerate: async (prompt: string, lang: string, onDelta?: (text: string) => void) => {
+    const r = await postSSE('/api/ai/generate', { prompt, lang, sessionId: aiGenSessionId }, onDelta)
     if (r.error) return { code: 500, message: r.error, data: { code: '' } }
     if (!r.done) return { code: 500, message: '无响应', data: { code: '' } }
     if (r.done.sessionId) aiGenSessionId = r.done.sessionId

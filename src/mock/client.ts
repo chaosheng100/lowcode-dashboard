@@ -14,6 +14,7 @@ export interface RequestOptions {
   query?: Record<string, any>
   body?: unknown
   delay?: number
+  skipAuth?: boolean
 }
 
 export async function mockFetch<T>(method: string, path: string, opts: RequestOptions = {}): Promise<ApiResp<T>> {
@@ -22,5 +23,6 @@ export async function mockFetch<T>(method: string, path: string, opts: RequestOp
     method: method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     query: opts.query,
     body: opts.body,
+    skipAuth: opts.skipAuth,
   })
 }

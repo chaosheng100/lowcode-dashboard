@@ -1,74 +1,99 @@
 import { useMemo, useState } from 'react'
 import { Alert, Button, Input, Select, Table, type TableProps } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
-import { api } from '../mock'
-import type { PageResult, RoleDTO, UserDTO, UserStatus } from '../mock'
+import { api } from '../mock/api'
+import type { PageResult, RbacRoleDTO, RbacUserDTO } from '../mock/types'
 import { useApi, useDebounced } from './useApi'
-import { Tag } from './common'
+import { useAuthStore } from '../auth/store'
 
-const STATUS_TEXT: Record<UserStatus, string> = { active: '启用', disabled: '停用' }
+const STATUS_TEXT: Record<string, string> = { active: '启用', disabled: '停用' }
+
+function NoPermission() {
+  return (
+    <div className="feature-page">
+      <Alert type="warning" showIcon message="无访问权限" description="你的账号暂无「用户管理」权限，请联系管理员。" />
+    </div>
+  )
+}
 
 export default function UserManagement() {
   const [keyword, setKeyword] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 8
   const debounced = useDebounced(keyword, 300)
 
-  const rolesState = useApi<RoleDTO[]>(() => api.listRoles(), [])
-  const usersState = useApi<PageResult<UserDTO>>(
-    () => api.listUsers({ keyword: debounced, page, pageSize }),
+  const hasView = useAuthStore((s) => s.hasPerm('user:view'))
+  const hasManage = useAuthStore((s) => s.hasPerm('user:manage'))
+
+  const rolesState = useApi<RbacRoleDTO[]>(() => api.rbac.listRoles(), [])
+  const usersState = useApi<PageResult<RbacUserDTO>>(
+    () => api.rbac.listUsers({ keyword: debounced, page, pageSize }),
     [debounced, page]
   )
 
-  const roleName = useMemo(() => {
-    const map: Record<string, string> = {}
-    ;(rolesState.data || []).forEach((r) => (map[r.key] = r.name))
-    return map
-  }, [rolesState.data])
+  const roleOptions = useMemo(
+    () => (rolesState.data || []).map((r) => ({ value: r.code, label: r.name })),
+    [rolesState.data]
+  )
 
   const rows = usersState.data?.list ?? []
   const total = usersState.data?.total ?? 0
 
-  const toggleStatus = async (u: UserDTO) => {
-    await api.setUserStatus(u.id, u.status === 'active' ? 'disabled' : 'active')
+  const toggleStatus = async (u: RbacUserDTO) => {
+    await api.rbac.setUserStatus(u.id, u.status === 'active' ? 'disabled' : 'active')
     usersState.reload()
   }
 
-  // 角色筛选项：全部 + 服务端角色
-  const roleOptions = useMemo(
-    () => [{ value: '', label: '全部角色' }, ...(rolesState.data || []).map((r) => ({ value: r.key, label: r.name }))],
-    [rolesState.data]
-  )
+  const changeRoles = async (u: RbacUserDTO, codes: string[]) => {
+    await api.rbac.setUserRoles(u.id, codes)
+    usersState.reload()
+  }
 
-  // 表格列：角色用 Tag、状态保留 status-dot 状态点、操作列为启停按钮
-  const columns: TableProps<UserDTO>['columns'] = [
+  const columns: TableProps<RbacUserDTO>['columns'] = [
     { title: '姓名', dataIndex: 'name', key: 'name' },
     { title: '邮箱', dataIndex: 'email', key: 'email', render: (v: string) => <span className="muted">{v}</span> },
     {
       title: '角色',
       dataIndex: 'roles',
       key: 'roles',
-      render: (roles: string[]) => roles.map((r) => <Tag key={r}>{roleName[r] || r}</Tag>),
+      render: (roles: { code: string; name: string }[], u: RbacUserDTO) => (
+        <Select
+          mode="multiple"
+          size="small"
+          style={{ minWidth: 160 }}
+          value={roles.map((r) => r.code)}
+          options={roleOptions}
+          disabled={!hasManage}
+          onChange={(codes) => changeRoles(u, codes as string[])}
+          placeholder="分配角色"
+        />
+      ),
     },
-    { title: '组织', dataIndex: 'orgId', key: 'orgId', render: (v: string) => <span className="muted">{v}</span> },
+    { title: '组织', dataIndex: 'orgId', key: 'orgId', render: (v: string) => <span className="muted">{v || '-'}</span> },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (s: UserStatus) => <span className={'status-dot ' + s}>{STATUS_TEXT[s]}</span>,
+      render: (s: string) => <span className={'status-dot ' + (s as 'active' | 'disabled')}>{STATUS_TEXT[s] || s}</span>,
     },
-    { title: '最近登录', dataIndex: 'lastLogin', key: 'lastLogin', render: (v: string) => <span className="muted">{v}</span> },
+    {
+      title: '最近登录',
+      dataIndex: 'lastLoginAt',
+      key: 'lastLoginAt',
+      render: (v: string) => <span className="muted">{v ? new Date(v).toLocaleString() : '-'}</span>,
+    },
     {
       title: '操作',
       key: 'action',
       render: (_, u) => (
-        <Button size="small" onClick={() => toggleStatus(u)}>
+        <Button size="small" disabled={!hasManage} onClick={() => toggleStatus(u)}>
           {u.status === 'active' ? '停用' : '启用'}
         </Button>
       ),
     },
   ]
+
+  if (!hasView) return <NoPermission />
 
   return (
     <div className="feature-page">
@@ -92,7 +117,6 @@ export default function UserManagement() {
             setPage(1)
           }}
         />
-        <Select style={{ minWidth: 140 }} value={roleFilter} options={roleOptions} onChange={setRoleFilter} />
         <Button onClick={() => usersState.reload()}>刷新</Button>
       </div>
 
@@ -107,9 +131,9 @@ export default function UserManagement() {
       )}
 
       {!usersState.error && (
-        <Table<UserDTO>
+        <Table<RbacUserDTO>
           columns={columns}
-          dataSource={rows.filter((u) => !roleFilter || u.roles.includes(roleFilter))}
+          dataSource={rows}
           rowKey="id"
           size="small"
           loading={usersState.loading}
