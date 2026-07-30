@@ -36,6 +36,8 @@ export default function UserMenu() {
           cursor: 'pointer',
           background: '#0f1a30',
           border: '1px solid rgba(42,66,108,0.35)',
+          maxWidth: 160,
+          overflow: 'hidden',
         }}
       >
         <span
@@ -53,7 +55,7 @@ export default function UserMenu() {
         >
           {initial}
         </span>
-        <span style={{ fontSize: 13, color: '#e8f0ff' }}>{user.name}</span>
+        <span style={{ fontSize: 13, color: '#e8f0ff', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
         <span style={{ fontSize: 16, color: '#7889a3' }}>▾</span>
       </div>
       {open && (
@@ -73,7 +75,7 @@ export default function UserMenu() {
         >
           <div style={{ fontSize: 12, color: '#7889a3' }}>{user.email}</div>
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {user.roles.map((r) => (
+            {(user.roles || []).map((r) => (
               <span
                 key={r.code}
                 style={{

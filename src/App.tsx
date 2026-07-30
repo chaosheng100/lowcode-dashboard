@@ -12,9 +12,15 @@ import { useLocation } from 'react-router-dom'
 // 启动即恢复登录态（localStorage → store），在组件渲染前完成，避免登录页闪烁
 useAuthStore.getState().hydrate()
 
-// 仅在非 remote 模式下初始化本地持久化
-const params = new URLSearchParams(location.search)
-const isRemote = params.get('remote') === 'true'
+// HashRouter：mode/routeId/remote 等参数写在 location.hash 内，需从 hash 解析
+function getQueryParam(key: string): string | null {
+  const hash = location.hash || ''
+  const i = hash.indexOf('?')
+  return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get(key)
+}
+
+// 仅在非 remote 模式下初始化本地持久化（remote 窗口走后端，不污染本地 store）
+const isRemote = getQueryParam('remote') === 'true'
 if (!isRemote) initPersist()
 
 export default function App() {
@@ -27,14 +33,17 @@ export default function App() {
   const remote = p.get('remote') === 'true'
   const screenList = p.get('screens') === 'list'
 
-  // 大屏列表（后端版）入口
+  // 大屏列表（后端版）入口：不依赖登录态（后端 /api/screens 无需鉴权）
   if (screenList) return <ScreenListPage />
 
   // 独立页签入口
   if ((mode === 'editor' || mode === 'preview') && routeId) {
     if (remote) {
+      // 后端持久化模式：同样不依赖登录态（与 ScreenListPage 一致）
       return <RemoteWindowApp mode={mode as 'editor' | 'preview'} screenId={routeId} />
     }
+    // 本地模式（localStorage）需要登录态
+    if (!token) return <LoginPage />
     return <WindowApp mode={mode as 'editor' | 'preview'} routeId={routeId} />
   }
 

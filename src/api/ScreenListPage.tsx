@@ -5,7 +5,7 @@
 //  - 点击「新建」→ 创建大屏
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Button, Empty, Input, Card, Tag, Space, Popconfirm } from 'antd'
+import { App, Button, Empty, Input, Card, Tag, Space, Popconfirm, Modal } from 'antd'
 import { PlusOutlined, ReloadOutlined, EditOutlined, EyeOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
 import { screenApi } from './screenApi'
 import type { ScreenItem } from './screenApi'
@@ -18,9 +18,12 @@ function fmt(iso: string): string {
 }
 
 export default function ScreenListPage() {
+  const { message } = App.useApp()
   const [screens, setScreens] = useState<ScreenItem[]>([])
   const [loading, setLoading] = useState(false)
   const [kw, setKw] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newName, setNewName] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -37,14 +40,30 @@ export default function ScreenListPage() {
     s.name.toLowerCase().includes(kw.toLowerCase()),
   )
 
-  const handleCreate = async () => {
-    const name = window.prompt('大屏名称：', `新大屏 ${screens.length + 1}`)
-    if (!name?.trim()) return
-    const res = await screenApi.create('default', name.trim())
+  // 打开「新建」弹窗（用 Modal 代替 window.prompt，避免在沙箱/预览环境被禁用）
+  const openCreate = () => {
+    setNewName(`新大屏 ${screens.length + 1}`)
+    setCreateOpen(true)
+  }
+
+  const confirmCreate = async () => {
+    const name = newName.trim()
+    if (!name) {
+      message.warning('请输入大屏名称')
+      return
+    }
+    // 在「创建」点击的手势内先开一个窗口（避免被浏览器弹窗拦截器拦截），创建完成后再跳转编辑器
+    const win = window.open('', '_blank', 'width=1400,height=900')
+    setCreateOpen(false)
+    const res = await screenApi.create('default', name)
     if (res.code === 0 && res.data) {
       setScreens((prev) => [res.data!, ...prev])
+      const url = buildRemoteUrl('editor', res.data.id)
+      if (win) win.location.href = url
+      else window.open(url, '_blank', 'width=1400,height=900') // 兜底
     } else {
-      alert(`创建失败：${res.message}`)
+      if (win) win.close()
+      message.error(`创建失败：${res.message}`)
     }
   }
 
@@ -53,7 +72,7 @@ export default function ScreenListPage() {
     if (res.code === 0) {
       setScreens((prev) => prev.filter((s) => s.id !== id))
     } else {
-      alert(`删除失败：${res.message}`)
+      message.error(`删除失败：${res.message}`)
     }
   }
 
@@ -61,20 +80,21 @@ export default function ScreenListPage() {
     const res = await screenApi.publish(id)
     if (res.code === 0 && res.data) {
       setScreens((prev) => prev.map((s) => (s.id === id ? res.data! : s)))
-      alert('发布成功')
+      message.success('发布成功')
     } else {
-      alert(`发布失败：${res.message}`)
+      message.error(`发布失败：${res.message}`)
     }
   }
 
-  // 后端持久化模式：在 URL 里带上 remote=true
+  // 后端持久化模式：必须在 hash 内携带参数（应用使用 HashRouter）
+  const buildRemoteUrl = (mode: 'editor' | 'preview', id: string) =>
+    `${location.origin}${location.pathname}#/?mode=${mode}&routeId=${encodeURIComponent(id)}&remote=true`
+
   const openEditor = (id: string) => {
-    const url = `${location.pathname}?mode=editor&routeId=${id}&remote=true`
-    window.open(url, '_blank', 'width=1400,height=900')
+    window.open(buildRemoteUrl('editor', id), '_blank', 'width=1400,height=900')
   }
   const openPreview = (id: string) => {
-    const url = `${location.pathname}?mode=preview&routeId=${id}&remote=true`
-    window.open(url, '_blank', 'width=1400,height=900')
+    window.open(buildRemoteUrl('preview', id), '_blank', 'width=1400,height=900')
   }
 
   return (
@@ -91,7 +111,7 @@ export default function ScreenListPage() {
             allowClear
           />
           <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建大屏
           </Button>
         </Space>
@@ -143,6 +163,25 @@ export default function ScreenListPage() {
           ))}
         </div>
       )}
+
+      <Modal
+        title="新建大屏"
+        open={createOpen}
+        onOk={confirmCreate}
+        onCancel={() => setCreateOpen(false)}
+        okText="创建并打开编辑器"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="请输入大屏名称"
+          onPressEnter={confirmCreate}
+          autoFocus
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
     </div>
   )
 }

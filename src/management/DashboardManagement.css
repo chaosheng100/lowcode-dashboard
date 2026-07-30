@@ -10,13 +10,6 @@
   overflow: hidden;
 }
 
-/* 鈥斺€?宸ュ叿鏍?鈥斺€?*/
-.mg-toolbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 24px; border-bottom: 1px solid var(--line);
-  background: var(--panel); backdrop-filter: blur(16px);
-  flex: none;
-}
 .mg-title {
   font-size: 16px; font-weight: 700;
   background: var(--accent-grad);

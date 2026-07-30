@@ -8,10 +8,9 @@
 type WinMode = 'editor' | 'preview'
 
 function buildWindowUrl(mode: WinMode, routeId: string): string {
-  const u = new URL(location.href)
-  u.searchParams.set('mode', mode)
-  u.searchParams.set('routeId', routeId)
-  return u.toString()
+  // 应用使用 HashRouter，mode/routeId 必须写进 hash 查询串，否则新页签读不到参数
+  const base = `${location.origin}${location.pathname}`
+  return `${base}#/?mode=${mode}&routeId=${encodeURIComponent(routeId)}`
 }
 
 export function openEditorWindow(routeId: string): void {
