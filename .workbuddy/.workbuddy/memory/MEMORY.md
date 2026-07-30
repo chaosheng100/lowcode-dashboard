@@ -53,3 +53,7 @@ React 18 + Vite + TS + Zustand 的低代码大屏设计器，**以 Avue Data（V
 - 构建：`node node_modules/vite/bin/vite.js build`
 - dev：`node node_modules/vite/bin/vite.js --port 5173 --host 127.0.0.1`
 - mock 后端在 src/mock/*（替换 mockFetch 为 fetch 即可接真实后端）
+
+## 工作流偏好（用户 2026-07-30 明确）
+- **只构建校验，不启动服务**：完成任务后**不要**启动后端/前端服务做冒烟测试或 curl 验证。仅靠 `tsc --noEmit` / `vite build` / `nest build` 校验语法与编译问题即可。
+- 验证交付前如需运行验证，先征求用户同意；默认只跑静态检查。
