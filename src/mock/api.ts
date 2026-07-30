@@ -59,6 +59,65 @@ import type {
   CapabilityRegistryDTO
 } from './types'
 
+// ---------------- SSE 流式消费（对接后端 pi-agent）----------------
+// 后端 /api/ai/chat、/api/ai/generate 以 SSE 真实流式输出；
+// 此处缓冲增量并在结束后 resolve 为旧的 { code, data:{ reply|code } } 形状，
+// 调用方（AIAssistantPage 等）无需任何改动即可享受流式后端。
+const SSE_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+
+// 跨请求保持会话（满足「持久化、跨请求保留」需求）：同一页面的多次对话复用同一 sessionId
+let aiChatSessionId: string | undefined
+let aiGenSessionId: string | undefined
+
+interface SseResult {
+  done?: { type: 'done'; reply?: string; code?: string; sessionId?: string }
+  error?: string
+}
+
+async function postSSE(path: string, body: unknown): Promise<SseResult> {
+  const url = `${SSE_BASE_URL}${path.replace(/^\/api/, '')}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => '')
+    return { error: `SSE 请求失败 (${res.status}): ${text || res.statusText}` }
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let donePayload: SseResult['done']
+  let errorMsg: string | undefined
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let idx: number
+    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+      const raw = buffer.slice(0, idx)
+      buffer = buffer.slice(idx + 2)
+      const line = raw
+        .split('\n')
+        .map((l) => l.trim())
+        .find((l) => l.startsWith('data:'))
+      if (!line) continue
+      const json = line.slice(5).trim()
+      if (!json) continue
+      try {
+        const p = JSON.parse(json)
+        if (p.type === 'done') donePayload = p
+        else if (p.type === 'error') errorMsg = p.message
+      } catch {
+        /* 忽略无法解析的帧 */
+      }
+    }
+  }
+  return { done: donePayload, error: errorMsg }
+}
+
 export const api = {
   // 大屏管理
   listDashboards: (q: PageQuery = {}) => mockFetch<PageResult<DashboardDTO>>('GET', '/api/dashboards', { query: q }),
@@ -139,15 +198,26 @@ export const api = {
   saveAIModel: (body: Partial<AIModelDTO>) =>
     mockFetch<AIModelDTO>(body.id ? 'PATCH' : 'POST', `/api/aiModels${body.id ? '/' + body.id : ''}`, { body }),
   deleteAIModel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiModels/${id}`),
+  pingAIModel: (id: string) => mockFetch<{ ok: boolean; status?: string; message?: string }>('POST', `/api/aiModels/${id}/ping`),
   listAIBots: (q: PageQuery = {}) => mockFetch<PageResult<AIBotDTO>>('GET', '/api/aiBots', { query: q }),
   saveAIBot: (body: Partial<AIBotDTO>) =>
     mockFetch<AIBotDTO>(body.id ? 'PATCH' : 'POST', `/api/aiBots${body.id ? '/' + body.id : ''}`, { body }),
   deleteAIBot: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiBots/${id}`),
-  // AI 对话 / 代码生成（离线模拟，真实接入后替换 handler 即可）
-  aiChat: (message: string) =>
-    mockFetch<{ reply: string; suggestion: string }>('POST', '/api/ai/chat', { body: { message } }),
-  aiGenerate: (prompt: string, lang: string) =>
-    mockFetch<{ code: string }>('POST', '/api/ai/generate', { body: { prompt, lang } }),
+  // AI 对话 / 代码生成（SSE 流式后端；调用方契约不变）
+  aiChat: async (message: string) => {
+    const r = await postSSE('/api/ai/chat', { message, sessionId: aiChatSessionId })
+    if (r.error) return { code: 500, message: r.error, data: { reply: '', suggestion: '' } }
+    if (!r.done) return { code: 500, message: '无响应', data: { reply: '', suggestion: '' } }
+    if (r.done.sessionId) aiChatSessionId = r.done.sessionId
+    return { code: 0, message: 'ok', data: { reply: r.done.reply ?? '', suggestion: '' } }
+  },
+  aiGenerate: async (prompt: string, lang: string) => {
+    const r = await postSSE('/api/ai/generate', { prompt, lang, sessionId: aiGenSessionId })
+    if (r.error) return { code: 500, message: r.error, data: { code: '' } }
+    if (!r.done) return { code: 500, message: '无响应', data: { code: '' } }
+    if (r.done.sessionId) aiGenSessionId = r.done.sessionId
+    return { code: 0, message: 'ok', data: { code: r.done.code ?? '' } }
+  },
 
   // —— 数字孪生 ——
   listTwinModels: (q: PageQuery = {}) => mockFetch<PageResult<TwinModelDTO>>('GET', '/api/twinModels', { query: q }),

@@ -1,15 +1,22 @@
 import { useState } from 'react'
-import { Button, Input, Popconfirm, Select, Tabs } from 'antd'
+import { Alert, Button, Input, Popconfirm, Select, Tabs } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Tag } from './common'
-import type { AIBotDTO } from '../mock/types'
+import { useDesignerStore } from '../data/store/useDesignerStore'
+import type { AIBotDTO, AIModelDTO } from '../mock/types'
 
 type Lang = 'vue' | 'echart' | 'html'
 
 /** AI 助手：智能问答 + 自定义机器人 + 智能生成 Vue/EChart/HTML 组件 */
 export default function AIAssistantPage() {
   const { data: bots, reload: reloadBots } = useApi(() => api.listAIBots({ pageSize: 50 }), [])
+  const { data: models } = useApi(() => api.listAIModels({ pageSize: 50 }), [])
+  const selectRoute = useDesignerStore((s) => s.selectRoute)
+
+  // 是否已有「已配置密钥」的可对话模型；缺模型时禁止对话并提示用户接入
+  const hasModel = (models?.list ?? []).some((m: AIModelDTO) => !!m.apiKey)
+
   const [tab, setTab] = useState<'chat' | 'gen' | 'bot'>('chat')
   const [messages, setMessages] = useState<{ role: 'u' | 'a'; text: string }[]>([
     { role: 'a', text: '你好，我是大屏编排助手，可以帮你生成组件、规划布局或解释数据。' }
@@ -24,13 +31,14 @@ export default function AIAssistantPage() {
 
   const send = async () => {
     const text = input.trim()
-    if (!text || chatLoading) return
+    if (!text || chatLoading || !hasModel) return
     setMessages((m) => [...m, { role: 'u', text }])
     setInput('')
     setChatLoading(true)
     try {
       const r = await api.aiChat(text)
-      const reply = r.code === 0 ? r.data.reply : '（服务异常，请稍后重试）'
+      // 失败时不显示笼统的「服务异常」，而是把后端真实原因（如未配置密钥 / 模型不存在）透出
+      const reply = r.code === 0 ? r.data.reply : `⚠️ 对话失败：${r.message || '请稍后重试'}（可在「AI 模型管理」检查密钥与模型配置）`
       setMessages((m) => [...m, { role: 'a', text: reply }])
     } catch {
       setMessages((m) => [...m, { role: 'a', text: '（网络异常，请稍后重试）' }])
@@ -40,11 +48,11 @@ export default function AIAssistantPage() {
   }
 
   const runGen = async () => {
-    if (genLoading) return
+    if (genLoading || !hasModel) return
     setGenLoading(true)
     try {
       const r = await api.aiGenerate(genPrompt, lang)
-      setCode(r.code === 0 ? r.data.code : '// 生成失败，请稍后重试')
+      setCode(r.code === 0 ? r.data.code : `// 生成失败：${r.message || '请稍后重试'}（可在「AI 模型管理」检查密钥与模型配置）`)
     } catch {
       setCode('// 网络异常，请稍后重试')
     } finally {
@@ -80,6 +88,24 @@ export default function AIAssistantPage() {
           <p className="fp-sub">智能问答 · 自定义机器人 · 智能生成 Vue / EChart / HTML 组件 · 代码自动加注释与格式化</p>
         </div>
       </div>
+
+      {!hasModel && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 14 }}
+          message="尚未接入可用的 AI 模型，AI 助手暂不可对话"
+          description={
+            <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span>请先在「AI 模型管理」中接入至少一个模型并填写 API Key，才能使用问答与组件生成。</span>
+              <Button type="primary" size="small" onClick={() => selectRoute('/ai/models')}>
+                前往接入模型
+              </Button>
+            </div>
+          }
+        />
+      )}
+
       <Tabs
         activeKey={tab}
         onChange={(k) => setTab(k as 'chat' | 'gen' | 'bot')}
@@ -101,8 +127,8 @@ export default function AIAssistantPage() {
             {chatLoading && <div style={{ textAlign: 'left', margin: '8px 0', color: '#9aa7b4', fontSize: 12 }}>助手正在思考…</div>}
           </div>
           <div className="flex" style={{ marginTop: 8 }}>
-            <Input style={{ flex: 1 }} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="描述你的大屏需求…" />
-            <Button onClick={send} disabled={chatLoading}>{chatLoading ? '生成中…' : '发送'}</Button>
+            <Input style={{ flex: 1 }} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="描述你的大屏需求…" disabled={!hasModel} />
+            <Button onClick={send} disabled={chatLoading || !hasModel}>{chatLoading ? '生成中…' : '发送'}</Button>
           </div>
         </div>
       )}
@@ -125,9 +151,9 @@ export default function AIAssistantPage() {
               </span>
             </div>
             <div className="field"><span className="field-label">需求描述</span>
-              <span className="field-ctrl"><Input value={genPrompt} onChange={(e) => setGenPrompt(e.target.value)} placeholder="例如：展示月度销售额的柱状图" /></span>
+              <span className="field-ctrl"><Input value={genPrompt} onChange={(e) => setGenPrompt(e.target.value)} placeholder="例如：展示月度销售额的柱状图" disabled={!hasModel} /></span>
             </div>
-            <Button onClick={runGen} disabled={genLoading}>{genLoading ? '生成中…' : '✨ 智能生成'}</Button>
+            <Button onClick={runGen} disabled={genLoading || !hasModel}>{genLoading ? '生成中…' : '✨ 智能生成'}</Button>
           </div>
           <div className="card">
             <div className="muted2" style={{ marginBottom: 8 }}>生成结果（可复制进自定义组件）</div>

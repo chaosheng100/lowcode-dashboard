@@ -117,8 +117,10 @@ export interface AIModelDTO {
   id: string
   name: string
   provider: string // openai / 通义 / 文心 / 本地
+  model?: string // pi-ai 目录内的真实模型标识
   type: AIModelType
   baseUrl: string
+  apiKey?: string // 接入密钥（列表接口原样返回，编辑时回填，避免被清空）
   status: 'ready' | 'unset' | 'error'
   updatedAt: string
 }
