@@ -116,13 +116,29 @@ export type AIModelType = 'chat' | 'vision' | 'code' | 'embedding'
 export interface AIModelDTO {
   id: string
   name: string
-  provider: string // openai / 通义 / 文心 / 本地
+  provider: string // pi-ai provider 规范 id，如 openai / moonshotai-cn
   model?: string // pi-ai 目录内的真实模型标识
   type: AIModelType
   baseUrl: string
   apiKey?: string // 接入密钥（列表接口原样返回，编辑时回填，避免被清空）
   status: 'ready' | 'unset' | 'error'
   updatedAt: string
+}
+
+/** pi-ai 支持的 provider 目录（来自后端 /aiProviderCatalog） */
+export interface ProviderCatalogModel {
+  id: string
+  name: string
+  contextWindow: number
+  maxTokens: number
+  reasoning: boolean
+  input: string[]
+}
+export interface ProviderCatalogItem {
+  key: string       // 规范 id，入库用
+  name: string      // 显示名
+  aliases: string[] // 兼容别名
+  models: ProviderCatalogModel[]
 }
 export interface AIBotDTO {
   id: string

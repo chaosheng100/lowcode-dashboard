@@ -28,6 +28,7 @@ import type {
   DeployRecordDTO,
   AIModelDTO,
   AIBotDTO,
+  ProviderCatalogItem,
   TwinModelDTO,
   TwinSceneDTO,
   IoTDeviceDTO,
@@ -194,6 +195,7 @@ export const api = {
   deleteCategory: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/categories/${id}`),
 
   // —— AI 模型 / 机器人 ——
+  listAIProviderCatalog: () => mockFetch<ProviderCatalogItem[]>('GET', '/api/aiProviderCatalog'),
   listAIModels: (q: PageQuery = {}) => mockFetch<PageResult<AIModelDTO>>('GET', '/api/aiModels', { query: q }),
   saveAIModel: (body: Partial<AIModelDTO>) =>
     mockFetch<AIModelDTO>(body.id ? 'PATCH' : 'POST', `/api/aiModels${body.id ? '/' + body.id : ''}`, { body }),

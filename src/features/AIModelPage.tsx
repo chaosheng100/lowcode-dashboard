@@ -1,25 +1,58 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Modal, Field, Input, Select, Tag } from './common'
-import type { AIModelDTO, AIModelType } from '../mock/types'
+import type { AIModelDTO, AIModelType, ProviderCatalogItem } from '../mock/types'
 
 const TYPE_LABEL: Record<AIModelType, string> = { chat: '对话', vision: '视觉', code: '代码', embedding: '向量' }
 
 /** AI 模型管理：模型注册、密钥接入、连通性测试与状态 */
 export default function AIModelPage() {
   const { data, loading, error, reload } = useApi(() => api.listAIModels({ pageSize: 50 }), [])
+  const { data: catalog } = useApi<ProviderCatalogItem[]>(() => api.listAIProviderCatalog(), [])
   const [editing, setEditing] = useState<Partial<AIModelDTO> | null>(null)
   const [pingingId, setPingingId] = useState<string | null>(null)
   const [pingResult, setPingResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const providerOptions = useMemo(() => {
+    return (catalog ?? []).map(p => ({ label: p.name, value: p.key }))
+  }, [catalog])
+
+  const selectedProvider = useMemo(() => {
+    return (catalog ?? []).find(p => {
+      if (p.key === editing?.provider) return true
+      if (p.aliases.includes(editing?.provider ?? '')) return true
+      return false
+    })
+  }, [catalog, editing?.provider])
+
+  const isCustomProvider = selectedProvider?.key === 'custom-openai'
+
+  const modelOptions = useMemo(() => {
+    if (!selectedProvider || isCustomProvider) return []
+    return selectedProvider.models.map(m => ({
+      label: `${m.name}（${m.id}）`,
+      value: m.id,
+      desc: `${(m.contextWindow / 1000).toFixed(0)}k 上下文 · ${m.reasoning ? '推理模型' : '对话模型'}`,
+    }))
+  }, [selectedProvider, isCustomProvider])
 
   const save = async () => {
     if (!editing) return
-    await api.saveAIModel(editing)
-    setEditing(null)
-    setPingResult(null)
-    reload()
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await api.saveAIModel(editing)
+      setEditing(null)
+      reload()
+    } catch (e: any) {
+      setSaveError(e?.message || '保存失败')
+    } finally {
+      setSaving(false)
+    }
   }
   const remove = async (id: string) => {
     await api.deleteAIModel(id)
@@ -117,27 +150,46 @@ export default function AIModelPage() {
         </div>
       )}
       {editing && (
-        <Modal title="接入模型" onClose={() => setEditing(null)}>
+        <Modal title="接入模型" onClose={() => { setEditing(null); setSaveError(null) }}>
           <Field label="模型名称">
             <Input
               value={editing.name || ''}
               onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-              placeholder="如：DeepSeek 对话"
+              placeholder="如：Kimi K3 生产"
             />
           </Field>
           <Field label="供应商">
-            <Input
+            <Select
               value={editing.provider || ''}
-              onChange={(e) => setEditing({ ...editing, provider: e.target.value })}
-              placeholder="deepseek / openai / qwen-token-plan-cn ..."
-            />
+              onChange={(e) => setEditing({ ...editing, provider: e.target.value, model: '' })}
+              placeholder="选择供应商"
+            >
+              {providerOptions.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
           </Field>
-          <Field label="模型标识">
-            <Input
-              value={editing.model || ''}
-              onChange={(e) => setEditing({ ...editing, model: e.target.value })}
-              placeholder="如 deepseek-chat / gpt-4o-mini（须为 pi-ai 目录内真实 id）"
-            />
+          <Field label={isCustomProvider ? '模型标识' : '模型'}>
+            {isCustomProvider ? (
+              <Input
+                value={editing.model || ''}
+                onChange={(e) => setEditing({ ...editing, model: e.target.value })}
+                placeholder="如 gpt-4o-mini / claude-sonnet-4-5 / kimi-k3 等"
+              />
+            ) : (
+              <Select
+                value={editing.model || ''}
+                onChange={(e) => setEditing({ ...editing, model: e.target.value })}
+                disabled={!selectedProvider}
+                placeholder={selectedProvider ? '选择模型' : '请先选择供应商'}
+              >
+                {modelOptions.map(o => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            )}
           </Field>
           <Field label="类型">
             <Select
@@ -151,11 +203,11 @@ export default function AIModelPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Base URL">
+          <Field label={isCustomProvider ? 'Base URL' : 'Base URL（可选）'}>
             <Input
               value={editing.baseUrl || ''}
               onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })}
-              placeholder="留空使用供应商默认地址"
+              placeholder={isCustomProvider ? '如 https://api.deepseek.com/v1' : '留空使用供应商默认地址'}
             />
           </Field>
           <Field label="API Key">
@@ -166,8 +218,11 @@ export default function AIModelPage() {
               placeholder="填写后模型方能接入对话"
             />
           </Field>
+          {saveError && (
+            <Alert type="error" message={saveError} showIcon style={{ marginBottom: 12 }} />
+          )}
           <div className="fp-toolbar">
-            <Button onClick={save}>保存</Button>
+            <Button onClick={save} loading={saving}>保存</Button>
           </div>
         </Modal>
       )}

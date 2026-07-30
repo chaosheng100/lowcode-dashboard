@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import RoutePanel from './data/routes/RoutePanel'
-import RouteOperationPanel from './data/routes/RouteOperationPanel'
-import DashboardManagement from './management/DashboardManagement'
-import { featurePages } from './features/registry'
+import AppRouter from './router/AppRouter'
 import { useDesignerStore } from './data/store/useDesignerStore'
 
 interface Props {
@@ -12,59 +10,35 @@ interface Props {
   onOpenPreview?: (routeId: string) => void
 }
 
-// /dashboard 路由即大屏管理列表页
-const DASHBOARD_LIST_ROUTE = '/dashboard'
-
+/**
+ * 主应用布局：左侧路由面板 + 右侧内容区（由 react-router 管理）。
+ *
+ * 路由切换：
+ * - 左侧菜单点击 → store.selectRoute → URL 变化 → AppRouter 渲染对应页面
+ * - 浏览器前进/后退 / 直接访问 URL → AppRouter 匹配 → store 同步
+ */
 export default function ProjectView({ onOpenDesigner, onOpenPreview }: Props) {
   const [showRoutes, setShowRoutes] = useState(true) // 移动端抽屉开关
   const [collapsed, setCollapsed] = useState(false) // 折叠为仅图标
-  const selectedRouteId = useDesignerStore((s) => s.selectedRouteId)
 
-  useEffect(() => {
-    const openDashboard = (event: Event) => {
-      const routeId = (event as CustomEvent<{ routeId?: string }>).detail?.routeId
-      if (routeId) onOpenDesigner(routeId)
-    }
-    window.addEventListener('dashboard:open-designer', openDashboard)
-    return () => window.removeEventListener('dashboard:open-designer', openDashboard)
-  }, [onOpenDesigner])
+  // 订阅 routes 变化，触发重渲染（路由列表增删时 AppRouter 要重新生成）
+  useDesignerStore((s) => s.routes.length)
 
-  const renderPanel = (
-    <RoutePanel
-      collapsed={collapsed}
-      onToggleCollapse={() => setCollapsed((v) => !v)}
-      onCloseDrawer={() => setShowRoutes(false)}
-    />
-  )
-
-  // /dashboard 直接渲染大屏管理列表（名称筛选 / 时间排序 / 缩略图）
-  if (selectedRouteId === DASHBOARD_LIST_ROUTE) {
-    return (
-      <div className={'project-view' + (showRoutes ? ' show-routes' : '')}>
-        {renderPanel}
-        <main className="operation-area">
-          <DashboardManagement
-            onOpen={(id) => onOpenDesigner(id)}
-            onOpenPreview={onOpenPreview ? (id) => onOpenPreview(id) : undefined}
-          />
-        </main>
-      </div>
-    )
-  }
-
-  // 命中功能页注册表的路由，渲染真实数据页替代低代码画布
-  const FeaturePage = featurePages[selectedRouteId]
+  const handleToggleSidebar = () => setShowRoutes((v) => !v)
 
   return (
     <div className={'project-view' + (showRoutes ? ' show-routes' : '')}>
-      {renderPanel}
-      {FeaturePage ? (
-        <main className="operation-area">
-          <FeaturePage />
-        </main>
-      ) : (
-        <RouteOperationPanel onToggle={() => setShowRoutes((v) => !v)} />
-      )}
+      <RoutePanel
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((v) => !v)}
+        onCloseDrawer={() => setShowRoutes(false)}
+      />
+      {/* 右侧内容区：子页面各自包含 <main class="operation-area">，这里只做路由容器 */}
+      <AppRouter
+        onOpenDesigner={onOpenDesigner}
+        onOpenPreview={onOpenPreview}
+        onToggleSidebar={handleToggleSidebar}
+      />
     </div>
   )
 }
