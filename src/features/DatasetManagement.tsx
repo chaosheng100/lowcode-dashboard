@@ -31,7 +31,7 @@ export default function DatasetManagement() {
   const columns: TableProps<DatasetDTO>['columns'] = [
     { title: '数据集', dataIndex: 'name', key: 'name' },
     { title: '来源', dataIndex: 'sourceName', key: 'sourceName', render: (v: string) => <span className="muted">{v}</span> },
-    { title: '行数', dataIndex: 'rowCount', key: 'rowCount', render: (v: number) => <span className="muted">{v.toLocaleString()}</span> },
+    { title: '行数', dataIndex: 'rowCount', key: 'rowCount', render: (v: number) => <span className="muted">{v?.toLocaleString() ?? '-'}</span> },
     { title: '更新', dataIndex: 'updatedAt', key: 'updatedAt', render: (v: string) => <span className="muted">{v}</span> },
   ]
 
