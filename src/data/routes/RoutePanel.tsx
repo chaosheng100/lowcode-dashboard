@@ -4,6 +4,7 @@ import type { TreeDataNode } from 'antd'
 import { CloseOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { useDesignerStore } from '../store/useDesignerStore'
 import type { RouteConfig } from '../types'
+import UserMenu from '../../auth/UserMenu'
 
 // 一级路由分类图标
 const ICONS: Record<string, string> = {
@@ -75,6 +76,7 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
     <aside className={'route-area' + (collapsed ? ' collapsed' : '')}>
       <div className="ra-head">
         <span className="ra-title">路由区</span>
+        <div className="ra-user"><UserMenu compact /></div>
         <div className="ra-head-actions">
           <Button
             type="text"

@@ -6,16 +6,23 @@ import type { WidgetViewProps } from '../../data/types'
 // 指标卡：联动时只展示筛选维度对应的值，否则汇总全部。
 // 绑定物联设备（iotDeviceId + iotMetric）后轮询设备最新采集值，覆盖静态 data。
 export default function MetricWidget({ component, filter }: WidgetViewProps) {
-  const { label, data, filterField, unit, iotDeviceId, iotMetric, liveIntervalMs } = component.props
+  const { label, data, filterField, unit, iotDeviceId, iotMetric, liveIntervalMs, preview } = component.props
   const list = applyFilter(data, filter && filter.field === filterField ? filter : null)
   const total = list.reduce((s, d) => s + (d.value || 0), 0)
 
   const [iotValue, setIotValue] = useState<number | null>(null)
   const [iotOnline, setIotOnline] = useState(false)
 
-  // IoT 绑定：轮询 mock 接口读取设备指标最新值（设备编辑/指标变化后大屏自动跟随）
+  // IoT 绑定：轮询接口读取设备指标最新值（设备编辑/指标变化后大屏自动跟随）
   useEffect(() => {
     if (!iotDeviceId || !iotMetric) { setIotValue(null); setIotOnline(false); return }
+    // 预览态：使用静态 data 展示，不向后端发起实时请求
+    if (preview) {
+      const v = (data ?? []).find((d) => d.name === iotMetric)?.value
+      setIotValue(typeof v === 'number' ? v : total)
+      setIotOnline(true)
+      return
+    }
     let alive = true
     const pull = async () => {
       const r = await api.getIoTDevice(iotDeviceId)
@@ -27,7 +34,7 @@ export default function MetricWidget({ component, filter }: WidgetViewProps) {
     pull()
     const timer = setInterval(pull, Math.max(liveIntervalMs ?? 2000, 500))
     return () => { alive = false; clearInterval(timer) }
-  }, [iotDeviceId, iotMetric, liveIntervalMs])
+  }, [iotDeviceId, iotMetric, liveIntervalMs, preview, data, total])
 
   const isIot = Boolean(iotDeviceId && iotMetric)
   return (

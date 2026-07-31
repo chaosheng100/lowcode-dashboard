@@ -8,8 +8,8 @@ export default function BarChart({ component, filter, onPick }: WidgetViewProps)
   const pad = 36
   const titleH = 24
   const chartW = w - pad * 2
-  const chartH = h - pad * 2 - titleH
-  const max = Math.max(1, ...data.map((d) => d.value))
+  const chartH = Math.max(0, h - pad * 2 - titleH)
+  const max = Math.max(1, ...data.map((d) => Number(d.value) || 0))
   const slot = chartW / Math.max(data.length, 1)
   const barW = Math.min(slot * 0.6, 60)
 
@@ -22,7 +22,8 @@ export default function BarChart({ component, filter, onPick }: WidgetViewProps)
       ) : null}
       <line x1={pad} y1={pad + titleH + chartH} x2={pad + chartW} y2={pad + titleH + chartH} stroke="#2a3340" />
       {data.map((d, i) => {
-        const bh = (d.value / max) * chartH
+        const v = Number(d.value) || 0
+        const bh = Math.max(0, (v / max) * chartH)
         const x = pad + i * slot + (slot - barW) / 2
         const y = pad + titleH + chartH - bh
         const active = isActive(d, filter)

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../mock/api'
 import { useAuthStore } from './store'
 
-/** 右上角用户菜单：展示当前用户/角色，提供登出。按权限可隐藏部分入口。 */
-export default function UserMenu() {
+/** 用户菜单：展示当前用户/角色，提供登出。compact 模式仅显示头像（用于 ra-head 等窄头部）。 */
+export default function UserMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -55,8 +55,12 @@ export default function UserMenu() {
         >
           {initial}
         </span>
-        <span style={{ fontSize: 13, color: '#e8f0ff', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-        <span style={{ fontSize: 16, color: '#7889a3' }}>▾</span>
+        {!compact && (
+          <>
+            <span style={{ fontSize: 13, color: '#e8f0ff', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+            <span style={{ fontSize: 16, color: '#7889a3' }}>▾</span>
+          </>
+        )}
       </div>
       {open && (
         <div

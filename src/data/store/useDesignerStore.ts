@@ -9,7 +9,8 @@ import type {
   RouteConfig,
   ComponentInstance,
   WidgetProps,
-  Filter
+  Filter,
+  AIDesignSchema
 } from '../types'
 
 const clone = (o: unknown): unknown => JSON.parse(JSON.stringify(o))
@@ -135,7 +136,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   deleteDashboard: (id) => {
     set((s) => {
       const remaining = s.routes.filter((r) => r.id !== id)
-      const nextSel = s.selectedRouteId === id ? remaining[0]?.id ?? null : s.selectedRouteId
+      // 删除当前选中的大屏时清空选中，避免 AppRouter 的 store→URL 同步把列表页自动导航到其它大屏
+      const nextSel = s.selectedRouteId === id ? null : s.selectedRouteId
       return { routes: remaining, selectedRouteId: nextSel, selectedId: null, filter: null }
     })
   },
@@ -293,6 +295,51 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   clearAll: () => {
     const root = makeRoute({ name: '首页', path: '/' })
     set({ routes: [root], selectedRouteId: root.id, selectedId: null, filter: null })
+  },
+
+  // AI 设计：把自然语言生成的大屏 Schema 应用到当前选中路由
+  applyAISchema: (schema: AIDesignSchema) => {
+    const s = get()
+    const route = s.routes.find((r) => r.id === s.selectedRouteId)
+    if (!route) return
+    const components: ComponentInstance[] = (schema.components || []).map((c) => {
+      const type = (widgetRegistry[c.type as keyof typeof widgetRegistry]
+        ? c.type
+        : 'text') as ComponentInstance['type']
+      const def = widgetRegistry[type]
+      const baseStyle = def.defaultStyle
+      const style = {
+        x: c.style?.x ?? baseStyle.x,
+        y: c.style?.y ?? baseStyle.y,
+        w: c.style?.w ?? baseStyle.w,
+        h: c.style?.h ?? baseStyle.h
+      }
+      return {
+        id: c.id || genId(type),
+        type,
+        style,
+        props: { ...(clone(def.defaultProps) as Record<string, unknown>), ...(c.props || {}) } as WidgetProps
+      }
+    })
+    set((st) => ({
+      routes: st.routes.map((r) =>
+        r.id === route.id
+          ? {
+              ...r,
+              components,
+              page: schema.page
+                ? {
+                    ...r.page,
+                    width: schema.page.width ?? r.page.width,
+                    height: schema.page.height ?? r.page.height,
+                    background: schema.page.background ?? r.page.background
+                  }
+                : r.page
+            }
+          : r
+      ),
+      selectedId: null
+    }))
   }
 }))
 

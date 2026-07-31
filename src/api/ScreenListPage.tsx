@@ -171,7 +171,7 @@ export default function ScreenListPage() {
         onCancel={() => setCreateOpen(false)}
         okText="创建并打开编辑器"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Input
           value={newName}

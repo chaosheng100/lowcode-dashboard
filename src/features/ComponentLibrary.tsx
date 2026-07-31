@@ -75,8 +75,13 @@ function previewComponent(asset: LibraryAsset): ComponentInstance {
   if (asset.businessType === 'twin' && asset.kind) return createTwinComponent(PREVIEW_SCENE, asset.kind as TwinWidgetKind)
   if (asset.category === '物联组态' && 'kind' in asset && asset.kind) {
     const kind = asset.kind as IoTWidgetKind
-    if (kind === 'metrics') return createIoTComponent(PREVIEW_IOT_DEVICE, kind, '温度')
-    return createIoTComponent(PREVIEW_IOT_DEVICE, kind)
+    const comp =
+      kind === 'metrics'
+        ? createIoTComponent(PREVIEW_IOT_DEVICE, kind, '温度')
+        : createIoTComponent(PREVIEW_IOT_DEVICE, kind)
+    // 预览态：使用本地占位设备数据，避免向后端请求不存在的 preview_iot 而 404
+    comp.props.preview = true
+    return comp
   }
   const definition = widgetRegistry[asset.type]
   return {

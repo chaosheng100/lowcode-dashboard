@@ -178,9 +178,20 @@ export interface ProviderCatalogItem {
 export interface AIBotDTO {
   id: string
   name: string
+  /** 机器人类型 */
+  type?: string
+  /** 机器人描述 */
+  description?: string
+  /** 绑定的 AI 模型 id */
   modelId: string
-  prompt: string
+  /** 提示词（系统提示） */
+  prompt?: string
+  /** 兼容别名：系统提示词 */
+  systemPrompt?: string
+  /** 启用状态 */
   enabled: boolean
+  /** 就绪状态：ready / error / pending */
+  status?: 'ready' | 'error' | 'pending'
   updatedAt: string
 }
 

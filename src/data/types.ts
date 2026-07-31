@@ -102,6 +102,8 @@ export interface WidgetProps {
   showSim?: boolean
   /** 最大展示条数 */
   maxItems?: number
+  /** 预览态：组件库预览/占位演示时使用静态数据，不向后端发起实时请求 */
+  preview?: boolean
 }
 
 /** CSS 风格定位尺寸（画布坐标系，单位 px） */
@@ -259,6 +261,9 @@ export interface DesignerState {
   loadProject: (project: Partial<DashboardProject>) => void
   exportProject: () => DashboardProject
   clearAll: () => void
+
+  // AI 设计：把自然语言生成的大屏 Schema 应用到画布
+  applyAISchema: (schema: AIDesignSchema) => void
 }
 
 /** 当前选中的路由便捷读取 */
@@ -271,4 +276,45 @@ export interface WidgetViewProps {
   component: ComponentInstance
   filter?: Filter | null
   onPick?: ((filter: Filter) => void) | null
+}
+
+// ============================================================
+// AI 设计（自然语言 → 大屏 Schema）—— 前端与后端 /api/ai/design 对齐
+// ============================================================
+
+/** 后端归一化 Schema 中的单个组件（renderer 仅后端用，前端按 type 渲染） */
+export interface AIDesignComponent {
+  id?: string
+  type: string
+  renderer?: string
+  style?: { x: number; y: number; w: number; h: number }
+  props?: Record<string, unknown>
+}
+
+/** 后端 /api/ai/design 归一化后的大屏 Schema */
+export interface AIDesignSchema {
+  version: string
+  page?: { width: number; height: number; background: string }
+  components: AIDesignComponent[]
+  links?: unknown[]
+}
+
+/** Orchestrator 反推的结构化设计意图（前端「过程纠偏」面板展示） */
+export interface AIDesignIntent {
+  summary: string
+  metrics: string[]
+  dimensions: string[]
+  components: Array<{ type: string; title: string; hasData: boolean }>
+}
+
+/** ReviewAgent 结构校验结果 */
+export interface AIDesignReview {
+  issues: string[]
+}
+
+/** DataAgent 数据绑定结果 */
+export interface AIDesignData {
+  dataSourceId: string
+  rowCount: number
+  columns: string[]
 }

@@ -322,6 +322,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
 
 .route-area.collapsed .ra-title { display: none; }
 .route-area.collapsed .ra-head { justify-content: center; padding: 0; }
+.route-area.collapsed .ra-user { display: none; }
 .route-area.collapsed .route-tree { padding: 8px 4px; }
 .route-area.collapsed .route-node {
   justify-content: center; gap: 0; padding: 9px 0; margin-bottom: 4px;

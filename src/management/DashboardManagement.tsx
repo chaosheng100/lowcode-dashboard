@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from "react"
-import { Button, Empty, Input, Popconfirm, Select } from "antd"
+import { Button, Empty, Input, Modal, Popconfirm, Select, message } from "antd"
 import { PlusOutlined, SearchOutlined, SortAscendingOutlined, SortDescendingOutlined } from "@ant-design/icons"
 import { useDesignerStore } from "../data/store/useDesignerStore"
 import { api } from "../mock"
@@ -65,23 +65,45 @@ export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
   const [kw, setKw] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt")
   const [desc, setDesc] = useState(true)
-  const [editId, setEditId] = useState<string | null>(null)
-  const [editName, setEditName] = useState("")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  // 新增 / 重命名共用一个命名弹窗，统一走二次确认
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalName, setModalName] = useState("")
+  const [renameTargetId, setRenameTargetId] = useState<string | null>(null)
 
-  const startRename = (d: RouteConfig) => {
-    setEditId(d.id)
-    setEditName(d.name)
+  const openCreateModal = () => {
+    setRenameTargetId(null)
+    setModalName(`新大屏 ${routes.filter((r) => r.kind === "dashboard").length + 1}`)
+    setModalOpen(true)
   }
-  const commitRename = () => {
-    if (editId && editName.trim()) renameDashboard(editId, editName.trim())
-    setEditId(null)
+  const openRenameModal = (d: RouteConfig) => {
+    setRenameTargetId(d.id)
+    setModalName(d.name)
+    setModalOpen(true)
+  }
+  const confirmModal = () => {
+    const name = modalName.trim()
+    if (!name) {
+      message.warning("请输入大屏名称")
+      return
+    }
+    if (renameTargetId) {
+      renameDashboard(renameTargetId, name)
+      message.success("已重命名")
+    } else {
+      const id = createDashboard(name)
+      onOpen(id)
+      message.success("已新建大屏")
+    }
+    setModalOpen(false)
   }
 
   // Cascade cleanup: when deleting a dashboard, clean up carousels/twin-scenes/reports that reference it
   // （删除确认由 Popconfirm 接管，onConfirm 后才进这里）
   const handleDelete = async (d: RouteConfig) => {
-    // Clean up carousels
+    setDeletingId(d.id)
     try {
+      // 级联清理：把引用了该大屏的轮播/孪生场景/报表的关联置空（best-effort）
       const clResp = await api.listCarousels({ pageSize: 100 })
       if (clResp.code === 0) {
         for (const cl of clResp.data.list) {
@@ -90,26 +112,25 @@ export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
           }
         }
       }
-    } catch { /* best-effort */ }
-    // Clean up twin scenes
-    try {
       const tsResp = await api.listTwinScenes({ pageSize: 100 })
       if (tsResp.code === 0) {
         for (const ts of tsResp.data.list) {
-          if (ts.dashboardId === d.id) await api.saveTwinScene({ id: ts.id, dashboardId: "" as any, lastSyncAt: "" })
+          if (ts.dashboardId === d.id) await api.saveTwinScene({ id: ts.id, dashboardId: "" })
         }
       }
-    } catch { /* best-effort */ }
-    // Clean up reports
-    try {
       const rpResp = await api.listReports({ pageSize: 100 })
       if (rpResp.code === 0) {
         for (const rp of rpResp.data.list) {
-          if (rp.dashboardId === d.id) await api.saveReport({ id: rp.id, dashboardId: "" as any, lastSyncAt: "" })
+          if (rp.dashboardId === d.id) await api.saveReport({ id: rp.id, dashboardId: "" })
         }
       }
-    } catch { /* best-effort */ }
-    deleteDashboard(d.id)
+      deleteDashboard(d.id)
+      message.success("已删除大屏")
+    } catch {
+      message.error("删除失败，请重试")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const dashboards = useMemo<RouteConfig[]>(() => {
@@ -152,7 +173,7 @@ export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
         >
           {desc ? "倒序" : "升序"}
         </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { const id = createDashboard(); onOpen(id) }}>新建大屏</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>新建大屏</Button>
       </div>
 
       <div className="mg-grid">
@@ -167,15 +188,7 @@ export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
               </span>
             </div>
             <div className="mg-info">
-              {editId === d.id ? (
-                <Input size="small" autoFocus value={editName} onChange={(e) => setEditName(e.target.value)}
-                  onClick={(e) => e.stopPropagation()} onKeyDown={(e) => {
-                    if (e.key === "Enter") commitRename()
-                    if (e.key === "Escape") setEditId(null)
-                  }} onBlur={commitRename} />
-              ) : (
-                <div className="mg-name" title={d.name}>{d.name}</div>
-              )}
+              <div className="mg-name" title={d.name}>{d.name}</div>
               <div className="mg-meta">创建：{fmt(d.createdAt)}</div>
               <div className="mg-meta">更新：{fmt(d.updatedAt)}</div>
               <div className="mg-link-stats" aria-label={`${d.name}联动统计`}>
@@ -191,18 +204,22 @@ export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
                 {onOpenPreview && (
                   <Button size="small" type="link" onClick={(e) => { e.stopPropagation(); onOpenPreview(d.id) }}>预览</Button>
                 )}
-                <Button size="small" type="link" title="重命名" onClick={(e) => { e.stopPropagation(); startRename(d) }}>重命名</Button>
-                <Popconfirm
-                  title="删除大屏"
-                  description={`确定删除大屏「${d.name}」？此操作不可恢复。`}
-                  okText="删除"
-                  cancelText="取消"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => handleDelete(d)}
-                >
-                  <Button size="small" type="link" danger title="删除大屏" style={{ marginLeft: "auto" }}
-                    onClick={(e) => e.stopPropagation()}>删除</Button>
-                </Popconfirm>
+                <Button size="small" type="link" title="重命名" onClick={(e) => { e.stopPropagation(); openRenameModal(d) }}>重命名</Button>
+                <span className="mg-del-wrap" onClick={(e) => e.stopPropagation()}>
+                  <Popconfirm
+                    title="删除大屏"
+                    description={`确定删除大屏「${d.name}」？此操作不可恢复。`}
+                    okText="删除"
+                    cancelText="取消"
+                    okButtonProps={{ danger: true }}
+                    getPopupContainer={() => document.body}
+                    onConfirm={() => handleDelete(d)}
+                  >
+                    <Button size="small" type="link" danger title="删除大屏" style={{ marginLeft: "auto" }}
+                      loading={deletingId === d.id}
+                      onClick={(e) => e.stopPropagation()}>删除</Button>
+                  </Popconfirm>
+                </span>
               </div>
             </div>
           </div>
@@ -211,6 +228,25 @@ export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配的大屏" style={{ gridColumn: "1 / -1" }} />
         )}
       </div>
+
+      <Modal
+        title={renameTargetId ? "重命名大屏" : "新建大屏"}
+        open={modalOpen}
+        onOk={confirmModal}
+        onCancel={() => setModalOpen(false)}
+        okText="确定"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Input
+          value={modalName}
+          onChange={(e) => setModalName(e.target.value)}
+          onPressEnter={confirmModal}
+          autoFocus
+          placeholder="请输入大屏名称"
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
     </div>
   )
 }
