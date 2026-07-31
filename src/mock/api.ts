@@ -60,6 +60,7 @@ import type {
   DevEnvDTO,
   CapabilityRegistryDTO
 } from './types'
+import type { AIDesignSchema, AIDesignIntent, AIDesignReview, AIDesignData } from '../data/types'
 
 // ---------------- SSE 流式消费（对接后端 pi-agent）----------------
 // 后端 /api/ai/chat、/api/ai/generate 以 SSE 真实流式输出；
@@ -76,20 +77,30 @@ interface SseResult {
   error?: string
 }
 
-async function postSSE(
-  path: string,
-  body: unknown,
-  onDelta?: (text: string) => void,
-): Promise<SseResult> {
+/** SSE 多智能体事件回调（设计接口除 delta 外还下发明意/结构/数据/校验） */
+interface SseCallbacks {
+  onDelta?: (text: string) => void
+  onIntent?: (intent: AIDesignIntent) => void
+  onSchema?: (schema: AIDesignSchema) => void
+  onReview?: (review: AIDesignReview) => void
+  onData?: (data: AIDesignData) => void
+  onError?: (msg: string) => void
+  signal?: AbortSignal
+}
+
+async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<SseResult> {
   const url = `${SSE_BASE_URL}${path.replace(/^\/api/, '')}`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: cb?.signal,
   })
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
-    return { error: `SSE 请求失败 (${res.status}): ${text || res.statusText}` }
+    const msg = `SSE 请求失败 (${res.status}): ${text || res.statusText}`
+    cb?.onError?.(msg)
+    return { error: msg }
   }
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
@@ -115,10 +126,15 @@ async function postSSE(
       try {
         const p = JSON.parse(json)
         if (p.type === 'delta') {
-          // 逐块回调，驱动前端打字机式渲染
-          if (onDelta && typeof p.text === 'string') onDelta(p.text)
+          if (cb?.onDelta && typeof p.text === 'string') cb.onDelta(p.text)
         } else if (p.type === 'done') donePayload = p
-        else if (p.type === 'error') errorMsg = p.message
+        else if (p.type === 'error') {
+          errorMsg = p.message
+          cb?.onError?.(p.message)
+        } else if (p.type === 'schema') cb?.onSchema?.(p.schema)
+        else if (p.type === 'intent') cb?.onIntent?.(p.intent)
+        else if (p.type === 'review') cb?.onReview?.(p.review)
+        else if (p.type === 'data') cb?.onData?.(p.data)
       } catch {
         /* 忽略无法解析的帧 */
       }
@@ -243,19 +259,83 @@ export const api = {
     mockFetch<AIBotDTO>(body.id ? 'PATCH' : 'POST', `/api/aiBots${body.id ? '/' + body.id : ''}`, { body }),
   deleteAIBot: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiBots/${id}`),
   // AI 对话 / 代码生成（SSE 流式后端；onDelta 逐块回调驱动前端流式渲染，调用方契约不变）
-  aiChat: async (message: string, onDelta?: (text: string) => void) => {
-    const r = await postSSE('/api/ai/chat', { message, sessionId: aiChatSessionId }, onDelta)
+  aiChat: async (
+    message: string,
+    opts: { onDelta?: (text: string) => void; onError?: (m: string) => void; signal?: AbortSignal } = {},
+  ) => {
+    const r = await postSSE(
+      '/api/ai/chat',
+      { message, sessionId: aiChatSessionId },
+      { onDelta: opts.onDelta, onError: opts.onError, signal: opts.signal },
+    )
     if (r.error) return { code: 500, message: r.error, data: { reply: '', suggestion: '' } }
     if (!r.done) return { code: 500, message: '无响应', data: { reply: '', suggestion: '' } }
     if (r.done.sessionId) aiChatSessionId = r.done.sessionId
     return { code: 0, message: 'ok', data: { reply: r.done.reply ?? '', suggestion: '' } }
   },
-  aiGenerate: async (prompt: string, lang: string, onDelta?: (text: string) => void) => {
-    const r = await postSSE('/api/ai/generate', { prompt, lang, sessionId: aiGenSessionId }, onDelta)
+  aiGenerate: async (
+    prompt: string,
+    lang: string,
+    opts: { onDelta?: (text: string) => void; onError?: (m: string) => void; signal?: AbortSignal } = {},
+  ) => {
+    const r = await postSSE(
+      '/api/ai/generate',
+      { prompt, lang, sessionId: aiGenSessionId },
+      { onDelta: opts.onDelta, onError: opts.onError, signal: opts.signal },
+    )
     if (r.error) return { code: 500, message: r.error, data: { code: '' } }
     if (!r.done) return { code: 500, message: '无响应', data: { code: '' } }
     if (r.done.sessionId) aiGenSessionId = r.done.sessionId
     return { code: 0, message: 'ok', data: { code: r.done.code ?? '' } }
+  },
+  // AI 设计（自然语言 → 大屏 Schema）：多智能体事件（intent/schema/review/data）逐块回调
+  aiDesign: async (
+    prompt: string,
+    opts: {
+      modelId?: string
+      botId?: string
+      model?: string
+      provider?: string
+      baseURL?: string
+      apiKey?: string
+      dataSourceId?: string
+      /** 基于已有 schema 迭代修改（传入上一版本的 schema，AI 在此基础上调整） */
+      baseSchema?: AIDesignSchema
+      onDelta?: (text: string) => void
+      onIntent?: (intent: AIDesignIntent) => void
+      onSchema?: (schema: AIDesignSchema) => void
+      onReview?: (review: AIDesignReview) => void
+      onData?: (data: AIDesignData) => void
+      onError?: (msg: string) => void
+      signal?: AbortSignal
+    } = {},
+  ) => {
+    const r = await postSSE(
+      '/api/ai/design',
+      {
+        message: prompt,
+        modelId: opts.modelId,
+        botId: opts.botId,
+        model: opts.model,
+        provider: opts.provider,
+        baseURL: opts.baseURL,
+        apiKey: opts.apiKey,
+        dataSourceId: opts.dataSourceId,
+        baseSchema: opts.baseSchema,
+      },
+      {
+        onDelta: opts.onDelta,
+        onIntent: opts.onIntent,
+        onSchema: opts.onSchema,
+        onReview: opts.onReview,
+        onData: opts.onData,
+        onError: opts.onError,
+        signal: opts.signal,
+      },
+    )
+    if (r.error) return { code: 500, message: r.error, data: { schema: null } }
+    if (!r.done) return { code: 500, message: '无响应', data: { schema: null } }
+    return { code: 0, message: 'ok', data: { schema: null } }
   },
 
   // —— 数字孪生 ——
