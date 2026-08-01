@@ -70,8 +70,9 @@ export default function ResourcePanel() {
     setLoading(true)
     try {
       const r = await api.queryDataset(ds.id, { pageSize: 12 })
+      const rows = Array.isArray(r.data?.list) ? r.data.list : []
       updateProps(component.id, {
-        data: transform(r.data.list),
+        data: transform(rows),
         title: ds.name,
         dataSourceId: ds.id,
         dataSourceName: ds.name
@@ -120,7 +121,7 @@ export default function ResourcePanel() {
             <div className="rp-item" key={d.id}>
               <div className="rp-main">
                 <strong>{d.name}</strong>
-                <span className="rp-sub">{d.sourceName} · {d.rowCount.toLocaleString()} 行</span>
+                <span className="rp-sub">{d.sourceName || '未知来源'} · {(d.rowCount ?? 0).toLocaleString()} 行</span>
               </div>
               <Button size="small" type="link" onClick={() => bindDataset(d)}>
                 绑定到组件
