@@ -59,8 +59,12 @@
 }
 
 /* antd <App> 组件会在 #root 下注入一层 .ant-app 包裹，默认无高度，
-   必须纳入高度链，否则其内部的 .win-app{height:100%} 会解析为 auto 而塌缩为 0 */
+   必须纳入高度链，否则其内部的 .win-app{height:100%} 会解析为 auto 而塌缩为 0。
+   .ant-app 加 overflow:auto 作为全局滚动兜底：
+   - 应用式布局（ProjectView）内部高度 = 视口高度，内部消化，不会触发此滚动
+   - 独立页面（登录/注册/ScreenListPage 等）内容超高时由此出滚动条 */
 html, body, #root, .ant-app { height: 100%; }
+.ant-app { overflow: auto; }
 body {
   background: var(--bg);
   background-image:
@@ -83,6 +87,14 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
 ::-webkit-scrollbar-corner { background: transparent; }
 
 .app { display: flex; flex-direction: column; height: 100vh; }
+
+/* 修复高度链：ant-app 下所有直接子路由容器必须占满高度，
+   否则 body{overflow:hidden} + 父级高度 auto 会导致内容超出时内外都没有滚动条。
+   HashRouter / BrowserRouter 渲染的第一层 div/路由都继承 100% 高度。 */
+.ant-app > *,
+.ant-app > * > * {
+  height: 100%;
+}
 
 /* ============================================================
  * Toolbar / 顶栏
