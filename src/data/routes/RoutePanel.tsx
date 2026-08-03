@@ -81,8 +81,7 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
   return (
     <aside className={'route-area' + (collapsed ? ' collapsed' : '')}>
       <div className="ra-head">
-        <span className="ra-title">路由区</span>
-        <div className="ra-user"><UserMenu compact /></div>
+        <UserMenu compact={collapsed} />
         <div className="ra-head-actions">
           <Button
             type="text"

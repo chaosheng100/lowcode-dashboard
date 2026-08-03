@@ -326,7 +326,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
   width: 252px; flex: none;
   background: var(--panel); backdrop-filter: blur(16px);
   border-right: 1px solid var(--line);
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex; flex-direction: column;
   transition: width var(--t-norm);
 }
 .route-area.collapsed { width: 56px; }
@@ -334,6 +334,14 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
 .ra-head {
   display: flex; align-items: center; justify-content: space-between;
   height: 40px; padding: 0 10px; border-bottom: 1px solid var(--line); flex: none;
+}
+/* UserMenu 触发按钮 hover */
+.user-menu-trigger:hover {
+  border-color: var(--line-strong) !important;
+  background: var(--panel-hover) !important;
+}
+.user-menu-trigger:active {
+  background: var(--panel) !important;
 }
 .ra-title {
   font-weight: 700; letter-spacing: 1.5px; font-size: 13px;
@@ -347,7 +355,6 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
 
 .route-area.collapsed .ra-title { display: none; }
 .route-area.collapsed .ra-head { justify-content: center; padding: 0; }
-.route-area.collapsed .ra-user { display: none; }
 .route-area.collapsed .route-tree { padding: 6px 4px; }
 .route-area.collapsed .route-node {
   justify-content: center; gap: 0; padding: 8px 0; margin-bottom: 3px;

@@ -25,19 +25,18 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
 
   return (
     <div style={{ position: 'relative', userSelect: 'none' }}>
-      <div
-        onClick={() => setOpen((v) => !v)}
+      <div className="user-menu-trigger" onClick={() => setOpen((v) => !v)}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 8,
           padding: '6px 10px',
-          borderRadius: 8,
+          borderRadius: 'var(--r-lg)',
           cursor: 'pointer',
-          background: '#0f1a30',
-          border: '1px solid rgba(42,66,108,0.35)',
+          background: 'var(--panel2)',
+          border: '1px solid var(--line)',
           maxWidth: 160,
-          overflow: 'hidden',
+          overflow: 'hidden', transition: '.2s',
         }}
       >
         <span
@@ -45,7 +44,7 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
             width: 28,
             height: 28,
             borderRadius: '50%',
-            background: '#3b82f6',
+            background: 'var(--accent-blue)',
             color: '#fff',
             display: 'inline-flex',
             alignItems: 'center',
@@ -57,8 +56,8 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
         </span>
         {!compact && (
           <>
-            <span style={{ fontSize: 13, color: '#e8f0ff', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-            <span style={{ fontSize: 16, color: '#7889a3' }}>▾</span>
+            <span style={{ fontSize: 13, color: 'var(--txt)', maxWidth: 72, overflow: 'hidden', transition: '.2s', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+            <span style={{ fontSize: 16, color: 'var(--sub)' }}>▾</span>
           </>
         )}
       </div>
@@ -66,18 +65,18 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
         <div
           style={{
             position: 'absolute',
-            right: 0,
+            left: 0,
             top: 44,
             width: 200,
-            background: '#0f1a30',
-            border: '1px solid rgba(42,66,108,0.35)',
-            borderRadius: 8,
+            background: 'var(--panel2)',
+            border: '1px solid var(--line)',
+            borderRadius: 'var(--r-lg)',
             padding: 10,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
             zIndex: 100,
           }}
         >
-          <div style={{ fontSize: 12, color: '#7889a3' }}>{user.email}</div>
+          <div style={{ fontSize: 12, color: 'var(--sub)' }}>{user.email}</div>
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {(user.roles || []).map((r) => (
               <span
@@ -86,8 +85,8 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
                   fontSize: 11,
                   padding: '2px 8px',
                   borderRadius: 999,
-                  background: 'rgba(0,212,255,0.1)',
-                  color: '#00d4ff',
+                  background: 'var(--accent-grad-soft)',
+                  color: 'var(--accent)',
                 }}
               >
                 {r.name}
@@ -101,9 +100,9 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
               width: '100%',
               padding: '7px',
               background: 'transparent',
-              border: '1px solid rgba(248,113,113,0.4)',
+              border: '1px solid var(--danger)',
               borderRadius: 6,
-              color: '#f87171',
+              color: 'var(--danger)',
               cursor: 'pointer',
               fontSize: 13,
             }}
