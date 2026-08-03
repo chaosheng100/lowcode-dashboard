@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { App, Button, Form, Input, InputNumber, Select, Tabs } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
+import type { ComponentDataBinding } from '../../data/types'
 import { api } from '../../mock'
 import type { DatasetDTO, DataSourceDTO, TwinSceneDTO, IoTDeviceDTO } from '../../mock/types'
 import type { DataPoint } from '../../data/types'
@@ -26,11 +27,14 @@ export default function PropertyPanel() {
   const component: ComponentInstance | undefined = route.components.find((c) => c.id === selectedId)
   const updateProps = useDesignerStore((s) => s.updateComponentProps)
   const updateStyle = useDesignerStore((s) => s.updateComponentStyle)
+  const updateComponentDataSource = useDesignerStore((s) => s.updateComponentDataSource)
   const removeComponent = useDesignerStore((s) => s.removeComponent)
 
   const [tab, setTab] = useState<'style' | 'data' | 'event'>('style')
   const [dataText, setDataText] = useState('')
   const [datasets, setDatasets] = useState<DatasetDTO[]>([])
+  const [selectedXField, setSelectedXField] = useState('')
+  const [selectedYField, setSelectedYField] = useState('')
   const [dataSources, setDataSources] = useState<DataSourceDTO[]>([])
   const [twinSceneOptions, setTwinSceneOptions] = useState<TwinSceneOption[]>([])
   const [iotDeviceOptions, setIotDeviceOptions] = useState<IoTDeviceOption[]>([])
@@ -82,14 +86,35 @@ export default function PropertyPanel() {
     ['sql', 'websocket', 'mqtt', 'api', 'flow'].includes(d.kind)
   )
 
-  const bindDataset = async (datasetId: string) => {
+  /** 执行数据集查询 + 语义字段映射 + 写入 dataSource */
+  const doBind = async (datasetId: string, xField: string, yField: string) => {
     if (!datasetId || !component) return
     const r = await api.queryDataset(datasetId, { pageSize: 12 })
-    const data: DataPoint[] = r.data.list.map((row) => ({
-      name: String((row as Record<string, string>).region ?? (row as Record<string, string>).metric ?? ''),
-      value: Number((row as Record<string, number>).value)
+    const rows = Array.isArray(r.data?.list) ? r.data.list : []
+    const data: DataPoint[] = rows.map((row) => ({
+      name: String((row as Record<string, unknown>)[xField] ?? ''),
+      value: Number((row as Record<string, unknown>)[yField]) || 0
     }))
-    updateProps(component.id, { data, dataSourceId: datasetId })
+    const ds = datasets.find((d) => d.id === datasetId)
+    const binding: ComponentDataBinding = { datasetId, xField, yField, datasetName: ds?.name }
+    updateProps(component.id, { data, title: ds?.name, dataSourceId: datasetId, dataSourceName: ds?.name })
+    updateComponentDataSource(component.id, binding)
+    setDataText(JSON.stringify(data, null, 2))
+  }
+
+  /** 选择数据集：自动推断维度/指标字段，查询并写入 */
+  const selectDataset = async (datasetId: string) => {
+    if (!datasetId || !component) return
+    const ds = datasets.find((d) => d.id === datasetId)
+    if (!ds) return
+    const fields = ds.fields ?? []
+    const dimField = fields.find((f) => f.semanticType === 'dimension')
+    const metricField = fields.find((f) => f.semanticType === 'metric')
+    const xField = dimField?.fieldKey ?? fields[0]?.fieldKey ?? 'name'
+    const yField = metricField?.fieldKey ?? fields[1]?.fieldKey ?? 'value'
+    setSelectedXField(xField)
+    setSelectedYField(yField)
+    await doBind(datasetId, xField, yField)
   }
 
   if (!component) {
@@ -219,13 +244,39 @@ export default function PropertyPanel() {
                 <Select
                   style={{ width: '100%' }}
                   value={p.dataSourceId || ''}
-                  onChange={(v) => bindDataset(v)}
+                  onChange={(v) => selectDataset(v)}
                   options={[
                     { value: '', label: '— 手动数据 —' },
                     ...datasets.map((d) => ({ value: d.id, label: d.name }))
                   ]}
                 />
               </Form.Item>
+              {p.dataSourceId && (() => {
+                const ds = datasets.find((d) => d.id === p.dataSourceId)
+                const fields = ds?.fields ?? []
+                const dimFields = fields.filter((f) => f.semanticType === 'dimension')
+                const metricFields = fields.filter((f) => f.semanticType === 'metric')
+                return (
+                  <>
+                    <Form.Item label="维度字段（横轴）" colon={false} style={{ marginBottom: 11 }}>
+                      <Select
+                        style={{ width: '100%' }}
+                        value={selectedXField || undefined}
+                        onChange={async (v) => { setSelectedXField(v); await doBind(p.dataSourceId!, v, selectedYField) }}
+                        options={dimFields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
+                      />
+                    </Form.Item>
+                    <Form.Item label="指标字段（纵轴）" colon={false} style={{ marginBottom: 11 }}>
+                      <Select
+                        style={{ width: '100%' }}
+                        value={selectedYField || undefined}
+                        onChange={async (v) => { setSelectedYField(v); await doBind(p.dataSourceId!, selectedXField, v) }}
+                        options={metricFields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
+                      />
+                    </Form.Item>
+                  </>
+                )
+              })()}
               <Form.Item label="数据 (JSON: [{ name, value }])" colon={false} style={{ marginBottom: 11 }}>
                 <Input.TextArea
                   style={{ minHeight: 160, fontFamily: 'monospace' }}

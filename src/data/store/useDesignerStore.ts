@@ -210,6 +210,20 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       )
     })),
 
+  updateComponentDataSource: (id, binding) =>
+    set((s) => ({
+      routes: s.routes.map((r) =>
+        r.id === s.selectedRouteId
+          ? {
+              ...r,
+              components: r.components.map((c) =>
+                c.id === id ? { ...c, dataSource: binding ?? undefined } : c
+              )
+            }
+          : r
+      )
+    })),
+
   moveComponent: (id, x, y) =>
     set((s) => ({
       routes: s.routes.map((r) =>
@@ -318,7 +332,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
         id: c.id || genId(type),
         type,
         style,
-        props: { ...(clone(def.defaultProps) as Record<string, unknown>), ...(c.props || {}) } as WidgetProps
+        props: { ...(clone(def.defaultProps) as Record<string, unknown>), ...(c.props || {}) } as WidgetProps,
+        ...(c.dataSource ? { dataSource: c.dataSource } : {})
       }
     })
     set((st) => ({

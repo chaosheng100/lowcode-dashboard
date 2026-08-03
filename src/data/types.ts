@@ -138,7 +138,26 @@ export interface ComponentInstance {
   id: string
   type: WidgetType
   style: ComponentStyle
+  dataSource?: ComponentDataBinding
   props: WidgetProps
+}
+
+/** 组件数据集绑定：语义字段映射 + 结构化 dataSource，与后端 NormalizedSchema 对齐 */
+export interface ComponentDataBinding {
+  /** 绑定的数据集 id */
+  datasetId: string
+  /** 维度字段 fieldKey（类目/横轴/标签） */
+  xField?: string
+  /** 指标字段 fieldKey（数值/纵轴/值） */
+  yField?: string
+  /** 多指标（多折线/多柱图等） */
+  yFields?: string[]
+  /** 筛选条件 */
+  filters?: Array<{ field: string; op: string; value: unknown }>
+  /** 聚合方式，覆盖数据集默认聚合 */
+  aggregation?: string
+  /** 绑定的数据集名称（冗余，方便 UI 展示） */
+  datasetName?: string
 }
 
 /** 联动规则（可扩展：源事件 -> 目标动作） */
@@ -240,6 +259,7 @@ export interface DesignerState {
   updateComponentProps: (id: string, patch: Partial<WidgetProps>) => void
   updateComponentStyle: (id: string, patch: Partial<ComponentStyle>) => void
   moveComponent: (id: string, x: number, y: number) => void
+  updateComponentDataSource: (id: string, binding: ComponentDataBinding | null) => void
 
   // 当前路由页面设置
   setPage: (patch: Partial<PageConfig>) => void
@@ -290,6 +310,7 @@ export interface AIDesignComponent {
   renderer?: string
   style?: { x: number; y: number; w: number; h: number }
   props?: Record<string, unknown>
+  dataSource?: ComponentDataBinding
 }
 
 /** 后端 /api/ai/design 归一化后的大屏 Schema */

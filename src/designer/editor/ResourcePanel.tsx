@@ -4,6 +4,7 @@ import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { api } from '../../mock'
 import type { DatasetDTO, AssetDTO, ThemeDTO } from '../../mock/types'
 import type { DataPoint } from '../../data/types'
+import type { ComponentDataBinding } from '../../data/types'
 
 // 可绑定数据集的组件类型（基础"数据/图表"能力 → 画布数据）
 const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table']
@@ -20,6 +21,7 @@ export default function ResourcePanel() {
   const route = useDesignerStore((s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0])!
   const component = route.components.find((c) => c.id === selectedId)
   const updateProps = useDesignerStore((s) => s.updateComponentProps)
+  const updateComponentDataSource = useDesignerStore((s) => s.updateComponentDataSource)
   const addComponent = useDesignerStore((s) => s.addComponent)
   const setPage = useDesignerStore((s) => s.setPage)
 
@@ -56,27 +58,34 @@ export default function ResourcePanel() {
     }
   }, [tab, message])
 
-  const transform = (rows: readonly Record<string, unknown>[]): DataPoint[] =>
-    rows.map((row) => ({
-      name: String(row.region ?? row.metric ?? row.name ?? ''),
-      value: Number(row.value)
-    }))
-
   const bindDataset = async (ds: DatasetDTO) => {
     if (!component || !DATA_WIDGETS.includes(component.type)) {
       message.warning('请先在画布中选中一个图表 / 指标卡 / 表格组件')
       return
     }
+    // 语义字段映射：从数据集 fields 自动选维度/指标
+    const fields = ds.fields ?? []
+    const dimField = fields.find((f) => f.semanticType === 'dimension')
+    const metricField = fields.find((f) => f.semanticType === 'metric')
+    const xField = dimField?.fieldKey ?? fields[0]?.fieldKey ?? 'name'
+    const yField = metricField?.fieldKey ?? fields[1]?.fieldKey ?? 'value'
+
     setLoading(true)
     try {
       const r = await api.queryDataset(ds.id, { pageSize: 12 })
       const rows = Array.isArray(r.data?.list) ? r.data.list : []
+      const data: DataPoint[] = rows.map((row) => ({
+        name: String(row[xField] ?? ''),
+        value: Number(row[yField]) || 0
+      }))
+      const binding: ComponentDataBinding = { datasetId: ds.id, xField, yField, datasetName: ds.name }
       updateProps(component.id, {
-        data: transform(rows),
+        data,
         title: ds.name,
         dataSourceId: ds.id,
         dataSourceName: ds.name
       })
+      updateComponentDataSource(component.id, binding)
       message.success(`已将「${ds.name}」绑定到 ${component.type} 组件`)
     } catch (e) {
       message.error('加载失败：' + (e as Error).message)
