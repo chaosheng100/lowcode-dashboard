@@ -92,7 +92,9 @@ export default function KeepAliveOutlet({ children, max = 10, enabled = true }: 
           key={key}
           data-keep-alive={key}
           style={{
-            display: key === pathname ? 'block' : 'none',
+            display: key === pathname ? 'flex' : 'none',
+            flexDirection: 'column',
+            minHeight: 0,
             width: '100%',
             height: '100%',
           }}
