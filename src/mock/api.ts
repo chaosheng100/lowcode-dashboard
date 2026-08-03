@@ -9,6 +9,7 @@ import type {
   DashboardDTO,
   DataSourceDTO,
   DatasetDTO,
+  DatasetField,
   DatasetRow,
   AuthUserDTO,
   RbacRoleDTO,
@@ -155,10 +156,16 @@ export const api = {
     mockFetch<DataSourceDTO>(body.id ? 'PATCH' : 'POST', `/api/datasources${body.id ? '/' + body.id : ''}`, { body }),
   deleteDataSource: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/datasources/${id}`),
 
-  // 数据集
+  // 数据集（语义层：dataset 模块，含字段语义元信息与查询接口）
   listDatasets: (q: PageQuery = {}) => mockFetch<PageResult<DatasetDTO>>('GET', '/api/datasets', { query: q }),
-  queryDataset: (id: string, q: PageQuery = {}) =>
-    mockFetch<{ list: DatasetRow[]; total: number }>('POST', `/api/datasets/${id}/query`, { query: q }),
+  getDataset: (id: string) => mockFetch<DatasetDTO>('GET', `/api/datasets/${id}`),
+  saveDataset: (body: Partial<DatasetDTO> & { fields?: DatasetField[]; config?: unknown }) =>
+    mockFetch<DatasetDTO>(body.id ? 'PATCH' : 'POST', `/api/datasets${body.id ? '/' + body.id : ''}`, { body }),
+  deleteDataset: (id: string) => mockFetch<null>('DELETE', `/api/datasets/${id}`),
+  queryDataset: (id: string, params: { pageSize?: number } = {}) =>
+    mockFetch<{ list: DatasetRow[]; total: number; columns: string[] }>('POST', `/api/datasets/${id}/query`, { body: params }),
+  /** 数据集创建可选的数据源（后端 data 模块 DataSource 表） */
+  listDataEngineSources: () => mockFetch<Array<{ id: string; name: string; type: string }>>('GET', '/api/data/sources'),
 
   // ============ 认证与权限（RBAC）============
   auth: {
@@ -298,6 +305,8 @@ export const api = {
       provider?: string
       baseURL?: string
       apiKey?: string
+      /** 数据集语义绑定（推荐）：AI 感知数据集字段语义并自动匹配 */
+      datasetId?: string
       dataSourceId?: string
       /** 基于已有 schema 迭代修改（传入上一版本的 schema，AI 在此基础上调整） */
       baseSchema?: AIDesignSchema
@@ -320,6 +329,7 @@ export const api = {
         provider: opts.provider,
         baseURL: opts.baseURL,
         apiKey: opts.apiKey,
+        datasetId: opts.datasetId,
         dataSourceId: opts.dataSourceId,
         baseSchema: opts.baseSchema,
       },

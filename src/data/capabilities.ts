@@ -4,6 +4,12 @@
 // 本文件把每个基础数据路由显式映射到它为大屏编辑器提供的画布能力，
 // 并作为「能力中心」的可视化与消费依据（见 Designer 资源面板 / 能力映射弹窗）。
 // ============================================================
+import { createElement, type ReactNode } from 'react'
+import {
+  AppstoreOutlined, DatabaseOutlined, BarChartOutlined, PictureOutlined,
+  BgColorsOutlined, CalculatorOutlined, LayoutOutlined, SafetyCertificateOutlined,
+  ApiOutlined, RobotOutlined, RocketOutlined, LineChartOutlined, BookOutlined,
+} from '@ant-design/icons'
 
 /** 大屏画布编辑器所需的能力类型 */
 export type CanvasCapability =
@@ -24,24 +30,24 @@ export type CanvasCapability =
 /** 每种画布能力的元信息（标签 / 图标 / 说明） */
 export interface CapabilityMeta {
   label: string
-  icon: string
+  icon: ReactNode
   desc: string
 }
 
 export const CAPABILITY_META: Record<CanvasCapability, CapabilityMeta> = {
-  widget: { label: '组件', icon: '🧩', desc: '为画布提供可拖拽的可视化组件（文本/图表/指标/表格/容器等）' },
-  dataSource: { label: '数据源', icon: '🗄️', desc: '为画布组件提供连接与取数的数据来路（库/API/消息/文件）' },
-  dataset: { label: '数据集', icon: '📊', desc: '为图表/表格/指标卡提供可直接绑定的分析数据' },
-  asset: { label: '素材', icon: '🖼️', desc: '为画布提供背景图、图标与地图底图等视觉素材' },
-  theme: { label: '主题', icon: '🎨', desc: '为画布提供配色方案与全局观感（运行配置沉淀）' },
-  variable: { label: '变量', icon: '🧮', desc: '为画布提供跨组件全局变量，支持动态绑定与联动' },
-  template: { label: '模板', icon: '📐', desc: '为画布提供轮播、标签分类与布局模板，加速编排' },
-  permission: { label: '权限', icon: '🔐', desc: '为画布编辑器提供协作角色与可见性控制' },
-  extension: { label: '扩展', icon: '🔌', desc: '为画布提供孪生/组态/插件/部署等扩展能力' },
-  ai: { label: '智能', icon: '🤖', desc: '为画布提供模型与助手，辅助智能编排与生成' },
-  publish: { label: '发布', icon: '🚀', desc: '将画布成果部署、发布为可访问的大屏' },
-  analytics: { label: '分析', icon: '📈', desc: '对画布运行态进行监控与性能/异常分析' },
-  doc: { label: '文档', icon: '❓', desc: '为画布编辑提供帮助文档与最佳实践' }
+  widget: { label: '组件', icon: createElement(AppstoreOutlined), desc: '为画布提供可拖拽的可视化组件（文本/图表/指标/表格/容器等）' },
+  dataSource: { label: '数据源', icon: createElement(DatabaseOutlined), desc: '为画布组件提供连接与取数的数据来路（库/API/消息/文件）' },
+  dataset: { label: '数据集', icon: createElement(BarChartOutlined), desc: '为图表/表格/指标卡提供可直接绑定的分析数据' },
+  asset: { label: '素材', icon: createElement(PictureOutlined), desc: '为画布提供背景图、图标与地图底图等视觉素材' },
+  theme: { label: '主题', icon: createElement(BgColorsOutlined), desc: '为画布提供配色方案与全局观感（运行配置沉淀）' },
+  variable: { label: '变量', icon: createElement(CalculatorOutlined), desc: '为画布提供跨组件全局变量，支持动态绑定与联动' },
+  template: { label: '模板', icon: createElement(LayoutOutlined), desc: '为画布提供轮播、标签分类与布局模板，加速编排' },
+  permission: { label: '权限', icon: createElement(SafetyCertificateOutlined), desc: '为画布编辑器提供协作角色与可见性控制' },
+  extension: { label: '扩展', icon: createElement(ApiOutlined), desc: '为画布提供孪生/组态/插件/部署等扩展能力' },
+  ai: { label: '智能', icon: createElement(RobotOutlined), desc: '为画布提供模型与助手，辅助智能编排与生成' },
+  publish: { label: '发布', icon: createElement(RocketOutlined), desc: '将画布成果部署、发布为可访问的大屏' },
+  analytics: { label: '分析', icon: createElement(LineChartOutlined), desc: '对画布运行态进行监控与性能/异常分析' },
+  doc: { label: '文档', icon: createElement(BookOutlined), desc: '为画布编辑提供帮助文档与最佳实践' }
 }
 
 /** 单条路由 → 画布能力 的映射（即"基础能力转化为画布功能"的设计依据） */

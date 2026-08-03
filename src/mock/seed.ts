@@ -125,16 +125,17 @@ export const datasets: DatasetDTO[] = DATASET_NAMES.map((name, i) => {
   return {
     id: `dset_${3000 + i}`,
     name,
-    sourceId: src.id,
+    dataSourceId: src.id,
     sourceName: src.name,
+    type: 'static',
     rowCount: 1000 + Math.floor(r() * 90000),
     updatedAt: new Date(Date.now() - Math.floor(r() * 5) * 86400000).toISOString().slice(0, 10),
-    schema: [
-      { field: 'dim_date', type: 'date' },
-      { field: 'region', type: 'string' },
-      { field: 'metric', type: 'string' },
-      { field: 'value', type: 'number' },
-      { field: 'is_abnormal', type: 'boolean' }
+    fields: [
+      { fieldKey: 'dim_date', label: '日期', fieldType: 'date', semanticType: 'dimension', format: 'yyyy-MM' },
+      { fieldKey: 'region', label: '区域', fieldType: 'string', semanticType: 'dimension' },
+      { fieldKey: 'metric', label: '指标', fieldType: 'string', semanticType: 'dimension' },
+      { fieldKey: 'value', label: '数值', fieldType: 'number', semanticType: 'metric', aggregation: 'sum' },
+      { fieldKey: 'is_abnormal', label: '是否异常', fieldType: 'boolean', semanticType: 'dimension' }
     ]
   }
 })

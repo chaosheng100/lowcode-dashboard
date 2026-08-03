@@ -5,7 +5,7 @@
 - [AI 生成大屏数据流](ai-design-flow.md) — AI 生成/迭代链路、style 支持、版本管理
 
 ## 进行中任务
-- 暂无
+- [AI 大屏数据关联](tasks/2026-08-01-ai-data-binding.md) — 数据集语义字段 + AI 自动匹配（第 1+2 步已完成，3-5 步后续）
 
 ## 已归档任务
 - [修复页面超出视图无滚动条](tasks/2026-08-01-fix-page-scrollbar.md) — 高度链断裂 + body overflow:hidden 导致内外都无滚动条

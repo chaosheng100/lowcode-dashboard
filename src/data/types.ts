@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { TwinScene } from '../twin/twinTypes'
+import type { ReactNode } from 'react'
 
 /** 组件类型（与组件注册表、渲染映射一一对应） */
 export type WidgetType =
@@ -200,7 +201,7 @@ export interface LinkageEvent {
 /** 组件注册表条目 */
 export interface WidgetMeta {
   name: string
-  icon: string
+  icon: ReactNode
   category: string
   defaultStyle: ComponentStyle
   defaultProps: WidgetProps
@@ -312,9 +313,14 @@ export interface AIDesignReview {
   issues: string[]
 }
 
-/** DataAgent 数据绑定结果 */
+/** DataAgent 数据绑定结果（数据集语义绑定优先，兼容旧数据源绑定） */
 export interface AIDesignData {
-  dataSourceId: string
+  /** 绑定的数据集 id（数据集语义绑定） */
+  datasetId?: string
+  /** 绑定的数据集名称 */
+  datasetName?: string
+  /** 绑定的数据源 id（旧版绑定） */
+  dataSourceId?: string
   rowCount: number
   columns: string[]
 }

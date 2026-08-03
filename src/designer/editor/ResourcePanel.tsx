@@ -56,7 +56,7 @@ export default function ResourcePanel() {
     }
   }, [tab, message])
 
-  const transform = (rows: Record<string, string | number | boolean>[]): DataPoint[] =>
+  const transform = (rows: readonly Record<string, unknown>[]): DataPoint[] =>
     rows.map((row) => ({
       name: String(row.region ?? row.metric ?? row.name ?? ''),
       value: Number(row.value)

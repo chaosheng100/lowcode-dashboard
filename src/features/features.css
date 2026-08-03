@@ -2,7 +2,7 @@
  * 功能页样式 —— 科技清新风：数据表格 / 统计卡 / Section / Tag / Modal / Input / Tab
  * ============================================================ */
 .feature-page {
-  flex: 1; min-height: 0; overflow: auto; padding: 20px 24px;
+  flex: 1; min-height: 0; overflow: auto; padding: 14px 16px;
   background: var(--bg);
   background-image:
     radial-gradient(ellipse at 30% 0%, rgba(0, 100, 200, 0.04) 0%, transparent 60%);
@@ -10,38 +10,38 @@
 }
 
 /* 鈥斺€?椤靛ご 鈥斺€?*/
-.fp-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.fp-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
 .fp-title {
-  margin: 0; font-size: 20px; font-weight: 700; color: var(--txt-bright);
+  margin: 0; font-size: 16px; font-weight: 700; color: var(--txt-bright);
   letter-spacing: 0.5px;
 }
 .fp-title::before {
-  content: ''; display: inline-block; width: 4px; height: 20px;
+  content: ''; display: inline-block; width: 3px; height: 14px;
   background: var(--accent-grad); border-radius: 2px;
-  vertical-align: -3px; margin-right: 10px;
+  vertical-align: -2px; margin-right: 8px;
 }
-.fp-sub { margin: 6px 0 0 14px; font-size: 12.5px; color: var(--sub); }
+.fp-sub { margin: 4px 0 0 11px; font-size: 12px; color: var(--sub); }
 .fp-count {
-  flex: none; font-size: 12px; color: var(--accent2);
+  flex: none; font-size: 11.5px; color: var(--accent2);
   background: rgba(45, 212, 191, 0.08); border: 1px solid rgba(45, 212, 191, 0.2);
-  border-radius: 20px; padding: 4px 14px;
+  border-radius: 20px; padding: 2px 10px;
 }
 
 /* 鈥斺€?宸ュ叿鏍?鈥斺€?*/
-.fp-toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
+.fp-toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
 
 /* ============================================================
  * 鏁版嵁琛ㄦ牸
  * ============================================================ */
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .data-table th {
-  text-align: left; color: var(--sub-bright); font-weight: 600; font-size: 12px;
-  padding: 10px 12px; border-bottom: 1px solid var(--line-strong);
+  text-align: left; color: var(--sub-bright); font-weight: 600; font-size: 11.5px;
+  padding: 7px 10px; border-bottom: 1px solid var(--line-strong);
   background: var(--panel2); position: sticky; top: 0;
   letter-spacing: 0.5px;
 }
 .data-table td {
-  padding: 10px 12px; border-bottom: 1px solid var(--line-soft);
+  padding: 7px 10px; border-bottom: 1px solid var(--line-soft);
   color: var(--txt); transition: background var(--t-fast);
 }
 .data-table tbody tr { transition: background var(--t-fast); }
@@ -62,9 +62,9 @@
 }
 
 /* 鈥斺€?鐘舵€佹寚绀?鈥斺€?*/
-.status-dot { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+.status-dot { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
 .status-dot::before {
-  content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
 }
 .status-dot.active { color: var(--success); }
 .status-dot.active::before { box-shadow: 0 0 6px var(--success); }
@@ -93,7 +93,7 @@
 /* 鈥斺€?鍒嗛〉 鈥斺€?*/
 .pager {
   display: flex; align-items: center; gap: 12px; justify-content: flex-end;
-  padding: 12px 4px; color: var(--sub); font-size: 12.5px;
+  padding: 8px 4px; color: var(--sub); font-size: 12px;
 }
 .btn.sm { padding: 5px 11px; font-size: 12px; border-radius: var(--r-sm); }
 
@@ -113,24 +113,24 @@
  * ============================================================ */
 .sec {
   background: var(--panel-grad); border: 1px solid var(--line); border-radius: var(--r-lg);
-  padding: 14px 16px; margin-bottom: 14px;
+  padding: 10px 12px; margin-bottom: 10px;
   transition: border-color var(--t-fast);
 }
 .sec:hover { border-color: var(--line-strong); }
-.sec-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+.sec-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
 .sec-title {
-  font-size: 14.5px; color: var(--txt-bright); font-weight: 600;
-  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--txt-bright); font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
 }
 .sec-title::before {
-  content: ''; width: 3px; height: 14px; background: var(--accent-grad); border-radius: 2px;
+  content: ''; width: 3px; height: 12px; background: var(--accent-grad); border-radius: 2px;
 }
-.sec-desc { font-size: 12px; color: var(--sub); margin-top: 3px; }
-.sec-body { font-size: 13px; color: var(--txt); }
+.sec-desc { font-size: 11.5px; color: var(--sub); margin-top: 2px; }
+.sec-body { font-size: 12.5px; color: var(--txt); }
 
 /* 鈥斺€?Field 琛?鈥斺€?*/
-.field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.field-label { width: 110px; flex: none; color: var(--sub); font-size: 13px; }
+.field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.field-label { width: 110px; flex: none; color: var(--sub); font-size: 12.5px; }
 .field-ctrl { flex: 1; min-width: 0; }
 
 /* 鈥斺€?Tag 鈥斺€?*/
@@ -144,7 +144,7 @@
 .stat {
   flex: 1; min-width: 120px;
   background: var(--panel-grad); border: 1px solid var(--line); border-radius: var(--r-lg);
-  padding: 14px 16px; transition: all var(--t-fast);
+  padding: 10px 12px; transition: all var(--t-fast);
   position: relative; overflow: hidden;
 }
 .stat::before {
@@ -152,7 +152,7 @@
   background: var(--accent-grad); opacity: 0.6;
 }
 .stat:hover { border-color: var(--line-strong); transform: translateY(-1px); }
-.stat-label { font-size: 12px; color: var(--sub); margin-top: 4px; }
+.stat-label { font-size: 11.5px; color: var(--sub); margin-top: 3px; }
 
 /* 鈥斺€?Icon Button 鈥斺€?*/
 .icon-btn { background: transparent; border: none; color: var(--sub); font-size: 20px; cursor: pointer; line-height: 1; transition: color var(--t-fast); }
@@ -167,19 +167,19 @@
 /* 鈥斺€?Card 鈥斺€?*/
 .card {
   background: var(--panel-grad); border: 1px solid var(--line); border-radius: var(--r-lg);
-  padding: 12px; transition: all var(--t-fast);
+  padding: 10px; transition: all var(--t-fast);
 }
 .card:hover { border-color: var(--line-strong); }
 .card.sel {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(0, 212, 255, 0.1);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(0, 212, 255, 0.1);
 }
 
 /* ============================================================
  * Tab 鏍囩椤? * ============================================================ */
-.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 .tab {
-  padding: 6px 14px; border-radius: var(--r-md); font-size: 13px;
+  padding: 5px 12px; border-radius: var(--r-md); font-size: 12.5px;
   color: var(--sub); background: var(--bg); border: 1px solid var(--line);
   cursor: pointer; transition: all var(--t-fast);
 }
@@ -224,7 +224,7 @@
   background: var(--panel-solid);
 }
 .report-stats button {
-  min-height: 72px; padding: 12px 16px; border: 0; border-right: 1px solid var(--line);
+  min-height: 58px; padding: 10px 14px; border: 0; border-right: 1px solid var(--line);
   background: transparent; color: var(--txt); text-align: left; cursor: pointer;
   transition: background var(--t-fast), box-shadow var(--t-fast);
 }
@@ -232,8 +232,8 @@
 .report-stats button:hover, .report-stats button.active { background: rgba(0, 212, 255, 0.06); }
 .report-stats button.active { box-shadow: inset 0 -2px var(--accent); }
 .report-stats button.danger.active { box-shadow: inset 0 -2px var(--danger); }
-.report-stats span { display: block; color: var(--sub-bright); font-size: 12px; margin-bottom: 5px; }
-.report-stats strong { display: block; color: var(--txt-bright); font-size: 22px; font-variant-numeric: tabular-nums; }
+.report-stats span { display: block; color: var(--sub-bright); font-size: 11.5px; margin-bottom: 4px; }
+.report-stats strong { display: block; color: var(--txt-bright); font-size: 18px; font-variant-numeric: tabular-nums; }
 .report-stats .danger strong { color: var(--danger); }
 
 .report-list-panel {
@@ -446,10 +446,10 @@
   display: grid; grid-template-columns: repeat(3, minmax(0, 180px));
   border: 1px solid var(--line); background: var(--panel); border-radius: var(--r-lg);
 }
-.carousel-summary > div { display: flex; align-items: baseline; gap: 9px; min-height: 68px; padding: 15px 18px; border-right: 1px solid var(--line); }
+.carousel-summary > div { display: flex; align-items: baseline; gap: 8px; min-height: 56px; padding: 12px 14px; border-right: 1px solid var(--line); }
 .carousel-summary > div:last-child { border-right: 0; }
-.carousel-summary strong { color: var(--txt-bright); font-size: 22px; font-variant-numeric: tabular-nums; }
-.carousel-summary span { color: var(--sub); font-size: 12px; }
+.carousel-summary strong { color: var(--txt-bright); font-size: 18px; font-variant-numeric: tabular-nums; }
+.carousel-summary span { color: var(--sub); font-size: 11.5px; }
 .carousel-toolbar { display: flex; align-items: center; gap: 10px; }
 .carousel-toolbar .search {
   width: min(320px, 100%); min-height: 38px; padding: 8px 12px; outline: none;
@@ -619,7 +619,7 @@
 }
 .component-library-summary span { padding: 10px 14px; border-right: 1px solid var(--line); color: var(--sub); font-size: 11px; white-space: nowrap; }
 .component-library-summary span:last-child { border-right: 0; }
-.component-library-summary strong { margin-left: 4px; color: var(--txt-bright); font-size: 15px; font-variant-numeric: tabular-nums; }
+.component-library-summary strong { margin-left: 4px; color: var(--txt-bright); font-size: 14px; font-variant-numeric: tabular-nums; }
 .component-library-notice {
   display: flex; min-height: 42px; align-items: center; gap: 8px; padding: 7px 10px 7px 12px;
   border: 1px solid rgba(45, 212, 191, 0.24); border-radius: var(--r-sm);
@@ -714,10 +714,10 @@
 .iot-head-actions { display: flex; gap: 8px; }
 .iot-head-actions .btn { min-height: 38px; }
 .iot-summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); }
-.iot-summary > div { display: flex; align-items: baseline; gap: 9px; min-height: 68px; padding: 15px 18px; border-right: 1px solid var(--line); }
+.iot-summary > div { display: flex; align-items: baseline; gap: 8px; min-height: 56px; padding: 12px 14px; border-right: 1px solid var(--line); }
 .iot-summary > div:last-child { border-right: 0; }
-.iot-summary strong { color: var(--txt-bright); font-size: 22px; font-variant-numeric: tabular-nums; }
-.iot-summary span { color: var(--sub); font-size: 12px; }
+.iot-summary strong { color: var(--txt-bright); font-size: 18px; font-variant-numeric: tabular-nums; }
+.iot-summary span { color: var(--sub); font-size: 11.5px; }
 .iot-summary .warning strong { color: var(--danger); }
 .iot-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 8px 12px; color: var(--accent2); background: rgba(45, 212, 191, 0.07); border: 1px solid rgba(45, 212, 191, 0.2); border-radius: var(--r-md); font-size: 12px; }
 .iot-notice button { width: 28px; height: 28px; color: var(--sub); background: transparent; border: 0; cursor: pointer; font-size: 18px; }
@@ -907,7 +907,7 @@
   background: var(--panel-solid);
 }
 .report-summary button {
-  min-height: 72px; padding: 12px 16px; border: 0; border-right: 1px solid var(--line);
+  min-height: 58px; padding: 10px 14px; border: 0; border-right: 1px solid var(--line);
   background: transparent; color: var(--txt); text-align: left; cursor: pointer;
   transition: background var(--t-fast), box-shadow var(--t-fast);
 }
@@ -915,8 +915,8 @@
 .report-summary button:hover, .report-summary button.active { background: rgba(0, 212, 255, 0.06); }
 .report-summary button.active { box-shadow: inset 0 -2px var(--accent); }
 .report-summary button.danger.active { box-shadow: inset 0 -2px var(--danger); }
-.report-summary span { display: block; color: var(--sub-bright); font-size: 12px; margin-bottom: 5px; }
-.report-summary strong { display: block; color: var(--txt-bright); font-size: 22px; font-variant-numeric: tabular-nums; }
+.report-summary span { display: block; color: var(--sub-bright); font-size: 11.5px; margin-bottom: 4px; }
+.report-summary strong { display: block; color: var(--txt-bright); font-size: 18px; font-variant-numeric: tabular-nums; }
 .report-summary .danger strong { color: var(--danger); }
 
 .report-toolbar {

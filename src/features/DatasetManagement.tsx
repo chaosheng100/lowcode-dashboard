@@ -1,10 +1,88 @@
 import { useState } from 'react'
-import { Alert, Button, Input, Table, type TableProps } from 'antd'
+import { Alert, Button, Input, Table, message, type TableProps } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { api } from '../mock'
-import type { DatasetDTO, DatasetRow, PageResult } from '../mock'
+import type { DatasetDTO, DatasetField, DatasetRow, PageResult } from '../mock'
 import { useApi, useDebounced } from './useApi'
-import { Empty } from './common'
+import { Empty, Modal, Field, Select, Textarea } from './common'
+
+// ---------------- 字段语义工具（自动推断） ----------------
+
+function inferFieldType(v: unknown): DatasetField['fieldType'] {
+  if (typeof v === 'number') return 'number'
+  if (typeof v === 'boolean') return 'boolean'
+  if (typeof v === 'string' && !isNaN(Date.parse(v))) return 'date'
+  return 'string'
+}
+
+function inferSemanticType(key: string, v: unknown): 'dimension' | 'metric' {
+  if (typeof v === 'number') return 'metric'
+  if (/^(is|has|flag)/i.test(key)) return 'dimension'
+  if (/(date|time|year|month|day|region|area|name|type|category|status|channel|平台|区域|地区|月份|日期|名称|类别|渠道|状态)/i.test(key)) return 'dimension'
+  return 'metric'
+}
+
+/** 解析静态数据（JSON 数组） */
+function parseRows(text: string): DatasetRow[] | null {
+  const trimmed = text.trim()
+  if (!trimmed) return []
+  try {
+    const v = JSON.parse(trimmed)
+    return Array.isArray(v) ? (v as DatasetRow[]) : null
+  } catch {
+    return null
+  }
+}
+
+/** 从样例行自动推断字段语义元信息 */
+function inferFields(rows: DatasetRow[]): DatasetField[] {
+  if (!rows.length) return []
+  const keys = Object.keys(rows[0])
+  return keys.map((k) => {
+    const vals = rows.map((r) => r[k]).filter((v) => v != null)
+    const first = vals[0]
+    const fieldType = inferFieldType(first)
+    const semanticType = inferSemanticType(k, first)
+    return {
+      fieldKey: k,
+      label: k,
+      fieldType,
+      semanticType,
+      aggregation: semanticType === 'metric' ? 'sum' : 'none',
+      sampleValues: vals.slice(0, 3),
+      sortOrder: 0,
+    }
+  })
+}
+
+/** 从数据集 config 中提取静态数据行 */
+function extractStaticRows(config: unknown): unknown[] {
+  if (!config) return []
+  if (typeof config === 'string') {
+    try {
+      const c = JSON.parse(config)
+      return Array.isArray(c.data) ? c.data : []
+    } catch {
+      return []
+    }
+  }
+  const c = config as Record<string, unknown>
+  return Array.isArray(c.data) ? (c.data as unknown[]) : []
+}
+
+const AGG_OPTIONS = ['sum', 'avg', 'count', 'max', 'min', 'none']
+const TYPE_OPTIONS: Array<{ value: DatasetField['fieldType']; label: string }> = [
+  { value: 'string', label: '文本' },
+  { value: 'number', label: '数值' },
+  { value: 'date', label: '日期' },
+  { value: 'boolean', label: '布尔' },
+]
+const DATASET_TYPES: Array<{ value: DatasetDTO['type']; label: string }> = [
+  { value: 'static', label: '静态数据' },
+  { value: 'sql', label: 'SQL 查询' },
+  { value: 'api', label: 'API 接口' },
+  { value: 'csv', label: 'CSV 文件' },
+]
 
 export default function DatasetManagement() {
   const [keyword, setKeyword] = useState('')
@@ -24,32 +102,183 @@ export default function DatasetManagement() {
     [selectedId]
   )
 
+  // —— 新建 / 编辑 ——
+  const [editor, setEditor] = useState<(Partial<DatasetDTO> & { fields?: DatasetField[] }) | null>(null)
+  const [staticText, setStaticText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [dataSources, setDataSources] = useState<{ id: string; name: string; type: string }[]>([])
+
+  const loadSources = () => {
+    api.listDataEngineSources().then((r) => {
+      if (r.code === 0) setDataSources(r.data)
+    }).catch(() => {})
+  }
+
+  const openCreate = () => {
+    loadSources()
+    setEditor({ name: '', type: 'static', rowCount: 0, fields: [] })
+    setStaticText('')
+  }
+
+  const openEdit = async (d: DatasetDTO) => {
+    loadSources()
+    setEditor({ ...d, type: d.type ?? 'static' })
+    try {
+      const r = await api.getDataset(d.id)
+      if (r.code === 0) {
+        setEditor({ ...r.data, type: r.data.type ?? 'static' })
+        setStaticText(JSON.stringify(extractStaticRows(r.data.config), null, 2))
+      } else {
+        setStaticText('')
+      }
+    } catch {
+      setStaticText('')
+    }
+  }
+
+  const patchField = (key: string, patch: Partial<DatasetField>) => {
+    setEditor((e) =>
+      e ? { ...e, fields: (e.fields ?? []).map((f) => (f.fieldKey === key ? { ...f, ...patch } : f)) } : e
+    )
+  }
+
+  /** 解析静态数据 → 自动推断字段语义 */
+  const parseAndInfer = () => {
+    if (!editor) return
+    const rows = parseRows(staticText)
+    if (rows === null) {
+      message.warning('静态数据需为 JSON 数组，如 [{ "月份": "1月", "销售额": 120 }]')
+      return
+    }
+    if (rows.length === 0) {
+      message.warning('静态数据为空')
+      return
+    }
+    setEditor({ ...editor, fields: inferFields(rows), rowCount: rows.length })
+    message.success(`已解析 ${rows.length} 行，自动推断 ${rows.length ? Object.keys(rows[0]).length : 0} 个字段，可手动调整语义`)
+  }
+
+  const save = async () => {
+    if (!editor || !editor.name?.trim()) {
+      message.warning('请输入数据集名称')
+      return
+    }
+    setSaving(true)
+    try {
+      const isStatic = (editor.type ?? 'static') === 'static'
+      const rows = isStatic ? parseRows(staticText) : null
+      if (isStatic && rows === null) {
+        message.warning('静态数据需为 JSON 数组')
+        setSaving(false)
+        return
+      }
+      await api.saveDataset({
+        id: editor.id,
+        name: editor.name,
+        description: editor.description,
+        type: editor.type ?? 'static',
+        dataSourceId: editor.dataSourceId,
+        config: isStatic ? { data: rows ?? [] } : (editor.config ?? {}),
+        fields: editor.fields ?? [],
+        rowCount: isStatic ? (rows?.length ?? editor.rowCount) : editor.rowCount,
+      })
+      setEditor(null)
+      listState.reload()
+      message.success(editor.id ? '已保存' : '已创建')
+    } catch (e) {
+      message.error('保存失败：' + (e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const remove = async (d: DatasetDTO) => {
+    try {
+      await api.deleteDataset(d.id)
+      if (selectedId === d.id) setSelectedId(null)
+      listState.reload()
+      message.success('已删除')
+    } catch (e) {
+      message.error('删除失败：' + (e as Error).message)
+    }
+  }
+
+  // —— 列表 ——
   const rows = listState.data?.list ?? []
   const total = listState.data?.total ?? 0
 
-  // 数据集列表列（纯展示，muted 复用旧次级文字色）
   const columns: TableProps<DatasetDTO>['columns'] = [
     { title: '数据集', dataIndex: 'name', key: 'name' },
-    { title: '来源', dataIndex: 'sourceName', key: 'sourceName', render: (v: string) => <span className="muted">{v}</span> },
+    { title: '来源', dataIndex: 'sourceName', key: 'sourceName', render: (v: string) => <span className="muted">{v || '-'}</span> },
+    { title: '字段', key: 'fields', render: (_, d) => <span className="muted">{d.fields?.length ?? 0} 个</span> },
     { title: '行数', dataIndex: 'rowCount', key: 'rowCount', render: (v: number) => <span className="muted">{v?.toLocaleString() ?? '-'}</span> },
     { title: '更新', dataIndex: 'updatedAt', key: 'updatedAt', render: (v: string) => <span className="muted">{v}</span> },
+    {
+      title: '操作', key: 'actions', width: 120,
+      render: (_, d) => (
+        <>
+          <Button size="small" type="link" onClick={() => openEdit(d)}>编辑</Button>
+          <Button size="small" type="link" danger onClick={() => remove(d)}>删除</Button>
+        </>
+      ),
+    },
   ]
 
-  // 预览列由所选数据集 schema 动态生成；值为 'true' 的单元格保留 abnormal 标红
-  const previewColumns: TableProps<DatasetRow>['columns'] = (selected?.schema ?? []).map((f) => ({
-    title: f.field,
-    dataIndex: f.field,
-    key: f.field,
-    onCell: (row) => ({ className: String(row[f.field]) === 'true' ? 'abnormal' : '' }),
-    render: (v: string | number | boolean) => String(v),
+  // 预览列由所选数据集字段语义动态生成
+  const previewColumns: TableProps<DatasetRow>['columns'] = (selected?.fields ?? []).map((f) => ({
+    title: f.label || f.fieldKey,
+    dataIndex: f.fieldKey,
+    key: f.fieldKey,
+    render: (v: unknown) => String(v ?? ''),
   }))
+
+  const fieldColumns: TableProps<DatasetField>['columns'] = [
+    { title: '字段', dataIndex: 'fieldKey', key: 'fieldKey', width: 110, render: (v: string) => <b>{v}</b> },
+    {
+      title: '业务名称', dataIndex: 'label', key: 'label', width: 110,
+      render: (_, f) => <Input size="small" value={f.label} onChange={(e) => patchField(f.fieldKey, { label: e.target.value })} />,
+    },
+    {
+      title: '语义', dataIndex: 'semanticType', key: 'semanticType', width: 90,
+      render: (_, f) => (
+        <Select value={f.semanticType} onChange={(e) => patchField(f.fieldKey, { semanticType: e.target.value as DatasetField['semanticType'] })}>
+          <option value="dimension">维度</option>
+          <option value="metric">指标</option>
+        </Select>
+      ),
+    },
+    {
+      title: '聚合', dataIndex: 'aggregation', key: 'aggregation', width: 90,
+      render: (_, f) => (
+        <Select value={f.aggregation ?? 'none'} onChange={(e) => patchField(f.fieldKey, { aggregation: e.target.value })}>
+          {AGG_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+        </Select>
+      ),
+    },
+    {
+      title: '类型', dataIndex: 'fieldType', key: 'fieldType', width: 80,
+      render: (_, f) => (
+        <Select value={f.fieldType} onChange={(e) => patchField(f.fieldKey, { fieldType: e.target.value as DatasetField['fieldType'] })}>
+          {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </Select>
+      ),
+    },
+    {
+      title: '格式', dataIndex: 'format', key: 'format', width: 110,
+      render: (_, f) => <Input size="small" placeholder="如 ￥#,##0.00" value={f.format ?? ''} onChange={(e) => patchField(f.fieldKey, { format: e.target.value })} />,
+    },
+    {
+      title: '样例值', dataIndex: 'sampleValues', key: 'sampleValues',
+      render: (v: unknown[] | undefined) => <span className="muted">{(v ?? []).slice(0, 3).join(', ') || '-'}</span>,
+    },
+  ]
 
   return (
     <div className="feature-page">
       <div className="fp-head">
         <div>
           <h2 className="fp-title">数据集管理</h2>
-          <p className="fp-sub">基于数据源构建可复用数据集，供大屏与报表消费</p>
+          <p className="fp-sub">基于数据源构建可复用数据集，字段语义元信息供 AI 自动匹配组件数据</p>
         </div>
         <span className="fp-count">共 {total} 个数据集</span>
       </div>
@@ -67,6 +296,7 @@ export default function DatasetManagement() {
           }}
         />
         <Button onClick={() => listState.reload()}>刷新</Button>
+        <Button type="primary" onClick={openCreate}>＋ 新建数据集</Button>
       </div>
 
       <div className="ds-layout">
@@ -112,6 +342,61 @@ export default function DatasetManagement() {
           )}
         </div>
       </div>
+
+      {editor && (
+        <Modal title={editor.id ? `编辑数据集 · ${editor.name}` : '新建数据集'} onClose={() => setEditor(null)} width={920}>
+          <Field label="名称"><Input value={editor.name ?? ''} onChange={(e) => setEditor({ ...editor, name: e.target.value })} /></Field>
+          <Field label="描述"><Input value={editor.description ?? ''} onChange={(e) => setEditor({ ...editor, description: e.target.value })} /></Field>
+          <Field label="类型">
+            <Select value={editor.type ?? 'static'} onChange={(e) => setEditor({ ...editor, type: e.target.value as DatasetDTO['type'] })}>
+              {DATASET_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </Select>
+          </Field>
+          <Field label="数据源">
+            <Select
+              value={editor.dataSourceId ?? ''}
+              onChange={(e) => setEditor({ ...editor, dataSourceId: e.target.value || undefined })}
+              placeholder="可选，静态数据会自动创建"
+            >
+              <option value="">（自动 / 内置静态数据）</option>
+              {dataSources.map((s) => <option key={s.id} value={s.id}>{s.name}（{s.type}）</option>)}
+            </Select>
+          </Field>
+
+          {(editor.type ?? 'static') === 'static' && (
+            <Field label="静态数据">
+              <Textarea
+                style={{ minHeight: 100, fontFamily: 'monospace' }}
+                placeholder={'JSON 数组，如：\n[{ "月份": "1月", "销售额": 120 }, { "月份": "2月", "销售额": 200 }]'}
+                value={staticText}
+                onChange={(e) => setStaticText(e.target.value)}
+              />
+              <div className="fp-toolbar" style={{ marginTop: 6 }}>
+                <Button size="small" onClick={parseAndInfer}>⚡ 解析并自动推断字段</Button>
+                <span className="muted2" style={{ fontSize: 12 }}>字段语义（维度/指标、聚合方式）可手动调整，供 AI 自动匹配</span>
+              </div>
+            </Field>
+          )}
+
+          <Field label="字段语义">
+            <div style={{ maxHeight: 300, overflow: 'auto' }}>
+              <Table<DatasetField>
+                size="small"
+                rowKey="fieldKey"
+                columns={fieldColumns}
+                dataSource={editor.fields ?? []}
+                pagination={false}
+                locale={{ emptyText: (editor.type ?? 'static') === 'static' ? '粘贴静态数据并点击「解析并自动推断字段」' : '请手动配置字段' }}
+              />
+            </div>
+          </Field>
+
+          <div className="fp-toolbar" style={{ justifyContent: 'flex-end' }}>
+            <Button onClick={() => setEditor(null)}>取消</Button>
+            <Button type="primary" loading={saving} onClick={save}>保存</Button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

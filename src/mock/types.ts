@@ -295,22 +295,50 @@ export interface PluginDTO {
   rating: number
 }
 
+/** 数据集字段（语义层）：业务名称 + 维度/指标类型 + 聚合方式，AI 据此自动匹配字段 */
 export interface DatasetField {
-  field: string
-  type: 'string' | 'number' | 'date' | 'boolean'
+  /** 原始字段名/键（对应数据行中的 key） */
+  fieldKey: string
+  /** 业务名称（中文可读，AI 和用户都看这个，如 "销售额" "月份"） */
+  label: string
+  /** 数据类型 */
+  fieldType: 'string' | 'number' | 'date' | 'boolean'
+  /** 语义类型：维度（类目/横轴/标签） | 指标（数值/纵轴/值） */
+  semanticType: 'dimension' | 'metric'
+  /** 聚合方式：sum | avg | count | max | min | none（维度用 none） */
+  aggregation?: string
+  /** 显示格式：如 'yyyy-MM-dd'、'￥#,##0.00' */
+  format?: string
+  /** 补充说明（AI 理解用，如 "含税销售额，单位：元"） */
+  description?: string
+  /** 样例值（3-5 个代表性值，AI 快速感知数据形态） */
+  sampleValues?: unknown[]
+  sortOrder?: number
 }
+
+/** 数据集（与后端 dataset 模块对齐）：基于数据源构建，携带字段语义元信息，是 AI 自动匹配的直接对象 */
 export interface DatasetDTO {
   id: string
   name: string
-  sourceId: string
-  sourceName: string
+  projectId?: string
+  dataSourceId?: string
+  /** 来源数据源名称 */
+  sourceName?: string
+  description?: string
+  /** 数据集类型：sql | api | static | csv */
+  type: 'sql' | 'api' | 'static' | 'csv'
+  /** 查询配置（SQL 语句 / API 路径 / 静态数据 JSON 等） */
+  config?: unknown
+  status?: string
   rowCount: number
-  updatedAt: string
-  schema: DatasetField[]
+  /** 字段语义元信息 */
+  fields?: DatasetField[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface DatasetRow {
-  [key: string]: string | number | boolean
+  [key: string]: unknown
 }
 
 export type UserStatus = 'active' | 'disabled'

@@ -108,8 +108,8 @@ export default function AIAssistantPage() {
   const [customBaseURL, setCustomBaseURL] = useState('')
   const [customApiKey, setCustomApiKey] = useState('')
   const [customModel, setCustomModel] = useState('')
-  const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([])
-  const [dataSourceId, setDataSourceId] = useState<string | undefined>(undefined)
+  const [datasets, setDatasets] = useState<{ id: string; name: string }[]>([])
+  const [datasetId, setDatasetId] = useState<string | undefined>(undefined)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -118,8 +118,8 @@ export default function AIAssistantPage() {
       .then((r) => r.code === 0 && setModels(r.data.list))
       .catch(() => {})
     api
-      .listDataSources({ pageSize: 100 })
-      .then((r) => r.code === 0 && setDataSources(r.data.list.map((d) => ({ id: d.id, name: d.name }))))
+      .listDatasets({ pageSize: 100 })
+      .then((r) => r.code === 0 && setDatasets(r.data.list.map((d) => ({ id: d.id, name: d.name }))))
       .catch(() => {})
   }, [])
 
@@ -237,7 +237,7 @@ export default function AIAssistantPage() {
     } else if (selectedModel) {
       opts.modelId = selectedModel.id
     }
-    if (dataSourceId) opts.dataSourceId = dataSourceId
+    if (datasetId) opts.datasetId = datasetId
 
     api
       .aiDesign(prompt, opts)
@@ -378,11 +378,11 @@ export default function AIAssistantPage() {
                 <ModelSelector models={models} value={selectedModel} onChange={setSelectedModel} />
                 <Select
                   style={{ width: 200 }}
-                  placeholder="绑定数据源（可选，用于数据填充）"
+                  placeholder="绑定数据集（可选，AI 自动匹配字段）"
                   allowClear
-                  value={dataSourceId}
-                  onChange={(v) => setDataSourceId(v)}
-                  options={dataSources.map((d) => ({ value: d.id, label: d.name }))}
+                  value={datasetId}
+                  onChange={(v) => setDatasetId(v)}
+                  options={datasets.map((d) => ({ value: d.id, label: d.name }))}
                 />
                 <span style={{ fontSize: 13, color: '#9fb0cc' }}>
                   自定义模型
@@ -545,7 +545,9 @@ export default function AIAssistantPage() {
               {/* DataAgent：数据绑定结果 */}
               {displayData && (
                 <div style={{ fontSize: 13, color: '#7ee0a0' }}>
-                  已绑定数据源，注入 {displayData.rowCount} 行样例数据，字段：{displayData.columns.join('、')}
+                  {displayData.datasetName
+                    ? `已绑定数据集「${displayData.datasetName}」，注入 ${displayData.rowCount} 行样例数据，字段：${displayData.columns.join('、')}`
+                    : `已绑定数据源，注入 ${displayData.rowCount} 行样例数据，字段：${displayData.columns.join('、')}`}
                 </div>
               )}
 

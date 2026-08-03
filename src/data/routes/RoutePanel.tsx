@@ -1,26 +1,32 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { Button, Tree } from 'antd'
 import type { TreeDataNode } from 'antd'
-import { CloseOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
+import {
+  CloseOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
+  DesktopOutlined, ApiOutlined, DatabaseOutlined, AppstoreOutlined,
+  RobotOutlined, ToolOutlined, InboxOutlined, SettingOutlined,
+  ThunderboltOutlined, QuestionCircleOutlined, LinkOutlined, FileOutlined,
+} from '@ant-design/icons'
 import { useDesignerStore } from '../store/useDesignerStore'
 import type { RouteConfig } from '../types'
 import UserMenu from '../../auth/UserMenu'
 
-// 一级路由分类图标
-const ICONS: Record<string, string> = {
-  '/dashboard': '🖥️',
-  '/extension': '🔌',
-  '/data': '🗄️',
-  '/components': '🧩',
-  '/ai': '🤖',
-  '/dev': '🛠️',
-  '/resources': '📦',
-  '/system': '⚙️',
-  '/plugins': '🔧',
-  '/help': '❓',
-  '/others': '🔗'
+// 一级路由分类图标（SVG，保持 16px 一致）
+const ICONS: Record<string, ReactNode> = {
+  '/dashboard': <DesktopOutlined />,
+  '/extension': <ApiOutlined />,
+  '/data': <DatabaseOutlined />,
+  '/components': <AppstoreOutlined />,
+  '/ai': <RobotOutlined />,
+  '/dev': <ToolOutlined />,
+  '/resources': <InboxOutlined />,
+  '/system': <SettingOutlined />,
+  '/plugins': <ThunderboltOutlined />,
+  '/help': <QuestionCircleOutlined />,
+  '/others': <LinkOutlined />
 }
-const FALLBACK_ICON = '📄'
+const FALLBACK_ICON = <FileOutlined />
 
 interface RoutePanelProps {
   /** 是否折叠为仅图标状态 */

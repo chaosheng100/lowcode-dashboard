@@ -94,7 +94,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       }
       const remaining = s.routes.filter((r) => !toRemove.has(r.id))
       const nextSel = remaining[0]?.id ?? null
-      return { routes: remaining, selectedRouteId: nextSel, selectedId: null, filter: null }
+      return { routes: remaining, selectedRouteId: nextSel ?? undefined, selectedId: null, filter: null }
     })
   },
 
@@ -138,7 +138,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       const remaining = s.routes.filter((r) => r.id !== id)
       // 删除当前选中的大屏时清空选中，避免 AppRouter 的 store→URL 同步把列表页自动导航到其它大屏
       const nextSel = s.selectedRouteId === id ? null : s.selectedRouteId
-      return { routes: remaining, selectedRouteId: nextSel, selectedId: null, filter: null }
+      return { routes: remaining, selectedRouteId: nextSel ?? undefined, selectedId: null, filter: null }
     })
   },
 

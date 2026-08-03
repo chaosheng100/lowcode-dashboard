@@ -1,4 +1,10 @@
 import type { WidgetRegistry, WidgetType, WidgetMeta } from '../types'
+import { createElement } from 'react'
+import {
+  PictureOutlined, LineChartOutlined, BarChartOutlined, PieChartOutlined,
+  NumberOutlined, TableOutlined, BorderOutlined, DashboardOutlined,
+  RadarChartOutlined, SettingOutlined, GlobalOutlined, WarningOutlined,
+} from '@ant-design/icons'
 
 /**
  * 组件注册表：设计器与渲染器共用。
@@ -14,14 +20,14 @@ export const widgetRegistry: WidgetRegistry = {
   },
   image: {
     name: '图片',
-    icon: '🖼',
+    icon: createElement(PictureOutlined),
     category: '基础',
     defaultStyle: { x: 60, y: 140, w: 280, h: 180 },
     defaultProps: { src: 'https://picsum.photos/400/260', fit: 'cover' }
   },
   lineChart: {
     name: '折线图',
-    icon: '📈',
+    icon: createElement(LineChartOutlined),
     category: '图表',
     defaultStyle: { x: 60, y: 340, w: 460, h: 300 },
     defaultProps: {
@@ -39,7 +45,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   barChart: {
     name: '柱状图',
-    icon: '📊',
+    icon: createElement(BarChartOutlined),
     category: '图表',
     defaultStyle: { x: 560, y: 340, w: 460, h: 300 },
     defaultProps: {
@@ -57,7 +63,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   pieChart: {
     name: '饼图',
-    icon: '🥧',
+    icon: createElement(PieChartOutlined),
     category: '图表',
     defaultStyle: { x: 1060, y: 340, w: 360, h: 300 },
     defaultProps: {
@@ -74,7 +80,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   metric: {
     name: '指标卡',
-    icon: '🔢',
+    icon: createElement(NumberOutlined),
     category: '指标',
     defaultStyle: { x: 560, y: 60, w: 280, h: 120 },
     defaultProps: {
@@ -91,7 +97,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   table: {
     name: '表格',
-    icon: '▦',
+    icon: createElement(TableOutlined),
     category: '指标',
     defaultStyle: { x: 1060, y: 60, w: 460, h: 240 },
     defaultProps: {
@@ -109,7 +115,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   container: {
     name: '容器',
-    icon: '▢',
+    icon: createElement(BorderOutlined),
     category: '布局',
     defaultStyle: { x: 60, y: 680, w: 460, h: 200 },
     defaultProps: { label: '分组容器', background: 'rgba(79,140,255,0.05)' }
@@ -117,7 +123,7 @@ export const widgetRegistry: WidgetRegistry = {
   // —— ECharts 真实图表（画布内嵌 echarts 实例，支持数据集绑定 / 实时源 / 联动） ——
   echartLine: {
     name: 'ECharts 折线',
-    icon: '📉',
+    icon: createElement(LineChartOutlined),
     category: 'ECharts',
     defaultStyle: { x: 80, y: 80, w: 460, h: 300 },
     defaultProps: {
@@ -131,7 +137,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   echartBar: {
     name: 'ECharts 柱状',
-    icon: '🏙',
+    icon: createElement(BarChartOutlined),
     category: 'ECharts',
     defaultStyle: { x: 580, y: 80, w: 460, h: 300 },
     defaultProps: {
@@ -145,7 +151,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   echartPie: {
     name: 'ECharts 饼图',
-    icon: '🍩',
+    icon: createElement(PieChartOutlined),
     category: 'ECharts',
     defaultStyle: { x: 1080, y: 80, w: 380, h: 300 },
     defaultProps: {
@@ -159,14 +165,14 @@ export const widgetRegistry: WidgetRegistry = {
   },
   echartGauge: {
     name: 'ECharts 仪表盘',
-    icon: '⏲',
+    icon: createElement(DashboardOutlined),
     category: 'ECharts',
     defaultStyle: { x: 80, y: 420, w: 320, h: 280 },
     defaultProps: { title: '完成率', color: '#4ade80', gaugeValue: 72, gaugeMax: 100, data: [] }
   },
   echartRadar: {
     name: 'ECharts 雷达',
-    icon: '🕸',
+    icon: createElement(RadarChartOutlined),
     category: 'ECharts',
     defaultStyle: { x: 440, y: 420, w: 380, h: 300 },
     defaultProps: {
@@ -179,7 +185,7 @@ export const widgetRegistry: WidgetRegistry = {
   },
   echartCustom: {
     name: 'ECharts 自定义',
-    icon: '⚙',
+    icon: createElement(SettingOutlined),
     category: 'ECharts',
     defaultStyle: { x: 860, y: 420, w: 460, h: 300 },
     defaultProps: {
@@ -194,7 +200,7 @@ export const widgetRegistry: WidgetRegistry = {
   // —— 数字孪生：嵌入大屏的三维场景组件（与大屏图表双向联动） ——
   digitalTwin: {
     name: '数字孪生',
-    icon: '🌐',
+    icon: createElement(GlobalOutlined),
     category: '数字孪生',
     defaultStyle: { x: 80, y: 80, w: 480, h: 360 },
     defaultProps: {
@@ -215,7 +221,7 @@ export const widgetRegistry: WidgetRegistry = {
   // —— 孪生告警清单：仿真预测性维护产出的告警，点击反向定位 3D 实体 ——
   twinAlarm: {
     name: '孪生告警',
-    icon: '⚠',
+    icon: createElement(WarningOutlined),
     category: '数字孪生',
     defaultStyle: { x: 620, y: 460, w: 360, h: 300 },
     defaultProps: {
