@@ -1,9 +1,9 @@
 ---
 name: ai-data-binding
 description: AI 生成大屏时自动关联数据源、给组件绑定真实数据
-status: active
+status: done
 started: 2026-08-01
-completed: 
+completed: 2026-08-03
 metadata:
   type: task
   area: ai
@@ -25,9 +25,9 @@ metadata:
 - [x] 确定路线：分 5 步走，先做第 1+2 步（语义字段 + AI 自动匹配）
 - [x] 第 1 步：数据集加语义字段元信息（业务名称、维度/指标类型、聚合方式）
 - [x] 第 2 步：AI 生成时自动匹配数据集 + 字段映射（替代硬编码首列/第二列）
-- [ ] 第 3 步（后续）：运行时动态拉取数据
-- [ ] 第 4 步（后续）：AI 推荐图表类型
-- [ ] 第 5 步（后续）：自然语言 SQL 生成
+- [x] 第 3 步：运行时动态拉取数据（dataset-binder.ts + runtime 注入，已验证通过）
+- [x] 第 4 步：AI 推荐图表类型（chart-recommender.ts 规则引擎 + API + prompt 注入）
+- [x] 第 5 步：预编 SQL 方案（砍掉 NL2SQL，数据集 config.sql 经 SqlConnector 直连执行）
 
 ## 方案（2026-08-03 实施第 1+2 步）
 前端侧与后端联动：
@@ -42,6 +42,7 @@ metadata:
 - **DataEngine.ts** / ResourcePanel / PropertyPanel 保持 `queryDataset` 消费，兼容
 
 ## 结果 & 经验
+- 2026-08-03 后端完成第 3-5 步并验证；前端契约已联动（数据集下拉、queryDataset body 传参、运行时绑定字段）
 - 前端 `vite build` 通过；后端 `tsc` 通过
-- ⚠️ 后端数据库不可达（`59.110.241.244:3306`），Dataset/DatasetField 表 migration 未 apply；需恢复后执行 `npx prisma migrate deploy` 才能联调
+- ⚠️ 早期记录：后端数据库不可达（`59.110.241.244:3306`），Dataset/DatasetField 表 migration 未 apply；Step 3/5 验证时数据库已恢复，若再联调仍建议确认 `npx prisma migrate deploy` 状态
 - 经验：mock 层已全部转发真实后端，接口契约必须与后端 dataset 模块逐字段对齐（返回形状、字段名、query 传参方式）

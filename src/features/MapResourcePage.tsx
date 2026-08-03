@@ -39,7 +39,7 @@ export default function MapResourcePage() {
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
                   <b style={{ color: '#e6edf3' }}>{m.name}</b><Tag>{PROVIDER_LABEL[m.provider]}</Tag>
                 </div>
-                <div className="muted2" style={{ margin: '6px 0' }}>中心 {m.center.join(', ')} · 缩放 {m.zoom}</div>
+                <div className="muted2" style={{ margin: '6px 0' }}>中心 {m.center?.join(', ') ?? '—'} · 缩放 {m.zoom}</div>
                 <div className="fp-toolbar" style={{ marginTop: 6 }}>
                   <Button size="small" onClick={() => setEditing(m)}>编辑</Button>
                   <Button size="small" danger onClick={() => remove(m.id)}>删除</Button>
