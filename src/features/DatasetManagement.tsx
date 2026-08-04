@@ -61,13 +61,32 @@ function extractStaticRows(config: unknown): unknown[] {
   if (typeof config === 'string') {
     try {
       const c = JSON.parse(config)
-      return Array.isArray(c.data) ? c.data : []
+      return Array.isArray(c.data) ? c.data : Array.isArray(c.rows) ? c.rows : []
     } catch {
       return []
     }
   }
   const c = config as Record<string, unknown>
-  return Array.isArray(c.data) ? (c.data as unknown[]) : []
+  return Array.isArray(c.data)
+    ? (c.data as unknown[])
+    : Array.isArray(c.rows)
+      ? (c.rows as unknown[])
+      : []
+}
+
+/** 将 config 统一解析为对象，供编辑回填与保存合并使用 */
+function parseConfig(config: unknown): Record<string, unknown> {
+  if (typeof config === 'string') {
+    try {
+      const c = JSON.parse(config)
+      return c && typeof c === 'object' ? (c as Record<string, unknown>) : {}
+    } catch {
+      return {}
+    }
+  }
+  return config && typeof config === 'object'
+    ? (config as Record<string, unknown>)
+    : {}
 }
 
 const AGG_OPTIONS = ['sum', 'avg', 'count', 'max', 'min', 'none']
@@ -97,15 +116,17 @@ export default function DatasetManagement() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = listState.data?.list.find((d) => d.id === selectedId) || null
-  const queryState = useApi<{ list: DatasetRow[]; total: number }>(
-    () => (selectedId ? api.queryDataset(selectedId, { pageSize: 12 }) : Promise.resolve({ code: 0, message: 'ok', data: { list: [], total: 0 } })),
+  const queryState = useApi<{ list: DatasetRow[]; total: number; columns: string[] }>(
+    () => (selectedId ? api.queryDataset(selectedId, { pageSize: 12 }) : Promise.resolve({ code: 0, message: 'ok', data: { list: [], total: 0, columns: [] } })),
     [selectedId]
   )
 
   // —— 新建 / 编辑 ——
   const [editor, setEditor] = useState<(Partial<DatasetDTO> & { fields?: DatasetField[] }) | null>(null)
   const [staticText, setStaticText] = useState('')
+  const [sqlText, setSqlText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [generatingFields, setGeneratingFields] = useState(false)
   const [dataSources, setDataSources] = useState<{ id: string; name: string; type: string }[]>([])
 
   const loadSources = () => {
@@ -118,6 +139,7 @@ export default function DatasetManagement() {
     loadSources()
     setEditor({ name: '', type: 'static', rowCount: 0, fields: [] })
     setStaticText('')
+    setSqlText('')
   }
 
   const openEdit = async (d: DatasetDTO) => {
@@ -126,13 +148,17 @@ export default function DatasetManagement() {
     try {
       const r = await api.getDataset(d.id)
       if (r.code === 0) {
-        setEditor({ ...r.data, type: r.data.type ?? 'static' })
+        const cfg = parseConfig(r.data.config)
+        setEditor({ ...r.data, type: r.data.type ?? 'static', config: cfg })
         setStaticText(JSON.stringify(extractStaticRows(r.data.config), null, 2))
+        setSqlText(typeof cfg.sql === 'string' ? cfg.sql : '')
       } else {
         setStaticText('')
+        setSqlText('')
       }
     } catch {
       setStaticText('')
+      setSqlText('')
     }
   }
 
@@ -140,6 +166,71 @@ export default function DatasetManagement() {
     setEditor((e) =>
       e ? { ...e, fields: (e.fields ?? []).map((f) => (f.fieldKey === key ? { ...f, ...patch } : f)) } : e
     )
+  }
+
+  /** 手动新增一个字段，供 SQL/API 等无查询结果的场景配置语义 */
+  const addField = () => {
+    if (!editor) return
+    const fields = editor.fields ?? []
+    const used = new Set(fields.map((f) => f.fieldKey))
+    let n = fields.length + 1
+    while (used.has(`field_${n}`)) n += 1
+    const fieldKey = `field_${n}`
+    setEditor({
+      ...editor,
+      fields: [
+        ...fields,
+        {
+          fieldKey,
+          label: fieldKey,
+          fieldType: 'string',
+          semanticType: 'dimension',
+          aggregation: 'none',
+          sampleValues: [],
+          sortOrder: fields.reduce((m, f) => Math.max(m, f.sortOrder ?? 0), 0) + 1,
+        },
+      ],
+    })
+  }
+
+  /** 根据数据集查询结果的列生成字段语义，保留已手动编辑的字段 */
+  const generateFieldsFromQuery = async () => {
+    if (!editor?.id) return
+    setGeneratingFields(true)
+    try {
+      const r = await api.queryDataset(editor.id, { pageSize: 50 })
+      const rows = r.data.list ?? []
+      const inferred: DatasetField[] = rows.length
+        ? inferFields(rows)
+        : (r.data.columns ?? []).map((c) => ({
+            fieldKey: c,
+            label: c,
+            fieldType: 'string',
+            semanticType: 'dimension',
+            aggregation: 'none',
+            sampleValues: [],
+            sortOrder: 0,
+          }))
+      if (!inferred.length) {
+        message.warning('查询结果为空，请手动添加字段')
+        return
+      }
+      const existing = editor.fields ?? []
+      const byKey = new Map(existing.map((f) => [f.fieldKey, f]))
+      const maxSort = existing.reduce((m, f) => Math.max(m, f.sortOrder ?? 0), 0)
+      const merged = inferred.map((f) => {
+        const old = byKey.get(f.fieldKey)
+        return old ? old : { ...f, sortOrder: (f.sortOrder ?? 0) + maxSort + 1 }
+      })
+      const known = new Set(inferred.map((f) => f.fieldKey))
+      const kept = existing.filter((f) => !known.has(f.fieldKey))
+      setEditor({ ...editor, fields: [...merged, ...kept] })
+      message.success(`已从查询结果生成 ${inferred.length} 个字段，可继续调整语义`)
+    } catch (e) {
+      message.error('从查询结果生成失败：' + (e as Error).message)
+    } finally {
+      setGeneratingFields(false)
+    }
   }
 
   /** 解析静态数据 → 自动推断字段语义 */
@@ -165,6 +256,19 @@ export default function DatasetManagement() {
     }
     setSaving(true)
     try {
+      const fields = editor.fields ?? []
+      const emptyKey = fields.find((f) => !f.fieldKey?.trim())
+      if (emptyKey) {
+        message.warning('字段名不能为空')
+        setSaving(false)
+        return
+      }
+      const keys = new Set(fields.map((f) => f.fieldKey.trim()))
+      if (keys.size !== fields.length) {
+        message.warning('字段名不能重复')
+        setSaving(false)
+        return
+      }
       const isStatic = (editor.type ?? 'static') === 'static'
       const rows = isStatic ? parseRows(staticText) : null
       if (isStatic && rows === null) {
@@ -172,14 +276,19 @@ export default function DatasetManagement() {
         setSaving(false)
         return
       }
+      const cfg = parseConfig(editor.config)
       await api.saveDataset({
         id: editor.id,
         name: editor.name,
         description: editor.description,
         type: editor.type ?? 'static',
         dataSourceId: editor.dataSourceId,
-        config: isStatic ? { data: rows ?? [] } : (editor.config ?? {}),
-        fields: editor.fields ?? [],
+        config: isStatic
+          ? { data: rows ?? [] }
+          : (editor.type ?? '') === 'sql'
+            ? { ...cfg, sql: sqlText }
+            : cfg,
+        fields,
         rowCount: isStatic ? (rows?.length ?? editor.rowCount) : editor.rowCount,
       })
       setEditor(null)
@@ -224,16 +333,26 @@ export default function DatasetManagement() {
     },
   ]
 
-  // 预览列由所选数据集字段语义动态生成
-  const previewColumns: TableProps<DatasetRow>['columns'] = (selected?.fields ?? []).map((f) => ({
-    title: f.label || f.fieldKey,
-    dataIndex: f.fieldKey,
-    key: f.fieldKey,
-    render: (v: unknown) => String(v ?? ''),
-  }))
+  // 预览列以查询结果真实列为主，缺失时回退到字段语义元信息
+  const queryColumnKeys =
+    queryState.data?.columns?.length
+      ? queryState.data.columns
+      : (selected?.fields ?? []).map((f) => f.fieldKey)
+  const previewColumns: TableProps<DatasetRow>['columns'] = queryColumnKeys.map((key) => {
+    const field = selected?.fields?.find((f) => f.fieldKey === key)
+    return {
+      title: field?.label || key,
+      dataIndex: key,
+      key,
+      render: (v: unknown) => String(v ?? ''),
+    }
+  })
 
   const fieldColumns: TableProps<DatasetField>['columns'] = [
-    { title: '字段', dataIndex: 'fieldKey', key: 'fieldKey', width: 110, render: (v: string) => <b>{v}</b> },
+    {
+      title: '字段', dataIndex: 'fieldKey', key: 'fieldKey', width: 110,
+      render: (_, f) => <Input size="small" value={f.fieldKey} onChange={(e) => patchField(f.fieldKey, { fieldKey: e.target.value })} />,
+    },
     {
       title: '业务名称', dataIndex: 'label', key: 'label', width: 110,
       render: (_, f) => <Input size="small" value={f.label} onChange={(e) => patchField(f.fieldKey, { label: e.target.value })} />,
@@ -378,11 +497,29 @@ export default function DatasetManagement() {
             </Field>
           )}
 
+          {(editor.type ?? 'static') === 'sql' && (
+            <Field label="预编 SQL">
+              <Textarea
+                style={{ minHeight: 120, fontFamily: 'monospace' }}
+                placeholder="SELECT * FROM datasource LIMIT 50"
+                value={sqlText}
+                onChange={(e) => setSqlText(e.target.value)}
+              />
+            </Field>
+          )}
+
           <Field label="字段语义">
+            <div className="fp-toolbar" style={{ marginBottom: 6 }}>
+              <Button size="small" onClick={addField}>＋ 添加字段</Button>
+              {editor.id && (editor.type ?? 'static') !== 'static' && (
+                <Button size="small" loading={generatingFields} onClick={generateFieldsFromQuery}>⚡ 从查询结果生成字段</Button>
+              )}
+              <span className="muted2" style={{ fontSize: 12 }}>可手动调整业务名称与语义，供 AI 自动匹配</span>
+            </div>
             <div style={{ maxHeight: 300, overflow: 'auto' }}>
               <Table<DatasetField>
                 size="small"
-                rowKey="fieldKey"
+                rowKey={(_, i) => String(i)}
                 columns={fieldColumns}
                 dataSource={editor.fields ?? []}
                 pagination={false}
