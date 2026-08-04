@@ -671,13 +671,17 @@ const sqlConsoleHandler = async (req, res) => {
   try {
     out = await runSql(id, dsType, endpoint, cred, sql, [])
   } catch (e) {
+    if (req.body?.simulate !== true) {
+      return res.status(502).json({ code: 502, message: `真实查询失败：${String(e.message || e)}`, data: null })
+    }
     simulated = true
     fallbackReason = String(e.message || e).slice(0, 200)
     out = simulateSql(`console:${dsType}:${endpoint}`, sql)
   }
   const elapsedMs = Date.now() - t0
+  const tableRows = out.rows.map((row) => (Array.isArray(row) ? row : out.columns.map((col) => row[col])))
   audit({ userId: req.user.id, action: 'sql.console', elapsedMs, rows: out.rows.length, simulated, ip: req.ip })
-  res.json({ code: 0, data: { ...out, elapsedMs, simulated, fallbackReason }, message: 'ok' })
+  res.json({ code: 0, data: { ...out, rows: tableRows, elapsedMs, simulated, fallbackReason }, message: 'ok' })
 }
 app.post('/proxy/sql-console', requireAuth, sqlConsoleHandler)
 app.post('/proxy/sql', requireAuth, sqlConsoleHandler)

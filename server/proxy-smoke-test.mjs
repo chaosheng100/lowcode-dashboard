@@ -94,7 +94,7 @@ async function main() {
     const nsRes = await postJson('http://localhost:5175/proxy/sql-console', { sql: 'UPDATE orders SET amount = 1' })
     check('console non-select 403', nsRes.status === 403)
 
-    const csRes = await postJson('http://localhost:5175/proxy/sql-console', { sql: 'SELECT region AS name, amount AS value FROM orders LIMIT 5' })
+    const csRes = await postJson('http://localhost:5175/proxy/sql-console', { sql: 'SELECT region AS name, amount AS value FROM orders LIMIT 5', simulate: true })
     const csJson = await csRes.json()
     check('console select simulated', csRes.status === 200 && csJson.data?.simulated === true)
 

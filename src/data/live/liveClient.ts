@@ -110,7 +110,7 @@ export function subscribeLive(sourceId: string, cb: LiveCallback, intervalMs = 2
 }
 
 /** 通过代理执行一次 SQL 查询（真实链路，代理不可用时抛错由调用方降级） */
-export async function querySqlViaProxy(payload: { dsType: string; endpoint: string; sql: string }): Promise<{ columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean }> {
+export async function querySqlViaProxy(payload: { dsType: string; endpoint: string; sql: string; simulate?: boolean }): Promise<{ columns: string[]; rows: Array<Record<string, unknown> | unknown[]>; elapsedMs: number; simulated?: boolean }> {
   const res = await fetch(`${PROXY_HTTP}/proxy/sql`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },

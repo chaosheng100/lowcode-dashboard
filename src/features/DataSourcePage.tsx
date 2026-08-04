@@ -57,9 +57,9 @@ export default function DataSourcePage() {
   // —— SQL 查询控制台（经后端代理真实取数） ——
   const [proxyOn, setProxyOn] = useState<boolean | null>(null)
   const [sqlConsole, setSqlConsole] = useState<DataSourceDTO | null>(null)
-  const [sql, setSql] = useState('SELECT region AS name, amount AS value FROM orders LIMIT 8')
+  const [sql, setSql] = useState('SELECT id, email, name, status, lastLoginAt FROM user LIMIT 8')
   const [sqlBusy, setSqlBusy] = useState(false)
-  const [sqlOut, setSqlOut] = useState<{ columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean; fallbackReason?: string } | null>(null)
+  const [sqlOut, setSqlOut] = useState<{ columns: string[]; rows: Array<Record<string, unknown> | unknown[]>; elapsedMs: number; simulated?: boolean; fallbackReason?: string } | null>(null)
   const [sqlErr, setSqlErr] = useState('')
 
   useEffect(() => { proxyHealth().then(setProxyOn) }, [])
@@ -71,7 +71,8 @@ export default function DataSourcePage() {
       const out = await querySqlViaProxy({
         dsType: sqlConsole.vendor || 'mysql',
         endpoint: sqlConsole.endpoint,
-        sql
+        sql,
+        simulate: false
       })
       setSqlOut(out)
     } catch (e) {
@@ -185,7 +186,7 @@ export default function DataSourcePage() {
       {sqlConsole && (
         <Modal title={`SQL 查询控制台 · ${sqlConsole.name}（${VENDOR_LABEL[sqlConsole.vendor || 'other']}）`} onClose={() => setSqlConsole(null)}>
           <div className="muted2" style={{ marginBottom: 8 }}>
-            经数据代理（localhost:5175）执行只读查询；已安装真实驱动（mysql2/pg）时直连数据库，否则返回模拟结果并标注。
+            经数据代理（localhost:5175）执行只读查询；查询失败会返回真实错误，不再静默生成模拟数据。
           </div>
           <Textarea style={{ minHeight: 90 }} value={sql} onChange={(e) => setSql(e.target.value)} />
           <div className="fp-toolbar" style={{ margin: '10px 0' }}>
@@ -200,11 +201,18 @@ export default function DataSourcePage() {
                   : <span style={{ color: '#4ade80' }}>真实查询</span>}
                 {' '}· {sqlOut.rows.length} 行 · {sqlOut.elapsedMs}ms
               </div>
-              <Table<unknown[]>
+              <Table<Record<string, unknown> | unknown[]>
                 size="small"
                 rowKey={(_, i) => String(i)}
                 pagination={false}
-                columns={sqlOut.columns.map((c, j) => ({ title: c, key: c, render: (_v: unknown, row: unknown[]) => <span className="muted">{String(row[j] ?? '')}</span> }))}
+                columns={sqlOut.columns.map((c, j) => ({
+                  title: c,
+                  key: c,
+                  render: (_v: unknown, row: Record<string, unknown> | unknown[]) => {
+                    const cell = Array.isArray(row) ? row[j] : row[c]
+                    return <span className="muted">{String(cell ?? '')}</span>
+                  }
+                }))}
                 dataSource={sqlOut.rows}
               />
             </>
