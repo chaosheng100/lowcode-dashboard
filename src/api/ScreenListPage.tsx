@@ -436,7 +436,7 @@ export default function ScreenListPage() {
         okText="保存"
         cancelText="取消"
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Switch checked={policyRequired} onChange={setPolicyRequired} />
             <span>开启后，大屏必须先提交审核并通过才能发布</span>
@@ -466,7 +466,7 @@ export default function ScreenListPage() {
             onChange={(e) => setReviewNote(e.target.value)}
           />
         ) : (
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space orientation="vertical" style={{ width: '100%' }} size="middle">
             <Radio.Group value={reviewApproved} onChange={(e) => setReviewApproved(e.target.value)}>
               <Radio value>通过</Radio>
               <Radio value={false}>驳回</Radio>
@@ -520,8 +520,8 @@ export default function ScreenListPage() {
         footer={null}
         width={680}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Alert type="info" showIcon message="令牌只用于嵌入访问，签名密钥由服务端保管" />
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
+          <Alert type="info" showIcon title="令牌只用于嵌入访问，签名密钥由服务端保管" />
           <div style={{ display: 'flex', gap: 12 }}>
             <div>
               <div style={{ marginBottom: 4 }}>有效期（秒）</div>
@@ -587,9 +587,9 @@ export default function ScreenListPage() {
         cancelText="关闭"
         width={780}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           {!deployEnvs.length && (
-            <Alert type="warning" showIcon message="暂无部署环境，请先在主应用的「独立部署」页创建" />
+            <Alert type="warning" showIcon title="暂无部署环境，请先在主应用的「独立部署」页创建" />
           )}
           <div style={{ display: 'flex', gap: 12 }}>
             <Select

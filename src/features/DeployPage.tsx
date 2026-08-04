@@ -436,13 +436,13 @@ export default function DeployPage() {
           style={{ marginTop: 12 }}
           type="info"
           showIcon
-          message="连接测试输出"
+          title="连接测试输出"
           description={<pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 12 }}>{gitTestOutput}</pre>}
         />
       )}
       <div style={{ marginTop: 20, display: 'grid', gap: 14, gridTemplateColumns: 'minmax(320px, 460px) 1fr' }}>
         <Card title="执行同步" size="small">
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space orientation="vertical" style={{ width: '100%' }} size="middle">
             <Select
               placeholder="选择 Git 配置"
               value={gitRunConfigId || undefined}
@@ -480,7 +480,7 @@ export default function DeployPage() {
               <Alert
                 type={gitRunResult.startsWith('同步失败') ? 'error' : 'success'}
                 showIcon
-                message={gitRunResult}
+                title={gitRunResult}
               />
             )}
           </Space>
@@ -587,7 +587,7 @@ export default function DeployPage() {
         okText="保存"
         cancelText="取消"
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           <Input
             placeholder="配置名称（可选）"
             value={gitConfigForm.name}
