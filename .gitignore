@@ -21,3 +21,6 @@ npm-debug.log*
 .env.local
 .env.*.local
 
+# 数据代理运行产物（注册表 / 审计日志，凭据不入库）
+server/data/
+

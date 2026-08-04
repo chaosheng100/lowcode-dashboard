@@ -11,8 +11,23 @@ export interface LivePoint {
 }
 export type LiveCallback = (data: LivePoint[], meta: { transport: 'proxy' | 'mock'; ts: number }) => void
 
-const PROXY_HTTP = 'http://localhost:5175'
-const PROXY_WS = 'ws://localhost:5175/stream'
+import { getToken, useAuthStore } from '../../auth/store'
+
+const PROXY_HTTP = (import.meta.env.VITE_PROXY_URL as string | undefined) || 'http://localhost:5175'
+const PROXY_WS = `${PROXY_HTTP.replace(/^http/, 'ws')}/stream`
+
+function authHeaders(): Record<string, string> {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** 代理侧登录态失效：清空本地会话并回到登录页，避免继续携带过期 token */
+function handleAuthFailure(message: string): never {
+  useAuthStore.getState().logout()
+  const h = (location.hash || '').replace(/^#/, '')
+  if (h !== '/login' && h !== '/register') location.hash = '#/login'
+  throw new Error(message)
+}
 
 interface Sub {
   sourceId: string
@@ -44,7 +59,8 @@ function ensureWs() {
   if (wsTried) return
   wsTried = true
   try {
-    ws = new WebSocket(PROXY_WS)
+    const token = getToken()
+    ws = new WebSocket(`${PROXY_WS}?token=${encodeURIComponent(token || '')}`)
     ws.onopen = () => {
       wsReady = true
       // 把现有订阅切换到代理：先停掉 mock 定时器再注册
@@ -97,18 +113,28 @@ export function subscribeLive(sourceId: string, cb: LiveCallback, intervalMs = 2
 export async function querySqlViaProxy(payload: { dsType: string; endpoint: string; sql: string }): Promise<{ columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean }> {
   const res = await fetch(`${PROXY_HTTP}/proxy/sql`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload)
   })
-  if (!res.ok) throw new Error(`proxy ${res.status}`)
-  return res.json()
+  const json = await res.json() as { code: number; message: string; data: { columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean } }
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) handleAuthFailure(json.message || `登录态无效，请重新登录`)
+    throw new Error(json.message || `proxy ${res.status}`)
+  }
+  if (json.code !== 0) throw new Error(json.message || `proxy ${json.code}`)
+  return json.data
 }
 
 /** 通过代理订阅 MQTT 主题（一次性拉取代理侧缓存的最近消息） */
 export async function queryMqttViaProxy(topic: string): Promise<{ topic: string; messages: { ts: number; payload: unknown }[] }> {
-  const res = await fetch(`${PROXY_HTTP}/proxy/mqtt?topic=${encodeURIComponent(topic)}`)
-  if (!res.ok) throw new Error(`proxy ${res.status}`)
-  return res.json()
+  const res = await fetch(`${PROXY_HTTP}/proxy/mqtt?topic=${encodeURIComponent(topic)}`, { headers: authHeaders() })
+  const json = await res.json() as { code: number; message: string; data: { topic: string; messages: { ts: number; payload: unknown }[] } }
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) handleAuthFailure(json.message || `登录态无效，请重新登录`)
+    throw new Error(json.message || `proxy ${res.status}`)
+  }
+  if (json.code !== 0) throw new Error(json.message || `proxy ${json.code}`)
+  return json.data
 }
 
 /** 检查代理是否在线 */

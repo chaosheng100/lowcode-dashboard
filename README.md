@@ -37,6 +37,21 @@ npm run preview
 
 > 依赖仅 `react` / `react-dom` / `zustand`，开发依赖含 `typescript` 与 `@types/*`，安装快、无重型图表库。
 
+## 数据代理（BFF）
+
+```bash
+# 启动数据代理（默认 http://localhost:5175）
+npm run proxy
+
+# 本地联调跳过鉴权（不接 3000 后端时）
+PROXY_AUTH_DISABLED=1 npm run proxy
+```
+
+- 健康检查：`http://localhost:5175/health`
+- 鉴权默认对接现有后端 `AUTH_PROFILE_URL`（`Authorization: Bearer <token>`）
+- 数据集查询统一走 `POST /proxy/datasets/:id/query`，SQL 模板仅允许只读语句并参数化执行
+- 数据源凭据通过环境变量 `DS_CRED_<REF>_USER/PASS/DB` 配置，注册表不落明文
+
 ## 使用步骤
 
 1. 点击顶部「加载示例」一键生成含多页面路由的联动大屏项目；

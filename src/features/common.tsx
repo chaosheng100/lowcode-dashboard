@@ -18,9 +18,15 @@ export function Section({ title, desc, right, children }: { title: string; desc?
 }
 
 /** 表单字段（横排 Form.Item，label 宽 110px 对齐旧 .field） */
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <Form.Item label={label} colon={false} labelCol={{ flex: '110px' }} style={{ marginBottom: 10 }}>
+    <Form.Item
+      label={label}
+      colon={false}
+      labelCol={{ flex: '110px' }}
+      style={{ marginBottom: 10 }}
+      extra={hint ? <div className="field-hint">{hint}</div> : undefined}
+    >
       {children}
     </Form.Item>
   )

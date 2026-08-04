@@ -243,6 +243,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
 /* Property panel */
 .field { margin-bottom: 8px; }
 .field label { display: block; font-size: 11.5px; color: var(--sub); margin-bottom: 3px; }
+.field-hint { color: var(--sub); font-size: 12px; line-height: 1.5; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .empty-tip { color: var(--sub); font-size: 12.5px; text-align: center; padding: 32px 10px; line-height: 1.9; }
 

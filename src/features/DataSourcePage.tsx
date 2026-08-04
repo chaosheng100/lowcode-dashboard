@@ -16,6 +16,29 @@ const VENDOR_LABEL: Record<SqlVendor, string> = {
   starrocks: 'StarRocks', oracle: 'Oracle', other: '其他(可扩展)'
 }
 const KINDS: DsKind[] = ['static', 'api', 'sql', 'websocket', 'mqtt', 'flow', 'crawler']
+const ENDPOINT_HINTS: Record<DsKind, string> = {
+  static: '静态数据源无需填写地址，保存后在画布选择「内置数据集」即可。',
+  api: '示例：https://api.example.com/v1/data?page=1&size=20',
+  sql: '示例：10.20.1.10:3306 或 jdbc:mysql://10.20.1.10:3306/dbname',
+  websocket: '示例：wss://stream.example.com/device 或 ws://host:port/path',
+  mqtt: '示例：mqtt://broker.example.com:1883（TLS 用 mqtts://）',
+  flow: '示例：flow://engine/order（流程引擎地址/服务元素）',
+  crawler: '示例：https://news.example.com/list（爬取目标 URL）'
+}
+const VENDOR_HINTS: Record<SqlVendor, string> = {
+  mysql: '示例：10.20.1.10:3306 或 jdbc:mysql://10.20.1.10:3306/dbname',
+  sqlserver: '示例：10.20.2.20:1433 或 jdbc:sqlserver://host:1433;databaseName=db',
+  postgres: '示例：10.20.1.11:5432 或 jdbc:postgresql://host:5432/dbname',
+  starrocks: '示例：10.20.2.21:9030（BE 查询端口）',
+  oracle: '示例：10.20.3.30:1521/service_name',
+  other: 'host:port 或数据库驱动连接串'
+}
+const PARSE_HINTS: Record<ParseMode, string> = {
+  json: '响应体 JSON 结构，如 { "code": 0, "data": [...] }',
+  xml: '响应体 XML 结构，如 <data><item>...</item></data>',
+  html: '爬虫元素结构，如 <ul class="list"><li>...</li></ul>',
+  script: '脚本表达式，返回数组或对象数据'
+}
 
 /**
  * 数据源配置：覆盖规范全部来源类型（静态 / API / SQL[多库] / WebSocket / MQTT / Flow / 爬虫解析）。
@@ -52,7 +75,7 @@ export default function DataSourcePage() {
       })
       setSqlOut(out)
     } catch (e) {
-      setSqlErr('代理服务不可达（请先运行 npm run proxy 启动数据代理，端口 5175）：' + (e as Error).message)
+      setSqlErr('查询失败（请确认数据代理已通过 npm run proxy 启动）：' + (e as Error).message)
     } finally { setSqlBusy(false) }
   }
   const test = async (id: string) => {
@@ -136,15 +159,20 @@ export default function DataSourcePage() {
               </Select>
             </Field>
           )}
-          <Field label="作用域">
+          <Field label="作用域" hint="公共数据集可被所有大屏复用，独立数据集仅作为当前项目缓存">
             <Select value={editing.scope || 'public'} onChange={(e) => setEditing({ ...editing, scope: e.target.value as 'public' | 'private' })}>
               <option value="public">公共数据集</option>
               <option value="private">独立数据集</option>
             </Select>
           </Field>
-          <Field label="地址 / 连接串"><Input value={editing.endpoint || ''} onChange={(e) => setEditing({ ...editing, endpoint: e.target.value })} /></Field>
+          <Field
+            label="地址 / 连接串"
+            hint={editing.kind === 'sql' ? VENDOR_HINTS[editing.vendor || 'mysql'] : ENDPOINT_HINTS[editing.kind || 'api']}
+          >
+            <Input value={editing.endpoint || ''} onChange={(e) => setEditing({ ...editing, endpoint: e.target.value })} />
+          </Field>
           {(editing.kind === 'api' || editing.kind === 'crawler') && (
-            <Field label="数据解析">
+            <Field label="数据解析" hint={PARSE_HINTS[editing.parseMode || 'json']}>
               <Select value={editing.parseMode || 'json'} onChange={(e) => setEditing({ ...editing, parseMode: e.target.value as ParseMode })}>
                 <option value="json">JSON</option><option value="xml">XML</option><option value="html">HTML(爬虫)</option><option value="script">脚本</option>
               </Select>
