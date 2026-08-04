@@ -10,13 +10,6 @@
   overflow: hidden;
 }
 
-.mg-title {
-  font-size: 15px; font-weight: 700;
-  background: var(--accent-grad);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  letter-spacing: 1px;
-}
-
 /* 鈥斺€?鎼滅储妗?鈥斺€?*/
 .mg-search {
   margin-left: auto; width: 240px;
@@ -31,7 +24,7 @@
 }
 .mg-search::placeholder { color: var(--sub); }
 
-.mg-sort-label { color: var(--sub); font-size: 12px; }
+.mg-sort-label { color: var(--sub); font-size: 12px; white-space: nowrap; }
 .mg-select {
   padding: 8px 10px; border-radius: var(--r-md);
   border: 1px solid var(--line); background: var(--bg);
@@ -128,13 +121,14 @@
 /* 鈥斺€?鍝嶅簲寮?鈥斺€?*/
 @media (max-width: 560px) {
   .mg { overflow: auto; }
-  .mg-toolbar { align-items: stretch; flex-wrap: wrap; padding: 12px 14px; }
-  .mg-title { display: block; width: 100%; }
-  .mg-search { order: 1; width: 100%; min-height: 44px; margin-left: 0; font-size: 16px; }
+  .mg-toolbar { align-items: stretch; flex-wrap: wrap; row-gap: 10px; padding: 12px 14px; }
+  .mg-title { display: block; flex: 0 0 100%; }
+  .mg-toolbar .ant-input-affix-wrapper { order: 1; flex: 1 1 100%; min-height: 44px; margin-left: 0; font-size: 16px; }
   .mg-sort-label { display: none; }
-  .mg-select, .mg-order, .mg-new { order: 2; min-height: 44px; }
-  .mg-select { min-width: 0; flex: 1; font-size: 16px; }
-  .mg-new { order: 3; width: 100%; }
+  .mg-toolbar .ant-select,
+  .mg-toolbar .ant-btn-default { order: 2; min-height: 44px; }
+  .mg-toolbar .ant-select { min-width: 0; flex: 1; font-size: 16px; }
+  .mg-toolbar .ant-btn-primary { order: 3; width: 100%; min-height: 44px; }
   .mg-grid { flex: none; grid-template-columns: 1fr; gap: 12px; padding: 14px; overflow: visible; }
   .mg-thumb { height: 154px; }
   .mg-open-row { display: grid; grid-template-columns: repeat(4, 1fr); }
