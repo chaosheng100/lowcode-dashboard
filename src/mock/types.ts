@@ -259,6 +259,9 @@ export interface TwinSceneModel {
   }
   /** GLTF 内嵌动画名 */
   animation?: string
+  /** GIS 经纬度 */
+  lat?: number
+  lng?: number
   /** 数据绑定：实时源 + 字段映射 */
   bindings?: { liveSourceId?: string; fields?: Record<string, string> }
 }
@@ -275,6 +278,8 @@ export interface TwinSceneDTO {
   models: TwinSceneModel[]
   lighting: 'day' | 'night'
   fog: boolean
+  /** GIS 融合配置（引用地图资源中心/缩放） */
+  gis?: { mapResourceId?: string; center?: [number, number]; zoom?: number; tilesetUrl?: string }
   status: TwinSceneStatus
   dashboardId?: string
   lastSyncAt?: string
@@ -283,6 +288,10 @@ export interface TwinSceneDTO {
   deployEnv?: string
   approvalNote?: string
   deployedAt?: string
+  /** 场景协同权限：所有者 / 编辑者 / 查看者 */
+  acl?: { owner?: string; editors?: string[]; viewers?: string[] }
+  /** 乐观并发版本号，保存时作为 baseRevision */
+  revision?: number
   keyframes?: Record<string, TwinKeyframeDTO[]>
   duration?: number
   annotations?: Array<{
@@ -293,6 +302,12 @@ export interface TwinSceneDTO {
     color?: string
   }>
   updatedAt: string
+}
+
+export interface TwinEditLock {
+  userId: string
+  userName?: string
+  expiresAt: number
 }
 
 // ---------------- 物联组态：设备 + 告警规则 ----------------

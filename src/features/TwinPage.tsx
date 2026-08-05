@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Button, ColorPicker, Input as AntInput, InputNumber, Select } from 'antd'
+import { App, Button, ColorPicker, Input as AntInput, InputNumber, Select } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import {
   AppstoreOutlined,
@@ -10,6 +10,7 @@ import {
   DeleteOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  GlobalOutlined,
   LockOutlined,
   LineOutlined,
   MoonOutlined,
@@ -113,7 +114,7 @@ function makeAssetEntity(model: TwinModelDTO, x: number, z: number): TwinEntity 
 interface TwinPageProps {
   scene?: TwinScene
   readOnly?: boolean
-  onSave?: (patch: Partial<TwinScene>) => void
+  onSave?: (patch: Partial<TwinScene>) => void | Promise<unknown>
 }
 
 // 模块编辑器作为独立的孪生运行时会话（与大屏中的数字孪生组件互不串数据）
@@ -121,8 +122,10 @@ const TWIN_MODULE_INSTANCE = 'twin-module'
 
 export default function TwinPage(props: TwinPageProps = {}) {
   const { scene: externalScene, readOnly, onSave } = props
+  const { message } = App.useApp()
   const navigate = useNavigate()
   const { data: models } = useApi(() => api.listTwinModels({ pageSize: 200 }), [])
+  const { data: mapData } = useApi(() => api.listMaps({ pageSize: 100 }), [])
   const rt = useTwinRuntimeStore((s) => s.instances[TWIN_MODULE_INSTANCE]) ?? EMPTY_TWIN_INSTANCE
 
   // 命令式接口（拖拽/属性/关键帧/控制操作经由共享内核 TwinSceneView）
@@ -139,6 +142,13 @@ export default function TwinPage(props: TwinPageProps = {}) {
 
   const [lighting, setLighting] = useState<'day' | 'night'>(storeScene?.env?.lighting ?? 'day')
   const [fog, setFog] = useState<boolean>(storeScene?.env?.fog ?? false)
+  const [gisEnabled, setGisEnabled] = useState(!!storeScene?.env?.gis)
+  const [gisCfg, setGisCfg] = useState<TwinScene['env']['gis']>(storeScene?.env?.gis)
+  const [gisMapId, setGisMapId] = useState(storeScene?.env?.gis?.mapResourceId ?? '')
+  const [revision, setRevision] = useState<number>(storeScene?.revision ?? 1)
+  const revisionRef = useRef<number>(revision)
+  const [lockInfo, setLockInfo] = useState<string | null>(null)
+  const lockInfoRef = useRef<string | null>(null)
   const [activePreset, setActivePreset] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [keyframes, setKeyframes] = useState<Record<string, Keyframe[]>>({})
@@ -157,6 +167,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const [measuring, setMeasuring] = useState(false)
   const [annotations, setAnnotations] = useState<TwinAnnotation[]>(storeScene?.annotations ?? [])
   const annotationsRef = useRef<TwinAnnotation[]>(annotations)
+  const gisCfgRef = useRef<TwinScene['env']['gis']>(gisCfg)
   const [animClips, setAnimClips] = useState<string[]>([])
   const [playingAnim, setPlayingAnim] = useState(false)
   const [testRow, setTestRow] = useState<Record<string, unknown> | null>(null)
@@ -171,11 +182,14 @@ export default function TwinPage(props: TwinPageProps = {}) {
     entitiesRef.current = entities
     keyframesRef.current = keyframes
     annotationsRef.current = annotations
-  }, [entities, keyframes, annotations])
+    gisCfgRef.current = gisCfg
+    revisionRef.current = revision
+    lockInfoRef.current = lockInfo
+  }, [entities, keyframes, annotations, gisCfg, revision, lockInfo])
 
   const sceneOf = useCallback(
-    (ents: TwinEntity[]): TwinScene => ({ id: 'editor', name: '编辑场景', entities: ents, env: { lighting, fog } }),
-    [lighting, fog]
+    (ents: TwinEntity[]): TwinScene => ({ id: 'editor', name: '编辑场景', entities: ents, env: { lighting, fog, gis: gisCfg }, revision }),
+    [lighting, fog, gisCfg, revision]
   )
 
   // 同步 refs
@@ -225,33 +239,81 @@ export default function TwinPage(props: TwinPageProps = {}) {
     return stop
   }, [])
 
+  useEffect(() => {
+    if (readOnly) return
+    let stop = false
+    const acquire = async () => {
+      try {
+        const r = await api.lockTwinScene(activeSceneId)
+        if (stop) return
+        if (r.code === 409) {
+          const msg = r.message || '场景正在被其他用户编辑'
+          setLockInfo(msg)
+          lockInfoRef.current = msg
+        } else {
+          setLockInfo(null)
+          lockInfoRef.current = null
+        }
+      } catch {
+        if (!stop) {
+          setLockInfo(null)
+          lockInfoRef.current = null
+        }
+      }
+    }
+    acquire()
+    const timer = setInterval(acquire, 30000)
+    return () => {
+      stop = true
+      clearInterval(timer)
+      api.unlockTwinScene(activeSceneId).catch(() => undefined)
+    }
+  }, [activeSceneId, readOnly])
+
   // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
   useEffect(() => {
     const id = externalScene?.id ?? (useDesignerStore.getState().activeTwinSceneId || 'main')
-    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog }, annotations)
-  }, [entities, lighting, fog, annotations, externalScene])
+    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog, gis: gisCfg }, annotations)
+  }, [entities, lighting, fog, gisCfg, annotations, externalScene])
 
   // 场景变更时通过 onSave 回调写回 API（防抖 1.5s，避免频繁请求）
   useEffect(() => {
     if (!onSave) return
     const timer = setTimeout(() => {
-      const scene: TwinScene = { id: activeSceneId, name: storeScene?.name ?? '', entities, env: { lighting, fog }, annotations }
-      onSave(scene)
+      if (lockInfoRef.current) return
+      const scene: TwinScene = {
+        id: activeSceneId,
+        name: storeScene?.name ?? '',
+        entities,
+        env: { lighting, fog, gis: gisCfg },
+        annotations,
+        revision: revisionRef.current
+      }
+      Promise.resolve(onSave(scene)).then((r) => {
+        const resp = r as { code?: number; message?: string } | undefined
+        if (resp?.code === 409) {
+          message.error(resp.message || '场景已被他人更新')
+          setLockInfo(resp.message || '场景已被他人更新，已停止自动保存')
+        } else if (resp?.code === 0) {
+          setRevision((rev) => rev + 1)
+        }
+      })
     }, 1500)
     return () => clearTimeout(timer)
-  }, [entities, lighting, fog, annotations, onSave, activeSceneId, storeScene?.name])
+  }, [entities, lighting, fog, gisCfg, annotations, onSave, activeSceneId, storeScene?.name, message])
 
   // 退出编辑页时：清理仿真告警 + 最终回写 API
   useEffect(() => () => {
     useTwinRuntimeStore.getState().clearAlarms(TWIN_MODULE_INSTANCE)
     // 最终保存：确保不丢失未触发的防抖
-    if (onSave) {
+    if (onSave && !lockInfoRef.current) {
       const scene: TwinScene = {
         id: activeSceneId,
         name: storeScene?.name ?? '',
         entities: entitiesRef.current,
-        env: { lighting, fog },
-        annotations: annotationsRef.current
+        env: { lighting, fog, gis: gisCfgRef.current },
+        annotations: annotationsRef.current,
+        revision: revisionRef.current
       }
       onSave(scene)
     }
@@ -473,6 +535,37 @@ export default function TwinPage(props: TwinPageProps = {}) {
     viewRef.current?.setAnnotations([])
   }
 
+  const toggleGis = () => {
+    const next = !gisEnabled
+    const maps = mapData?.list ?? []
+    const map = maps.find((m) => m.id === gisMapId) ?? maps[0]
+    const cfg = next && map ? { mapResourceId: map.id, center: map.center, zoom: map.zoom } : undefined
+    setGisEnabled(next)
+    setGisMapId(map?.id ?? '')
+    setGisCfg(cfg)
+    viewRef.current?.setGis(cfg)
+  }
+
+  const setLatLng = (lat?: number, lng?: number) => {
+    if (!selectedId) return
+    const cur = entities.find((o) => o.id === selectedId)
+    if (!cur) return
+    const nextLat = lat ?? cur.lat
+    const nextLng = lng ?? cur.lng
+    const c = gisCfg?.center
+    const M = 111320
+    const x = c && nextLng !== undefined ? (nextLng - c[1]) * M : cur.x
+    const z = c && nextLat !== undefined ? -(nextLat - c[0]) * M : cur.z
+    updateSelected({ lat: nextLat, lng: nextLng, x, z })
+  }
+
+  const updateTilesetUrl = (v: string) => {
+    const next: TwinScene['env']['gis'] = { ...(gisCfg ?? {}), tilesetUrl: v.trim() || undefined }
+    setGisCfg(next)
+    setGisEnabled(true)
+    viewRef.current?.setTileset(v.trim() || undefined)
+  }
+
   const playEntityAnimation = (id: string, clip?: string) => {
     if (!clip) {
       viewRef.current?.playAnimation(id, null)
@@ -563,6 +656,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
 
   return (
     <div className="feature-page">
+      {lockInfo && <div className="twin-lock-banner">{lockInfo}</div>}
       <div className="fp-head">
         <div>
           <h2 className="fp-title">数字孪生 3D 编辑器{readOnly ? '（预览）' : ''}</h2>
@@ -681,6 +775,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
             <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} icon={<MoonOutlined />} onClick={() => setLighting('night')}>夜景</Button>
             <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效 {fog ? '开' : '关'}</Button>
             <Button size="small" type={measuring ? 'primary' : 'default'} icon={<LineOutlined />} onClick={toggleMeasure}>{measuring ? '测量中' : '测量'}</Button>
+            <Button size="small" type={gisEnabled ? 'primary' : 'default'} icon={<GlobalOutlined />} onClick={toggleGis}>{gisEnabled ? 'GIS 开' : 'GIS'}</Button>
             <span className="muted2 twin-toolbar-hint">
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>
@@ -823,6 +918,31 @@ export default function TwinPage(props: TwinPageProps = {}) {
                       </div>
                     </div>
                   </div>
+                  {gisEnabled && (
+                    <div className="twin-divider">
+                      <div className="muted2 twin-section-label">GIS 定位</div>
+                      <div className="twin-field">
+                        <span className="twin-field-label">纬度</span>
+                        <InputNumber style={{ width: '100%' }} step={0.0001} value={selected.lat}
+                          onChange={(v) => setLatLng(v ?? undefined, undefined)} />
+                      </div>
+                      <div className="twin-field">
+                        <span className="twin-field-label">经度</span>
+                        <InputNumber style={{ width: '100%' }} step={0.0001} value={selected.lng}
+                          onChange={(v) => setLatLng(undefined, v ?? undefined)} />
+                      </div>
+                      <div className="twin-field">
+                        <span className="twin-field-label">倾斜摄影</span>
+                        <div className="twin-field-ctrl">
+                          <Input
+                            placeholder="/tiles/tileset.json 或 http(s)://..."
+                            value={gisCfg?.tilesetUrl ?? ''}
+                            onChange={(e) => updateTilesetUrl(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {pred && (
                     <div className="twin-divider twin-pred">

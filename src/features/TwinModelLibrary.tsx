@@ -5,6 +5,7 @@ import {
   AppstoreOutlined,
   ArrowLeftOutlined,
   CloseOutlined,
+  CompressOutlined,
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
@@ -25,6 +26,7 @@ import { Field, Modal, Tag } from './common'
 import { useApi } from './useApi'
 import { generateModelThumbnail } from '../twin/modelThumbnail'
 import { convertToGlb, isConvertibleModel } from '../twin/modelConvert'
+import { compressGlb } from '../twin/gltfCompress'
 
 const CATEGORIES: TwinCategory[] = ['建筑', '设备', '交通', '自然', '人物', '其他']
 const CATEGORY_COLORS: Record<string, string> = {
@@ -87,6 +89,7 @@ export default function TwinModelLibrary() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [editing, setEditing] = useState<TwinModelDTO | null>(null)
+  const [compressingId, setCompressingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editCategory, setEditCategory] = useState<TwinCategory>('其他')
   const [editTags, setEditTags] = useState<string[]>([])
@@ -108,9 +111,9 @@ export default function TwinModelLibrary() {
 
   const pickFiles = (list: FileList | null) => {
     if (!list) return
-    const ok = Array.from(list).filter((f) => /\.(glb|gltf|bin|obj|fbx)$/i.test(f.name))
+    const ok = Array.from(list).filter((f) => /\.(glb|gltf|bin|obj|fbx|dae|ifc|skp|pts|xyz)$/i.test(f.name))
     if (!ok.length) {
-      message.warning('仅支持 .glb / .gltf / .bin / .obj / .fbx 模型文件')
+      message.warning('仅支持 .glb / .gltf / .bin / .obj / .fbx / .dae / .ifc / .skp / .pts / .xyz 模型文件')
       return
     }
     setUploadFiles((prev) => [...prev, ...ok])
@@ -273,6 +276,29 @@ export default function TwinModelLibrary() {
     reload()
   }
 
+  const compressModel = async (m: TwinModelDTO) => {
+    if (!m.assetUrl) {
+      message.warning('该模型没有可压缩的文件')
+      return
+    }
+    setCompressingId(m.id)
+    try {
+      const res = await fetch(m.assetUrl)
+      if (!res.ok) throw new Error('下载模型文件失败')
+      const buf = await res.arrayBuffer()
+      const compressed = await compressGlb(buf)
+      const file = new File([compressed], `${m.name}-compressed.glb`, { type: 'model/gltf-binary' })
+      const uploaded = await api.uploadTwinModelFile(m.id, file)
+      if (uploaded.code !== 0) throw new Error(uploaded.message)
+      message.success(`「${m.name}」已压缩为新版本 v${uploaded.data.version}`)
+      reload()
+    } catch (e) {
+      message.error(`压缩失败：${(e as Error).message}`)
+    } finally {
+      setCompressingId(null)
+    }
+  }
+
   return (
     <div className="feature-page">
       <div className="fp-head">
@@ -362,6 +388,7 @@ export default function TwinModelLibrary() {
                     {m.status === 'active' && (
                       <Button size="small" type="text" onClick={() => setModelStatus(m, 'inactive')}>下架</Button>
                     )}
+                    <Button size="small" type="text" icon={<CompressOutlined />} loading={compressingId === m.id} onClick={() => compressModel(m)}>压缩</Button>
                     <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => publishToMarket(m)}>设为共享</Button>
                     <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)}>预览</Button>
                     <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)}>编辑</Button>
@@ -396,11 +423,11 @@ export default function TwinModelLibrary() {
             onClick={() => fileInputRef.current?.click()}
           >
             <InboxOutlined />
-            <div>点击选择或拖入 .glb / .gltf / .bin / .obj / .fbx 文件</div>
+            <div>点击选择或拖入 .glb / .gltf / .bin / .obj / .fbx / .dae / .ifc / .skp / .pts / .xyz 文件</div>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".glb,.gltf,.bin,.obj,.fbx"
+              accept=".glb,.gltf,.bin,.obj,.fbx,.dae,.ifc,.skp,.pts,.xyz"
               multiple
               hidden
               onChange={(e) => {

@@ -67,6 +67,9 @@ export interface TwinEntity {
   material?: TwinEntityMaterial
   /** 选中的 GLTF 内嵌动画名（资产模型播放） */
   animation?: string
+  /** GIS 经纬度（配合场景 GIS 配置换算场景坐标） */
+  lat?: number
+  lng?: number
 }
 
 /** 孪生场景（一组实体 + 环境配置） */
@@ -74,7 +77,13 @@ export interface TwinScene {
   id: string
   name: string
   entities: TwinEntity[]
-  env: { lighting: 'day' | 'night'; fog: boolean }
+  env: {
+    lighting: 'day' | 'night'
+    fog: boolean
+    gis?: { mapResourceId?: string; center?: [number, number]; zoom?: number; tilesetUrl?: string }
+  }
+  /** 乐观并发版本号（后端递增） */
+  revision?: number
   camera?: { x: number; y: number; z: number }
   /** 测量标注（两点地面距离） */
   annotations?: TwinAnnotation[]

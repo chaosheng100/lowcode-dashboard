@@ -33,6 +33,7 @@ import type {
   ProviderCatalogItem,
   TwinModelDTO,
   TwinSceneDTO,
+  TwinEditLock,
   IoTDeviceDTO,
   IoTAlarmRuleDTO,
   DataEntryDTO,
@@ -363,6 +364,8 @@ export const api = {
   saveTwinScene: (body: Partial<TwinSceneDTO>) =>
     mockFetch<TwinSceneDTO>(body.id ? 'PATCH' : 'POST', `/api/twinScenes${body.id ? '/' + body.id : ''}`, { body }),
   deleteTwinScene: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinScenes/${id}`),
+  lockTwinScene: (id: string) => mockFetch<TwinEditLock>('POST', `/api/twinScenes/${id}/lock`, {}),
+  unlockTwinScene: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinScenes/${id}/lock`),
 
   // —— 物联组态 ——
   listIoTDevices: (q: PageQuery = {}) => mockFetch<PageResult<IoTDeviceDTO>>('GET', '/api/iotDevices', { query: q }),

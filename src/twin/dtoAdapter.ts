@@ -27,6 +27,8 @@ export function modelToEntity(m: TwinSceneModel): TwinEntity {
     locked: m.locked,
     material: m.material,
     animation: m.animation,
+    lat: m.lat,
+    lng: m.lng,
     bindings: m.bindings
   }
 }
@@ -51,6 +53,8 @@ export function entityToModel(e: TwinEntity, modelId?: string): TwinSceneModel {
     locked: e.locked,
     material: e.material,
     animation: e.animation,
+    lat: e.lat,
+    lng: e.lng,
     bindings: e.bindings
   }
 }
@@ -61,7 +65,8 @@ export function dtoToScene(dto: TwinSceneDTO): TwinScene {
     id: dto.id,
     name: dto.name,
     entities: (dto.models ?? []).map(modelToEntity),
-    env: { lighting: dto.lighting, fog: dto.fog },
+    env: { lighting: dto.lighting, fog: dto.fog, gis: dto.gis },
+    revision: dto.revision,
     camera: { x: 8, y: 7, z: 10 },
     annotations: dto.annotations
   }
@@ -76,7 +81,9 @@ export function sceneToDTO(scene: Partial<TwinScene>): Partial<TwinSceneDTO> {
   if (scene.env) {
     patch.lighting = scene.env.lighting
     patch.fog = scene.env.fog
+    patch.gis = scene.env.gis
   }
+  if (scene.revision !== undefined) patch.revision = scene.revision
   if (scene.annotations) patch.annotations = scene.annotations
   return patch
 }

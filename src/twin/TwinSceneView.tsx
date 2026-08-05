@@ -53,6 +53,8 @@ export interface TwinSceneViewController {
   addAnnotation: (a: TwinAnnotation) => void
   removeAnnotation: (id: string) => void
   setAnnotations: (list: TwinAnnotation[]) => void
+  setGis: (gis?: TwinScene['env']['gis']) => void
+  setTileset: (url?: string) => void
   updateEntityTransform: (id: string, t: { x?: number; y?: number; z?: number; rotationY?: number; scale?: number }) => void
   setEntityColor: (id: string, color: string) => void
   setEntityState: (id: string, state: TwinEntityState) => void
@@ -127,6 +129,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     renderer.setLabelVisible(showLabels !== false)
     renderer.setClickHandler((id) => onSelectCbRef.current?.(id))
     renderer.setAnnotations(scene.annotations ?? [])
+    renderer.setGis(scene.env.gis)
+    renderer.setTileset(scene.env.gis?.tilesetUrl)
     rendererRef.current = renderer
     simRef.current = new TwinSim(scene.entities)
     controlHubRef.current = new TwinControlHub(instanceId)
@@ -200,6 +204,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     addAnnotation: (a) => rendererRef.current?.addAnnotation(a),
     removeAnnotation: (id) => rendererRef.current?.removeAnnotation(id),
     setAnnotations: (list) => rendererRef.current?.setAnnotations(list),
+    setGis: (gis) => rendererRef.current?.setGis(gis),
+    setTileset: (url) => rendererRef.current?.setTileset(url),
     updateEntityTransform: (id, t) => rendererRef.current?.updateEntityTransform(id, t),
     setEntityColor: (id, color) => rendererRef.current?.setEntityColor(id, color),
     setEntityState: (id, state) => rendererRef.current?.setEntityState(id, state),

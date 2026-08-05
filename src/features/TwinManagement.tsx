@@ -5,7 +5,8 @@ import {
   AuditOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  DesktopOutlined
+  DesktopOutlined,
+  TeamOutlined
 } from '@ant-design/icons'
 import PluginManagement from './PluginManagement'
 import TwinModelLibrary from './TwinModelLibrary'
@@ -13,6 +14,7 @@ import { api } from '../mock'
 import type { TwinSceneDTO } from '../mock/types'
 import { Tag, Field, Modal } from './common'
 import { useApi } from './useApi'
+import { useAuthStore } from '../auth/store'
 import TwinPage from './TwinPage'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { dtoToScene, sceneToDTO } from '../twin/dtoAdapter'
@@ -26,6 +28,15 @@ const TWIN_STATUS: Record<TwinSceneDTO['status'], { text: string; color: string 
   online: { text: '在线', color: '#4ade80' },
   maintenance: { text: '维护', color: '#facc15' },
   offline: { text: '离线', color: '#94a3b8' }
+}
+
+export function canEditScene(scene: TwinSceneDTO, userId?: string | null): boolean {
+  const acl = scene.acl
+  if (!acl || !acl.owner) return true
+  const user = useAuthStore.getState().user
+  if (user?.roles?.some((r) => r.code === 'admin' || r.code === 'super_admin')) return true
+  if (!userId) return false
+  return userId === acl.owner || (acl.editors ?? []).includes(userId)
 }
 
 function formatTime(iso?: string): string {
@@ -59,7 +70,7 @@ function TwinThumb({ scene, label }: { scene: TwinSceneDTO; label: string }) {
 
 function TwinSceneHost({ item, save, readOnly }: {
   item: TwinSceneDTO
-  save?: (patch: Partial<TwinSceneDTO>) => Promise<void>
+  save?: (patch: Partial<TwinSceneDTO>) => Promise<unknown>
   readOnly?: boolean
 }) {
   const upsertTwinScene = useDesignerStore((s) => s.upsertTwinScene)
@@ -91,7 +102,7 @@ function TwinSceneHost({ item, save, readOnly }: {
       readOnly={readOnly}
       onSave={readOnly ? undefined : async (patch) => {
         const dtoPatch = sceneToDTO(patch)
-        await save?.({ ...dtoPatch, id: resolved.id })
+        return save?.({ ...dtoPatch, id: resolved.id })
       }}
     />
   )
@@ -113,9 +124,14 @@ export default function TwinManagement() {
   const { message } = App.useApp()
   const { data: envData } = useApi(() => api.listDeployEnvs(), [])
   const envs = envData?.list ?? []
+  const { data: userData } = useApi(() => api.rbac.listUsers({ pageSize: 100 }), [])
+  const users = userData?.list ?? []
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const [listTick, setListTick] = useState(0)
   const [approval, setApproval] = useState<{ scene: TwinSceneDTO; env: string; note: string } | null>(null)
   const [approving, setApproving] = useState(false)
+  const [aclModal, setAclModal] = useState<{ scene: TwinSceneDTO; owner: string; editors: string[]; viewers: string[] } | null>(null)
+  const [aclSaving, setAclSaving] = useState(false)
 
   const openDeploy = (scene: TwinSceneDTO) => {
     setDeploying(scene)
@@ -203,6 +219,36 @@ export default function TwinManagement() {
     }
   }
 
+  const openAcl = (scene: TwinSceneDTO) => {
+    const acl = scene.acl ?? {}
+    setAclModal({
+      scene,
+      owner: acl.owner ?? currentUserId ?? '',
+      editors: acl.editors ?? [],
+      viewers: acl.viewers ?? []
+    })
+  }
+
+  const saveAcl = async () => {
+    if (!aclModal) return
+    setAclSaving(true)
+    try {
+      const resp = await api.saveTwinScene({
+        id: aclModal.scene.id,
+        acl: { owner: aclModal.owner, editors: aclModal.editors, viewers: aclModal.viewers }
+      })
+      if (resp.code !== 0) {
+        message.error(resp.message)
+        return
+      }
+      message.success('协同权限已保存')
+      setAclModal(null)
+      setListTick((t) => t + 1)
+    } finally {
+      setAclSaving(false)
+    }
+  }
+
   if (view === 'models') return <TwinModelLibrary />
 
   return (
@@ -233,11 +279,23 @@ export default function TwinManagement() {
               {s.deployStatus === 'pending' && <Tag color="#f59e0b">待审批</Tag>}
               {s.deployStatus === 'approved' && <Tag color="#4ade80">已发布{s.deployEnv ? ` · ${s.deployEnv}` : ''}</Tag>}
               {s.deployStatus === 'rejected' && <Tag color="#ef4444">已驳回</Tag>}
+              {(s.acl?.owner || (s.acl?.editors?.length ?? 0) > 0) && (
+                <Tag color="#818cf8">协同 {1 + (s.acl?.editors?.length ?? 0) + (s.acl?.viewers?.length ?? 0)}人</Tag>
+              )}
             </div>
           )
         }}
         renderActions={(scene) => (
           <>
+            <Button
+              size="small"
+              type="link"
+              icon={<TeamOutlined />}
+              title="协同权限"
+              onClick={(e) => { e.stopPropagation(); openAcl(scene) }}
+            >
+              权限
+            </Button>
             <Button
               size="small"
               type="link"
@@ -259,7 +317,7 @@ export default function TwinManagement() {
           </>
         )}
         renderEditor={(item, save) => (
-          <TwinSceneHost key={item.id || 'blank'} item={item} save={save} />
+          <TwinSceneHost key={item.id || 'blank'} item={item} readOnly={!canEditScene(item, currentUserId)} save={save} />
         )}
         renderPreview={(item) => (
           <TwinSceneHost key={item.id || 'blank'} item={item} readOnly />
@@ -340,6 +398,47 @@ export default function TwinManagement() {
                 <Button type="primary" loading={approving} onClick={submitApproval}>提交审批</Button>
               </>
             )}
+          </div>
+        </Modal>
+      )}
+
+      {aclModal && (
+        <Modal title={`协同权限 · ${aclModal.scene.name || '未命名场景'}`} onClose={() => !aclSaving && setAclModal(null)}>
+          <Field label="所有者">
+            <Select
+              style={{ width: '100%' }}
+              value={aclModal.owner || undefined}
+              onChange={(v) => setAclModal((a) => (a ? { ...a, owner: v } : a))}
+              options={
+                users.length
+                  ? users.map((u) => ({ value: u.id, label: u.name }))
+                  : [{ value: currentUserId ?? '', label: '当前用户' }]
+              }
+            />
+          </Field>
+          <Field label="可编辑">
+            <Select
+              mode="multiple"
+              style={{ width: '100%' }}
+              value={aclModal.editors}
+              onChange={(v) => setAclModal((a) => (a ? { ...a, editors: v } : a))}
+              options={users.map((u) => ({ value: u.id, label: u.name }))}
+              placeholder="选择可编辑成员"
+            />
+          </Field>
+          <Field label="可查看">
+            <Select
+              mode="multiple"
+              style={{ width: '100%' }}
+              value={aclModal.viewers}
+              onChange={(v) => setAclModal((a) => (a ? { ...a, viewers: v } : a))}
+              options={users.map((u) => ({ value: u.id, label: u.name }))}
+              placeholder="选择只读成员"
+            />
+          </Field>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button disabled={aclSaving} onClick={() => setAclModal(null)}>取消</Button>
+            <Button type="primary" loading={aclSaving} disabled={!aclModal.owner} onClick={saveAcl}>保存权限</Button>
           </div>
         </Modal>
       )}

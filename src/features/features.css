@@ -992,6 +992,7 @@
 
 .twin-editor { display: grid; grid-template-columns: 180px minmax(0, 1fr) 260px; gap: 12px; align-items: start; }
 .twin-editor.twin-preview { grid-template-columns: minmax(0, 1fr); }
+.twin-lock-banner { margin-bottom: 8px; padding: 8px 12px; border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1); color: #fbbf24; border-radius: 8px; font-size: 12px; }
 .twin-panel { min-width: 0; }
 .twin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .twin-panel-title { color: var(--sub); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }

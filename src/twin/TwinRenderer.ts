@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { SimplifyModifier } from 'three/examples/jsm/modifiers/SimplifyModifier.js'
+import { TilesRenderer } from '3d-tiles-renderer'
 import type {
   TwinScene,
   TwinEntity,
@@ -141,6 +142,8 @@ export class TwinRenderer {
   private entityStates = new Map<string, TwinEntityState>()
   private annotations = new Map<string, { group: THREE.Group; line: THREE.Line; d1: THREE.Mesh; d2: THREE.Mesh; label: THREE.Sprite }>()
   private annotationLayer = new THREE.Group()
+  private gisLayer: THREE.Group | null = null
+  private tiles: TilesRenderer | null = null
   /** 当前实体快照（供编辑页 TwinPage 读取/操作，与渲染网格保持同步） */
   private entities: TwinEntity[] = []
   private highlight: THREE.LineSegments | null = null
@@ -276,6 +279,74 @@ export class TwinRenderer {
     lm.map?.dispose()
     lm.dispose()
     this.annotations.delete(id)
+  }
+
+  /** 切换 GIS 融合叠加层（坐标环/十字/指北/中心标注），center 为 [lat, lng] */
+  setGis(gis?: { center?: [number, number]; zoom?: number }): void {
+    if (this.gisLayer) {
+      this.scene.remove(this.gisLayer)
+      this.gisLayer.traverse((o) => {
+        const anyObj = o as unknown as { geometry?: THREE.BufferGeometry; material?: THREE.Material; map?: THREE.Texture }
+        if (anyObj.geometry) anyObj.geometry.dispose()
+        if (anyObj.material) anyObj.material.dispose()
+        const spriteMat = o as unknown as { material?: THREE.SpriteMaterial }
+        if (spriteMat.material?.map) spriteMat.material.map.dispose()
+      })
+      this.gisLayer = null
+    }
+    if (!gis?.center) return
+    const [lat, lng] = gis.center
+    const radius = 60 + (gis.zoom ?? 12) * 8
+    const group = new THREE.Group()
+    const circlePts: THREE.Vector3[] = []
+    for (let i = 0; i <= 64; i++) {
+      const a = (i / 64) * Math.PI * 2
+      circlePts.push(new THREE.Vector3(Math.cos(a) * radius, 0.02, Math.sin(a) * radius))
+    }
+    const ring = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(circlePts),
+      new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 })
+    )
+    const crossMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.25 })
+    const hLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-radius, 0.02, 0), new THREE.Vector3(radius, 0.02, 0)]),
+      crossMat
+    )
+    const vLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.02, -radius), new THREE.Vector3(0, 0.02, radius)]),
+      crossMat
+    )
+    const north = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0.04, radius * 0.55),
+        new THREE.Vector3(0, 0.04, radius * 1.25)
+      ]),
+      new THREE.LineBasicMaterial({ color: 0x4ade80 })
+    )
+    const centerLabel = makeLabel(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+    centerLabel.position.set(0, 1.2, 0)
+    group.add(ring, hLine, vLine, north, centerLabel)
+    this.scene.add(group)
+    this.gisLayer = group
+  }
+
+  /** 接入倾斜摄影 3D Tiles：按 tileset.json 地址加载并随相机调度 */
+  setTileset(url?: string): void {
+    if (this.tiles) {
+      this.scene.remove(this.tiles.group)
+      this.tiles.dispose()
+      this.tiles = null
+    }
+    if (!url) return
+    try {
+      const tiles = new TilesRenderer(url)
+      this.scene.add(tiles.group)
+      tiles.setCamera(this.camera)
+      tiles.setResolutionFromRenderer(this.camera, this.renderer)
+      this.tiles = tiles
+    } catch {
+      /* tileset 初始化失败时静默跳过 */
+    }
   }
 
   // ---- 编辑器复用接口（TwinPage 拖拽/属性/关键帧操作实体） ----
@@ -680,6 +751,7 @@ export class TwinRenderer {
     if (this.disposed) return
     this.raf = requestAnimationFrame(this.animate)
     this.controls.update()
+    this.tiles?.update()
     const now = performance.now()
     const dt = Math.min((now - this.lastAnimTime) / 1000, 0.1)
     this.lastAnimTime = now
@@ -733,6 +805,9 @@ export class TwinRenderer {
     }
     for (const id of Array.from(this.annotations.keys())) this.removeAnnotation(id)
     this.scene.remove(this.annotationLayer)
+    this.setGis(undefined)
+    this.tiles?.dispose()
+    this.tiles = null
     // 释放资产缓存源几何体/材质（克隆实体的几何体与其共享）
     for (const [, p] of this.assetCache) {
       p.then((src) => {
