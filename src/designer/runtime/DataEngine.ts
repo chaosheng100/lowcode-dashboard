@@ -30,7 +30,15 @@ export const staticDatasets: Record<string, DataPoint[]> = {
  *      → 走 api.queryDataset 拉取并映射为 {name,value}
  *   3) 都不命中 → 返回空数组（调用方应保留原 props.data，避免清屏）
  */
-export async function resolveDataSource(id: string): Promise<DataPoint[]> {
+export interface DataSourceBinding {
+  xField?: string
+  yField?: string
+}
+
+export async function resolveDataSource(
+  id: string,
+  binding?: DataSourceBinding | null
+): Promise<DataPoint[]> {
   if (!id) return []
   // 1) 内置静态数据集
   if (staticDatasets[id]) return staticDatasets[id]
@@ -38,13 +46,16 @@ export async function resolveDataSource(id: string): Promise<DataPoint[]> {
   try {
     const r = await api.queryDataset(id, { pageSize: 50 })
     if (r.code === 0 && r.data.list.length) {
-      return r.data.list.map((row) => {
-        const o = row as Record<string, unknown>
-        return {
-          name: String(o.region ?? o.metric ?? o.name ?? ''),
-          value: Number(o.value) || 0
-        }
-      })
+      const rows = r.data.list as Record<string, unknown>[]
+      // 显式绑定：按 xField/yField 映射，字段缺失时不产生 'undefined'/NaN
+      if (binding?.xField && binding?.yField) {
+        return mapFields(rows, { name: binding.xField, value: binding.yField })
+      }
+      // 无显式绑定：兼容内置示例字段（region/metric/name + value）
+      return rows.map((o) => ({
+        name: String(o.region ?? o.metric ?? o.name ?? ''),
+        value: Number(o.value) || 0
+      }))
     }
   } catch {
     /* 查询失败 → 返回空，调用方保留原数据 */
@@ -59,5 +70,8 @@ export interface FieldMap {
 }
 export function mapFields(rows: Record<string, unknown>[], map?: FieldMap): DataPoint[] {
   if (!map) return rows as unknown as DataPoint[]
-  return rows.map((r) => ({ name: String(r[map.name]), value: Number(r[map.value]) }))
+  return rows.map((r) => ({
+    name: r[map.name] != null ? String(r[map.name]) : '',
+    value: Number(r[map.value] ?? 0) || 0
+  }))
 }

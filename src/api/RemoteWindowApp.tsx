@@ -155,10 +155,10 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
       if (!r || !alive) return
       const newComps = await Promise.all(
         r.components.map(async (c) => {
-          const ds = c.props.dataSourceId
+          const ds = c.props.dataSourceId || c.dataSource?.datasetId
           if (!ds) return c
           try {
-            const data = await resolveDataSource(ds)
+            const data = await resolveDataSource(ds, c.dataSource)
             if (!data.length) return c
             const jittered = data.map((d) => ({
               ...d,

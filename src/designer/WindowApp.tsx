@@ -93,10 +93,10 @@ export default function WindowApp({ mode, routeId }: Props) {
       if (!r || !alive) return
       const newComps = await Promise.all(
         r.components.map(async (c) => {
-          const ds = c.props.dataSourceId
+          const ds = c.props.dataSourceId || c.dataSource?.datasetId
           if (!ds) return c
           try {
-            const data = await resolveDataSource(ds)
+            const data = await resolveDataSource(ds, c.dataSource)
             // 拿不到数据则保留原 props.data，避免实时刷新把图表清空
             if (!data.length) return c
             const jittered = data.map((d) => ({
