@@ -993,7 +993,6 @@
 .twin-editor { display: grid; grid-template-columns: 180px minmax(0, 1fr) 260px; gap: 12px; align-items: start; }
 .twin-editor.twin-preview { grid-template-columns: minmax(0, 1fr); }
 .twin-panel { min-width: 0; }
-.twin-left.drag-active { outline: 2px dashed #4f8cff; outline-offset: -2px; border-radius: 6px; background: rgba(79, 140, 255, 0.06); }
 .twin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .twin-panel-title { color: var(--sub); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
 .twin-preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 360px; overflow: auto; }
@@ -1009,6 +1008,34 @@
 .twin-model-del { position: absolute; top: 0; right: 0; padding: 0 3px; font-size: 11px; opacity: 0; transition: opacity 0.15s; }
 .twin-model-item:hover .twin-model-del { opacity: 1; }
 .twin-model-name { font-size: 10px; margin-top: 2px; }
+.twin-model-filter { display: flex; flex-direction: column; gap: 4px; grid-column: 1 / -1; margin-bottom: 2px; }
+.twin-model-empty { grid-column: 1 / -1; text-align: center; margin-top: 6px; font-size: 11px; }
+.fp-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.twin-lib-nav { margin-bottom: 2px; }
+.twin-lib-nav .ant-btn { padding-left: 0; color: var(--sub); }
+.twin-lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.twin-lib-card { padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.twin-lib-thumb { width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.55); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; cursor: zoom-in; }
+.twin-lib-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.twin-lib-thumb .twin-model-thumb { width: 100%; height: 100%; font-size: 40px; border: none; background: transparent; }
+.twin-lib-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.twin-lib-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; flex-wrap: wrap; }
+.twin-lib-tags { display: flex; flex-wrap: wrap; gap: 2px; min-height: 20px; }
+.twin-lib-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; border-top: 1px solid var(--line); padding-top: 6px; }
+.twin-upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 120px; border: 1px dashed rgba(79, 140, 255, 0.45); border-radius: 8px; color: #7dd3fc; font-size: 13px; cursor: pointer; margin-bottom: 12px; transition: border-color 0.15s, background 0.15s; }
+.twin-upload-zone > .anticon { font-size: 28px; }
+.twin-upload-zone.drag-active { border-color: #4f8cff; background: rgba(79, 140, 255, 0.08); }
+.twin-upload-files { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; max-height: 140px; overflow: auto; }
+.twin-upload-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+.twin-upload-file span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.twin-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.twin-preview-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; }
+.twin-preview-media { display: flex; align-items: center; justify-content: center; min-height: 280px; background: rgba(15, 23, 42, 0.55); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.twin-preview-media img { width: 100%; height: 100%; object-fit: contain; }
+.twin-preview-media .twin-model-thumb { width: 120px; height: 120px; font-size: 48px; }
+.twin-preview-info { min-width: 0; }
+.twin-asset-url { display: block; font-size: 11px; color: #7dd3fc; word-break: break-all; line-height: 1.5; }
+@media (max-width: 720px) { .twin-preview-grid { grid-template-columns: 1fr; } }
 .twin-toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .twin-toolbar-hint { margin-left: auto; line-height: 30px; white-space: nowrap; }
 .twin-viewport { width: 100%; height: 420px; background: #05080f; border: 1px solid #1a2433; border-radius: 10px; overflow: hidden; }

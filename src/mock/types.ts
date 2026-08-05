@@ -203,6 +203,8 @@ export interface TwinModelDTO {
   category: TwinCategory
   builtin: boolean // 预置 91 种 / 用户上传
   thumbnail: string
+  /** 自定义标签（模型库搜索/分类用） */
+  tags?: string[]
   /** 外部模型文件地址（上传的 GLB/GLTF），空串表示内置几何体 */
   assetUrl?: string
   /** 文件格式：glb / gltf / bin */

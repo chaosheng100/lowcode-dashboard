@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Button, Select } from 'antd'
 import { DesktopOutlined } from '@ant-design/icons'
 import PluginManagement from './PluginManagement'
+import TwinModelLibrary from './TwinModelLibrary'
 import { api } from '../mock'
 import type { TwinSceneDTO } from '../mock/types'
 import { Tag, Field, Modal } from './common'
@@ -95,6 +97,8 @@ export default function TwinManagement() {
   const routes = useDesignerStore((s) => s.routes)
   const updateRoute = useDesignerStore((s) => s.updateRoute)
   const dashboards = useMemo(() => routes.filter((r) => r.kind === 'dashboard'), [routes])
+  const location = useLocation()
+  const view = new URLSearchParams(location.search || '').get('view') || ''
 
   // 投放弹窗状态
   const [deploying, setDeploying] = useState<TwinSceneDTO | null>(null)
@@ -132,6 +136,8 @@ export default function TwinManagement() {
       setDeploying(null)
     }
   }
+
+  if (view === 'models') return <TwinModelLibrary />
 
   return (
     <>

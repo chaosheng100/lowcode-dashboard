@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { App, Button, ColorPicker, InputNumber } from 'antd'
+import { Button, ColorPicker, Input as AntInput, InputNumber, Select } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import {
   AppstoreOutlined,
   CameraOutlined,
@@ -9,12 +10,13 @@ import {
   DeleteOutlined,
   MoonOutlined,
   PauseOutlined,
+  SearchOutlined,
+  SettingOutlined,
   StopOutlined,
-  SunOutlined,
-  UploadOutlined
+  SunOutlined
 } from '@ant-design/icons'
 import { useApi } from './useApi'
-import { api, type TwinModelDTO } from '../mock'
+import { api, type TwinCategory, type TwinModelDTO } from '../mock'
 import { Input, Tag } from './common'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
@@ -27,7 +29,6 @@ import {
   type TwinScene
 } from '../twin/twinTypes'
 import { TwinSceneView, type TwinSceneViewController } from '../twin/TwinSceneView'
-import { generateModelThumbnail } from '../twin/modelThumbnail'
 
 // ============================================================
 // 数字孪生 3D 编辑器（复用 TwinSceneView 共享内核，不再各自维护重复渲染/仿真/控制样板）
@@ -103,8 +104,8 @@ const TWIN_MODULE_INSTANCE = 'twin-module'
 
 export default function TwinPage(props: TwinPageProps = {}) {
   const { scene: externalScene, readOnly, onSave } = props
-  const { message } = App.useApp()
-  const { data: models, reload: reloadModels } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
+  const navigate = useNavigate()
+  const { data: models } = useApi(() => api.listTwinModels({ pageSize: 200 }), [])
   const rt = useTwinRuntimeStore((s) => s.instances[TWIN_MODULE_INSTANCE]) ?? EMPTY_TWIN_INSTANCE
 
   // 命令式接口（拖拽/属性/关键帧/控制操作经由共享内核 TwinSceneView）
@@ -134,9 +135,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const [playing, setPlaying] = useState(false)
 
   const draggingRef = useRef<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
+  const [modelKw, setModelKw] = useState('')
+  const [modelCategory, setModelCategory] = useState<TwinCategory | undefined>(undefined)
 
   const syncRefs = useCallback(() => {
     entitiesRef.current = entities
@@ -233,64 +233,18 @@ export default function TwinPage(props: TwinPageProps = {}) {
     }
   }, [])
 
-  const triggerUpload = () => fileInputRef.current?.click()
+  const modelList = (models?.list ?? []).filter((m) => !m.builtin)
+  const modelKeyword = modelKw.trim().toLowerCase()
+  const filteredModels = modelList.filter((m) => {
+    const hitKw =
+      !modelKeyword ||
+      m.name.toLowerCase().includes(modelKeyword) ||
+      (m.tags ?? []).some((t) => t.toLowerCase().includes(modelKeyword))
+    const hitCat = !modelCategory || m.category === modelCategory
+    return hitKw && hitCat
+  })
 
-  const uploadFile = async (file: File) => {
-    if (!/\.(glb|gltf|bin)$/i.test(file.name)) {
-      message.warning('仅支持 .glb / .gltf / .bin 模型文件')
-      return
-    }
-    setUploading(true)
-    try {
-      const created = await api.createTwinModel({ name: file.name.replace(/\.[^.]+$/, '') })
-      if (created.code !== 0) throw new Error(created.message)
-      const uploaded = await api.uploadTwinModelFile(created.data.id, file)
-      if (uploaded.code !== 0) throw new Error(uploaded.message)
-      if (uploaded.data.assetUrl) {
-        try {
-          const thumb = await generateModelThumbnail(uploaded.data.assetUrl)
-          if (thumb) await api.updateTwinModel(created.data.id, { thumbnail: thumb })
-        } catch {
-          // thumbnail is optional; the model file itself is already uploaded
-        }
-      }
-      message.success(`模型「${file.name}」上传成功`)
-      reloadModels()
-    } catch (e) {
-      message.error(`上传失败：${(e as Error).message}`)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleFileChange = async (ev: React.ChangeEvent<HTMLInputElement>) => {
-    const file = ev.target.files?.[0]
-    ev.target.value = ''
-    if (!file) return
-    await uploadFile(file)
-  }
-
-  const handlePanelDragOver = (ev: React.DragEvent) => {
-    ev.preventDefault()
-    ev.dataTransfer.dropEffect = 'copy'
-  }
-  const handlePanelDrop = async (ev: React.DragEvent) => {
-    ev.preventDefault()
-    setDragActive(false)
-    const file = ev.dataTransfer.files?.[0]
-    if (file) await uploadFile(file)
-  }
-
-  const handleDeleteModel = async (m: TwinModelDTO) => {
-    try {
-      const res = await api.deleteTwinModel(m.id)
-      if (res.code !== 0) throw new Error(res.message)
-      message.success(`已删除「${m.name}」`)
-      reloadModels()
-    } catch (e) {
-      message.error(`删除失败：${(e as Error).message}`)
-    }
-  }
+  const openModelLibrary = () => navigate('/extension/twin?view=models')
 
   // ---- 关键帧播放（独立 rAF，驱动渲染器实体变换） ----
   useEffect(() => {
@@ -445,17 +399,10 @@ export default function TwinPage(props: TwinPageProps = {}) {
       <div className={readOnly ? 'twin-editor twin-preview' : 'twin-editor'}>
         {/* 左：模型库（预览模式隐藏） */}
         {!readOnly && (
-          <div
-            className={'twin-panel twin-left' + (dragActive ? ' drag-active' : '')}
-            onDragOver={handlePanelDragOver}
-            onDragEnter={() => setDragActive(true)}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handlePanelDrop}
-          >
+          <div className="twin-panel twin-left">
             <div className="twin-panel-head">
               <span className="twin-panel-title">模型库（拖拽到画布放置）</span>
-              <Button size="small" icon={<UploadOutlined />} loading={uploading} onClick={triggerUpload}>上传模型</Button>
-              <input ref={fileInputRef} type="file" accept=".glb,.gltf,.bin" hidden onChange={handleFileChange} />
+              <Button size="small" icon={<SettingOutlined />} onClick={openModelLibrary}>模型库管理</Button>
             </div>
             <div className="twin-preset-grid">
               {PRESETS.map((p, i) => (
@@ -471,10 +418,36 @@ export default function TwinPage(props: TwinPageProps = {}) {
                 </div>
               ))}
             </div>
-            {(models?.list ?? []).length > 0 && (
+            {filteredModels.length > 0 && (
               <div className="twin-model-grid">
-                <div className="twin-panel-title">在线模型库（共 {models?.total ?? models?.list?.length ?? 0} 种）</div>
-                {(models?.list ?? []).map((m) => (
+                <div className="twin-panel-title">在线模型库（共 {filteredModels.length} 种）</div>
+                <div className="twin-model-filter">
+                  <AntInput
+                    size="small"
+                    placeholder="搜索模型"
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    value={modelKw}
+                    onChange={(e) => setModelKw(e.target.value)}
+                  />
+                  <Select
+                    size="small"
+                    placeholder="分类"
+                    allowClear
+                    value={modelCategory}
+                    onChange={setModelCategory}
+                    style={{ width: '100%' }}
+                    options={[
+                      { value: '建筑', label: '建筑' },
+                      { value: '设备', label: '设备' },
+                      { value: '交通', label: '交通' },
+                      { value: '自然', label: '自然' },
+                      { value: '人物', label: '人物' },
+                      { value: '其他', label: '其他' }
+                    ]}
+                  />
+                </div>
+                {filteredModels.map((m) => (
                   <div
                     key={m.id}
                     draggable
@@ -494,19 +467,12 @@ export default function TwinPage(props: TwinPageProps = {}) {
                       <span className="twin-model-thumb"><AppstoreOutlined /></span>
                     )}
                     <div className="muted2 twin-model-name">{m.name}</div>
-                    <Button
-                      type="text"
-                      size="small"
-                      className="twin-model-del"
-                      icon={<DeleteOutlined />}
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        handleDeleteModel(m)
-                      }}
-                    />
                   </div>
                 ))}
               </div>
+            )}
+            {modelList.length > 0 && filteredModels.length === 0 && (
+              <div className="muted2 twin-model-empty">无匹配模型</div>
             )}
           </div>
         )}
