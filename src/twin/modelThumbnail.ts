@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 
 function disposeObject(root: THREE.Object3D): void {
   root.traverse((obj) => {
@@ -30,7 +31,11 @@ export async function generateModelThumbnail(url: string): Promise<string> {
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200)
     const model = await new Promise<THREE.Group>((resolve, reject) => {
-      new GLTFLoader().load(url, (gltf) => resolve(gltf.scene), undefined, (err) => reject(err))
+      const loader = new GLTFLoader()
+      const draco = new DRACOLoader()
+      draco.setDecoderPath('/draco/')
+      loader.setDRACOLoader(draco)
+      loader.load(url, (gltf) => resolve(gltf.scene), undefined, (err) => reject(err))
     })
     scene.add(model)
 

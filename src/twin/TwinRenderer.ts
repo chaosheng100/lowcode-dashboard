@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { SimplifyModifier } from 'three/examples/jsm/modifiers/SimplifyModifier.js'
 import type {
   TwinScene,
   TwinEntity,
@@ -59,6 +61,36 @@ function collectMaterials(obj: THREE.Object3D): THREE.Material[] {
   return mats
 }
 
+function simplifyGroupLevel(root: THREE.Group, ratio: number): boolean {
+  let reduced = 0
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh || !mesh.geometry?.index || !mesh.geometry.attributes.position) return
+    const count = mesh.geometry.attributes.position.count
+    const target = Math.max(24, Math.floor(count * ratio))
+    if (target >= count) return
+    try {
+      mesh.geometry = new SimplifyModifier().modify(mesh.geometry.clone(), count - target)
+      reduced++
+    } catch {
+      /* 简化失败则保留当前级别 */
+    }
+  })
+  return reduced > 0
+}
+
+/** 自动 LOD：原始级别 + 50% 简化 + 20% 简化 */
+function buildAssetLod(src: THREE.Group): THREE.Group {
+  const original = cloneGltfScene(src)
+  const lod = new THREE.LOD()
+  lod.addLevel(original, 0)
+  const half = cloneGltfScene(src)
+  if (simplifyGroupLevel(half, 0.5)) lod.addLevel(half, 28)
+  const quarter = cloneGltfScene(src)
+  if (simplifyGroupLevel(quarter, 0.2)) lod.addLevel(quarter, 70)
+  return lod.children.length > 1 ? (lod as unknown as THREE.Group) : original
+}
+
 /** 生成实体名称文字精灵（Sprite，billboard 始终朝向相机） */
 function makeLabel(text: string): THREE.Sprite {
   const canvas = document.createElement('canvas')
@@ -102,6 +134,7 @@ export class TwinRenderer {
   private assetEntities = new Set<string>()
   /** 资产加载缓存：同一 URL 只解析一次，多个实体克隆复用 */
   private assetCache = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>()
+  private dracoLoader: DRACOLoader | null = null
   private entityClips = new Map<string, THREE.AnimationClip[]>()
   private animationMixers = new Map<string, THREE.AnimationMixer>()
   private labelSprites = new Map<string, THREE.Sprite>()
@@ -311,13 +344,29 @@ export class TwinRenderer {
     return mesh
   }
 
+  private getDracoLoader(): DRACOLoader | null {
+    if (!this.dracoLoader) {
+      try {
+        const dl = new DRACOLoader()
+        dl.setDecoderPath('/draco/')
+        this.dracoLoader = dl
+      } catch {
+        return null
+      }
+    }
+    return this.dracoLoader
+  }
+
   /** 异步加载外部模型并替换占位体；同一 URL 复用缓存 */
   private attachAsset(e: TwinEntity, placeholder: THREE.Object3D): void {
     const url = e.assetUrl!
     let load = this.assetCache.get(url)
     if (!load) {
       load = new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((resolve, reject) => {
-        new GLTFLoader().load(
+        const loader = new GLTFLoader()
+        const draco = this.getDracoLoader()
+        if (draco) loader.setDRACOLoader(draco)
+        loader.load(
           url,
           (gltf) => resolve({ scene: gltf.scene, animations: gltf.animations ?? [] }),
           undefined,
@@ -329,7 +378,7 @@ export class TwinRenderer {
     load
       .then((src) => {
         if (this.disposed || !this.entityMeshes.has(e.id)) return
-        const group = cloneGltfScene(src.scene)
+        const group = buildAssetLod(src.scene)
         group.position.copy(placeholder.position)
         group.rotation.copy(placeholder.rotation)
         group.scale.copy(placeholder.scale)
@@ -697,6 +746,8 @@ export class TwinRenderer {
       }).catch(() => undefined)
     }
     this.assetCache.clear()
+    this.dracoLoader?.dispose()
+    this.dracoLoader = null
     this.renderer.dispose()
     if (dom.parentNode === this.mount) this.mount.removeChild(dom)
   }
