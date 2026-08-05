@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button, Select } from 'antd'
 import { DesktopOutlined } from '@ant-design/icons'
 import PluginManagement from './PluginManagement'
@@ -8,7 +8,6 @@ import { Tag, Field, Modal } from './common'
 import TwinPage from './TwinPage'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { dtoToScene, sceneToDTO } from '../twin/dtoAdapter'
-import type { TwinScene } from '../twin/twinTypes'
 import {
   syncTwinWidgetsToDashboard,
   unlinkTwinFromDashboard,
@@ -50,10 +49,49 @@ function TwinThumb({ scene, label }: { scene: TwinSceneDTO; label: string }) {
   )
 }
 
+function TwinSceneHost({ item, save, readOnly }: {
+  item: TwinSceneDTO
+  save?: (patch: Partial<TwinSceneDTO>) => Promise<void>
+  readOnly?: boolean
+}) {
+  const upsertTwinScene = useDesignerStore((s) => s.upsertTwinScene)
+  const setActiveTwinScene = useDesignerStore((s) => s.setActiveTwinScene)
+  // 历史脏数据可能存在空 id 场景：编辑前先让后端补发一个真实 id，避免重复 POST 触发 409
+  const [resolved, setResolved] = useState<TwinSceneDTO | null>(item.id ? item : readOnly ? item : null)
+
+  useEffect(() => {
+    if (item.id || resolved || readOnly) return
+    let alive = true
+    api.saveTwinScene({ ...item, id: undefined })
+      .then((r) => {
+        if (alive && r.code === 0 && r.data?.id) setResolved(r.data)
+      })
+    return () => { alive = false }
+  }, [item, resolved, readOnly])
+
+  useEffect(() => {
+    if (!resolved?.id) return
+    upsertTwinScene(dtoToScene(resolved))
+    setActiveTwinScene(resolved.id)
+  }, [resolved?.id])
+
+  if (!resolved) return <div className="empty-tip">正在修复空白场景…</div>
+
+  return (
+    <TwinPage
+      scene={dtoToScene(resolved)}
+      readOnly={readOnly}
+      onSave={readOnly ? undefined : async (patch) => {
+        const dtoPatch = sceneToDTO(patch)
+        await save?.({ ...dtoPatch, id: resolved.id })
+      }}
+    />
+  )
+}
+
 /** 数字孪生：场景列表 + 进入编辑器（3D 场景编辑器）+ 预览 + 投放到大屏 */
 export default function TwinManagement() {
   const upsertTwinScene = useDesignerStore((s) => s.upsertTwinScene)
-  const setActiveTwinScene = useDesignerStore((s) => s.setActiveTwinScene)
   const routes = useDesignerStore((s) => s.routes)
   const updateRoute = useDesignerStore((s) => s.updateRoute)
   const dashboards = useMemo(() => routes.filter((r) => r.kind === 'dashboard'), [routes])
@@ -132,36 +170,12 @@ export default function TwinManagement() {
             投放到大屏
           </Button>
         )}
-        renderEditor={(item, save) => {
-          const scene: TwinScene = dtoToScene(item)
-          upsertTwinScene(scene)
-          setActiveTwinScene(item.id)
-          return (
-            <TwinPage
-              scene={scene}
-              onSave={async (patch) => {
-                const dtoPatch = sceneToDTO(patch)
-                await save({ ...dtoPatch, id: item.id })
-                // 同步更新 store 镜像
-                if (patch.entities) {
-                  useDesignerStore.getState().updateTwinSceneEntities(
-                    item.id,
-                    patch.entities,
-                    patch.env ?? { lighting: 'day', fog: false }
-                  )
-                } else if (patch.name) {
-                  useDesignerStore.getState().renameTwinScene(item.id, patch.name)
-                }
-              }}
-            />
-          )
-        }}
-        renderPreview={(item) => {
-          const scene: TwinScene = dtoToScene(item)
-          upsertTwinScene(scene)
-          setActiveTwinScene(item.id)
-          return <TwinPage scene={scene} readOnly />
-        }}
+        renderEditor={(item, save) => (
+          <TwinSceneHost key={item.id || 'blank'} item={item} save={save} />
+        )}
+        renderPreview={(item) => (
+          <TwinSceneHost key={item.id || 'blank'} item={item} readOnly />
+        )}
       />
 
       {/* 投放到大屏弹窗 */}
