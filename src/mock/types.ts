@@ -257,6 +257,8 @@ export interface TwinSceneModel {
   }
   /** GLTF 内嵌动画名 */
   animation?: string
+  /** 数据绑定：实时源 + 字段映射 */
+  bindings?: { liveSourceId?: string; fields?: Record<string, string> }
 }
 export interface TwinKeyframeDTO {
   time: number

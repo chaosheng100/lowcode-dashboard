@@ -55,6 +55,7 @@ export interface TwinSceneViewController {
   setAnnotations: (list: TwinAnnotation[]) => void
   updateEntityTransform: (id: string, t: { x?: number; y?: number; z?: number; rotationY?: number; scale?: number }) => void
   setEntityColor: (id: string, color: string) => void
+  setEntityState: (id: string, state: TwinEntityState) => void
   setEntityVisible: (id: string, visible: boolean) => void
   setEntityMaterial: (id: string, patch: TwinEntityMaterial) => void
   getAnimationClips: (id: string) => string[]
@@ -201,6 +202,7 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     setAnnotations: (list) => rendererRef.current?.setAnnotations(list),
     updateEntityTransform: (id, t) => rendererRef.current?.updateEntityTransform(id, t),
     setEntityColor: (id, color) => rendererRef.current?.setEntityColor(id, color),
+    setEntityState: (id, state) => rendererRef.current?.setEntityState(id, state),
     setEntityVisible: (id, visible) => rendererRef.current?.setEntityVisible(id, visible),
     setEntityMaterial: (id, patch) => rendererRef.current?.setEntityMaterial(id, patch),
     getAnimationClips: (id) => rendererRef.current?.getAnimationClips(id) ?? [],

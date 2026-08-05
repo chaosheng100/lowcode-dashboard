@@ -33,6 +33,13 @@ export interface TwinEntityMaterial {
   emissiveIntensity?: number
 }
 
+/** 数据绑定驱动的渲染覆盖：颜色/状态/动画随数据实时变化 */
+export interface TwinBoundOverrides {
+  color?: string
+  state?: TwinEntityState
+  animation?: string | null
+}
+
 /** 单个孪生实体 */
 export interface TwinEntity {
   id: string

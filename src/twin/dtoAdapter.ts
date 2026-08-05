@@ -26,7 +26,8 @@ export function modelToEntity(m: TwinSceneModel): TwinEntity {
     visible: m.visible,
     locked: m.locked,
     material: m.material,
-    animation: m.animation
+    animation: m.animation,
+    bindings: m.bindings
   }
 }
 
@@ -49,7 +50,8 @@ export function entityToModel(e: TwinEntity, modelId?: string): TwinSceneModel {
     visible: e.visible,
     locked: e.locked,
     material: e.material,
-    animation: e.animation
+    animation: e.animation,
+    bindings: e.bindings
   }
 }
 

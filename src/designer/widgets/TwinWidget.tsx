@@ -70,7 +70,19 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     let stopLive: (() => void) | undefined
 
     if (p.liveSourceId) {
-      stopLive = subscribeTwinLive(p.liveSourceId, entities, (id, sample) => { liveRef.current[id] = sample }, p.liveIntervalMs ?? 2000)
+      stopLive = subscribeTwinLive(
+        p.liveSourceId,
+        entities,
+        (id, sample, overrides) => {
+          liveRef.current[id] = sample
+          const view = viewRef.current
+          if (!view) return
+          if (overrides?.color) view.setEntityColor(id, overrides.color)
+          if (overrides?.state) view.setEntityState(id, overrides.state)
+          if (overrides?.animation !== undefined) view.playAnimation(id, overrides.animation)
+        },
+        p.liveIntervalMs ?? 2000
+      )
     } else {
       const sourceKind = (p.sourceKind as 'simulated' | 'industrial' | 'bim' | 'gis') || 'simulated'
       const source = createSource(sourceKind, entities)

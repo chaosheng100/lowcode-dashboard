@@ -1,4 +1,4 @@
-import type { TwinEntity, TelemetrySample } from './twinTypes'
+import type { TwinEntity, TwinEntityState, TwinBoundOverrides, TelemetrySample } from './twinTypes'
 import type { TwinSource } from './sources/TwinSource'
 import { subscribeLive } from '../data/live/liveClient'
 
@@ -16,6 +16,56 @@ export type { TelemetrySample } from './twinTypes'
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
+}
+
+const KNOWN_STATES: TwinEntityState[] = ['normal', 'running', 'idle', 'fault', 'offline']
+
+function toNumber(v: unknown): number | undefined {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : undefined
+  }
+  return undefined
+}
+
+function isHexColor(v: unknown): v is string {
+  return typeof v === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.trim())
+}
+
+export interface EntityBoundUpdate {
+  sample?: Partial<TelemetrySample>
+  overrides?: TwinBoundOverrides
+}
+
+/** 按实体 bindings.fields 做字段级映射：指标/颜色/状态/动画 */
+export function resolveEntityBinding(e: TwinEntity, row: Record<string, unknown>): EntityBoundUpdate {
+  const fields = e.bindings?.fields
+  if (!fields) return {}
+  const sample: Partial<TelemetrySample> = {}
+  const overrides: TwinBoundOverrides = {}
+  for (const [target, src] of Object.entries(fields)) {
+    if (!src || !(src in row)) continue
+    const v = row[src]
+    if (target === 'temperature' || target === 'health' || target === 'load') {
+      const n = toNumber(v)
+      if (n !== undefined) sample[target] = n
+    } else if (target === 'color') {
+      if (isHexColor(v)) overrides.color = v.trim()
+    } else if (target === 'state') {
+      if (typeof v === 'string' && KNOWN_STATES.includes(v as TwinEntityState)) {
+        overrides.state = v as TwinEntityState
+      }
+    } else if (target === 'animation') {
+      if (typeof v === 'string') overrides.animation = v.trim() === '' ? null : v.trim()
+    }
+  }
+  const out: EntityBoundUpdate = {}
+  if (sample.temperature !== undefined || sample.health !== undefined || sample.load !== undefined) out.sample = sample
+  if (overrides.color !== undefined || overrides.state !== undefined || overrides.animation !== undefined) {
+    out.overrides = overrides
+  }
+  return out
 }
 
 /** 本地模拟遥测：每个实体指标随机游走，体现"实时数据驱动孪生体" */
@@ -52,25 +102,30 @@ export function createTelemetrySimulator(
 
 /**
  * 接入真实实时源：复用 liveClient 订阅，把推送点按序映射到各实体（MVP 轮询映射）。
- * 进阶可改为按 bindings.fields 做字段级映射。
+ * 按 bindings.fields 做字段级映射（指标/颜色/状态/动画）。
  */
 export function subscribeTwinLive(
   liveSourceId: string,
   entities: TwinEntity[],
-  onUpdate: (id: string, sample: TelemetrySample) => void,
+  onUpdate: (id: string, sample: TelemetrySample, overrides?: TwinBoundOverrides) => void,
   intervalMs = 2000
 ): () => void {
   return subscribeLive(
     liveSourceId,
     (points) => {
+      const row: Record<string, unknown> = {}
+      points.forEach((p) => {
+        row[p.name] = p.value
+      })
       entities.forEach((e, i) => {
         const pt = points[i % Math.max(points.length, 1)]
         if (!pt) return
+        const bound = resolveEntityBinding(e, row)
         onUpdate(e.id, {
-          temperature: 40 + (pt.value % 60),
-          health: 100 - (pt.value % 70),
-          load: pt.value % 100
-        })
+          temperature: bound.sample?.temperature ?? 40 + (pt.value % 60),
+          health: bound.sample?.health ?? 100 - (pt.value % 70),
+          load: bound.sample?.load ?? pt.value % 100
+        }, bound.overrides)
       })
     },
     intervalMs

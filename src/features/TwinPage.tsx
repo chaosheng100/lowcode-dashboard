@@ -31,10 +31,12 @@ import {
   type GeoType,
   type TelemetrySample,
   type TwinAnnotation,
+  type TwinBoundOverrides,
   type TwinEntity,
   type TwinScene
 } from '../twin/twinTypes'
 import { TwinSceneView, type TwinSceneViewController } from '../twin/TwinSceneView'
+import { resolveEntityBinding, subscribeTwinLive } from '../twin/TwinDataBridge'
 
 // ============================================================
 // 数字孪生 3D 编辑器（复用 TwinSceneView 共享内核，不再各自维护重复渲染/仿真/控制样板）
@@ -56,6 +58,15 @@ const PRESETS: { geoType: GeoType; name: string; color: string }[] = [
   { geoType: 'box', name: '厂房', color: '#64748b' },
   { geoType: 'cylinder', name: '烟囱', color: '#ef4444' },
   { geoType: 'plane', name: '平台', color: '#3b82f6' }
+]
+
+const BINDING_TARGETS: { key: string; label: string; hint: string }[] = [
+  { key: 'temperature', label: '温度', hint: '字段名' },
+  { key: 'health', label: '健康度', hint: '字段名' },
+  { key: 'load', label: '负载', hint: '字段名' },
+  { key: 'color', label: '颜色', hint: '#rrggbb' },
+  { key: 'state', label: '状态', hint: 'normal/running/fault' },
+  { key: 'animation', label: '动画', hint: '动画名字段' }
 ]
 
 function clamp(v: number, min: number, max: number): number {
@@ -148,9 +159,13 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const annotationsRef = useRef<TwinAnnotation[]>(annotations)
   const [animClips, setAnimClips] = useState<string[]>([])
   const [playingAnim, setPlayingAnim] = useState(false)
+  const [testRow, setTestRow] = useState<Record<string, unknown> | null>(null)
+  const [testRowText, setTestRowText] = useState('')
+  const testRowRef = useRef<Record<string, unknown> | null>(null)
   const [modelKw, setModelKw] = useState('')
   const [modelCategory, setModelCategory] = useState<TwinCategory | undefined>(undefined)
   measuringRef.current = measuring
+  testRowRef.current = testRow
 
   const syncRefs = useCallback(() => {
     entitiesRef.current = entities
@@ -171,17 +186,43 @@ export default function TwinPage(props: TwinPageProps = {}) {
     const tick = () => {
       entitiesRef.current.forEach((e) => {
         const prev = liveRef.current[e.id] ?? { temperature: e.metrics?.temperature ?? 40, health: e.metrics?.health ?? 80, load: e.metrics?.load ?? 40 }
-        const s: TelemetrySample = {
+        let s: TelemetrySample = {
           temperature: clamp(prev.temperature + (Math.random() - 0.5) * 9, 20, 95),
           health: clamp(prev.health + (Math.random() - 0.5) * 7, 5, 100),
           load: clamp(prev.load + (Math.random() - 0.5) * 16, 0, 100)
         }
+        let overrides: TwinBoundOverrides | undefined
+        if (testRowRef.current) {
+          const bound = resolveEntityBinding(e, testRowRef.current)
+          if (bound.sample) s = { ...s, ...bound.sample }
+          overrides = bound.overrides
+        }
         liveRef.current[e.id] = s
+        if (overrides) {
+          const view = viewRef.current
+          if (overrides.color) view?.setEntityColor(e.id, overrides.color)
+          if (overrides.state) view?.setEntityState(e.id, overrides.state)
+          if (overrides.animation !== undefined) view?.playAnimation(e.id, overrides.animation)
+        }
       })
     }
     tick()
     const timer = setInterval(tick, 2500)
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const sourceId = entitiesRef.current.find((e) => e.bindings?.liveSourceId)?.bindings?.liveSourceId
+    if (!sourceId) return
+    const stop = subscribeTwinLive(sourceId, entitiesRef.current, (id, sample, overrides) => {
+      liveRef.current[id] = sample
+      const view = viewRef.current
+      if (!view) return
+      if (overrides?.color) view.setEntityColor(id, overrides.color)
+      if (overrides?.state) view.setEntityState(id, overrides.state)
+      if (overrides?.animation !== undefined) view.playAnimation(id, overrides.animation)
+    }, 2000)
+    return stop
   }, [])
 
   // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
@@ -365,6 +406,18 @@ export default function TwinPage(props: TwinPageProps = {}) {
       const t = view.getEntityTransform(selectedId)
       if (t) view.updateEntityTransform(selectedId, { x: patch.x ?? t.x, y: t.y, z: patch.z ?? t.z, rotationY: patch.rotationY ?? t.rotationY, scale: patch.scale })
     }
+  }
+
+  const updateLiveSourceId = (v: string) => {
+    if (!selectedId) return
+    const cur = entities.find((o) => o.id === selectedId)?.bindings
+    updateSelected({ bindings: { liveSourceId: v, fields: cur?.fields ?? {} } })
+  }
+
+  const updateBindingField = (key: string, value: string) => {
+    if (!selectedId) return
+    const cur = entities.find((o) => o.id === selectedId)?.bindings
+    updateSelected({ bindings: { liveSourceId: cur?.liveSourceId ?? '', fields: { ...(cur?.fields ?? {}), [key]: value } } })
   }
 
   const toggleEntityVisible = (id: string) => {
@@ -733,11 +786,41 @@ export default function TwinPage(props: TwinPageProps = {}) {
                     <InputNumber style={{ width: '100%' }} step={0.1} value={selected.scale ?? 1}
                       onChange={(v) => updateSelected({ scale: v || 1 })} />
                   </div>
-                  <div className="twin-field">
-                    <span className="twin-field-label">绑定源</span>
-                    <div className="twin-field-ctrl">
-                      <Input placeholder="liveSourceId（OPC-UA/WS/MQTT）" value={selected.bindings?.liveSourceId ?? ''}
-                        onChange={(e) => updateSelected({ bindings: { liveSourceId: e.target.value, fields: selected.bindings?.fields ?? {} } })} />
+                  <div className="twin-divider">
+                    <div className="muted2 twin-section-label">数据绑定</div>
+                    <div className="twin-field">
+                      <span className="twin-field-label">绑定源</span>
+                      <div className="twin-field-ctrl">
+                        <Input placeholder="liveSourceId（WS/MQTT）" value={selected.bindings?.liveSourceId ?? ''}
+                          onChange={(e) => updateLiveSourceId(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="twin-binding-grid">
+                      {BINDING_TARGETS.map((t) => (
+                        <div key={t.key} className="twin-binding-cell">
+                          <span className="muted2">{t.label}</span>
+                          <AntInput size="small" placeholder={t.hint} value={selected.bindings?.fields?.[t.key] ?? ''}
+                            onChange={(e) => updateBindingField(t.key, e.target.value)} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="twin-field">
+                      <span className="twin-field-label">测试数据</span>
+                      <div className="twin-field-ctrl">
+                        <Input
+                          placeholder='{"temperature":85,"health":35,"color":"#ef4444","state":"fault"}'
+                          value={testRowText}
+                          onChange={(e) => {
+                            const text = e.target.value
+                            setTestRowText(text)
+                            try {
+                              setTestRow(text.trim() ? JSON.parse(text) : null)
+                            } catch {
+                              setTestRow(null)
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
 
