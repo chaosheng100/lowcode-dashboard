@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Alert, Button, Input, Popconfirm, Spin } from 'antd'
+import { Alert, Button, Input, Modal, Popconfirm, Spin } from 'antd'
 import { DeleteOutlined, EditOutlined, EyeOutlined, FormOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { useApi } from './useApi'
 import type { ApiResp, PageResult } from '../mock/types'
@@ -19,6 +19,8 @@ interface Props<T extends PluginItem> {
   saveItem: (body: Partial<T>) => Promise<ApiResp<T>>
   deleteItem: (id: string) => Promise<ApiResp<{ ok: boolean }>>
   blankItem: () => T
+  /** 新建时先弹出名称输入，确认后再创建并进入编辑器 */
+  askNameOnCreate?: boolean
   /** 缩略图内容（ReactNode），默认深色占位 */
   renderThumb?: (item: T) => ReactNode
   /** 卡片副信息行 */
@@ -44,7 +46,7 @@ type View<T> =
  * 编辑/预览切换为全屏视图，左上角浮动返回按钮。
  */
 export default function PluginManagement<T extends PluginItem>({
-  title, subtitle, countLabel, fetcher, saveItem, deleteItem, blankItem,
+  title, subtitle, countLabel, fetcher, saveItem, deleteItem, blankItem, askNameOnCreate,
   renderThumb, renderMeta, renderTags, renderEditor, renderPreview, renderActions
 }: Props<T>) {
   const { data, loading, error, reload } = useApi(() => fetcher(), [])
@@ -55,6 +57,8 @@ export default function PluginManagement<T extends PluginItem>({
   const [renameText, setRenameText] = useState('')
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createName, setCreateName] = useState('')
 
   const items = useMemo(() => {
     const list = (data?.list ?? []) as T[]
@@ -67,17 +71,25 @@ export default function PluginManagement<T extends PluginItem>({
     })
   }, [data, kw, desc])
 
-  const doNew = async () => {
+  const doNew = async (name?: string) => {
     if (creating) return
+    const finalName = (name ?? '').trim()
+    if (askNameOnCreate && !finalName) {
+      setCreateName('')
+      setCreateOpen(true)
+      return
+    }
     setCreating(true)
     try {
-      const r = await saveItem(blankItem())
+      const base = blankItem()
+      const r = await saveItem({ ...base, name: finalName || base.name })
       if (r.code === 0) {
         reload()
         setView({ mode: 'edit', item: r.data })
       }
     } finally {
       setCreating(false)
+      setCreateOpen(false)
     }
   }
   const doRename = async (it: T, name: string) => {
@@ -145,7 +157,7 @@ export default function PluginManagement<T extends PluginItem>({
         <Button title="切换升序/降序" onClick={() => setDesc((v) => !v)}>
           {desc ? '↓ 倒序' : '↑ 升序'}
         </Button>
-        <Button type="primary" icon={<PlusOutlined />} loading={creating} onClick={doNew}>新建{countLabel}</Button>
+        <Button type="primary" icon={<PlusOutlined />} loading={creating} onClick={() => doNew()}>新建{countLabel}</Button>
       </div>
       <p className="fp-sub" style={{ padding: '4px 16px 0' }}>{subtitle}</p>
       {loading && <div style={{ textAlign: 'center', padding: '40px 0' }}><Spin /></div>}
@@ -153,7 +165,15 @@ export default function PluginManagement<T extends PluginItem>({
       {!loading && !error && (
         <div className="mg-grid">
           {items.map((it) => (
-            <div className="mg-card" key={it.id} onClick={() => setView({ mode: 'edit', item: it })}>
+            <div
+              className="mg-card"
+              key={it.id}
+              onClick={(e) => {
+                const target = e.target as HTMLElement
+                if (target.closest('.ant-popover')) return
+                setView({ mode: 'edit', item: it })
+              }}
+            >
               <div className="mg-thumb">
                 {renderThumb?.(it) ?? <span className="mg-badge">{countLabel}</span>}
               </div>
@@ -211,7 +231,8 @@ export default function PluginManagement<T extends PluginItem>({
                     cancelText="取消"
                     okButtonProps={{ danger: true }}
                     getPopupContainer={() => document.body}
-                    onConfirm={() => doDelete(it)}
+                    onConfirm={(e) => { e?.stopPropagation(); doDelete(it) }}
+                    onCancel={(e) => e?.stopPropagation()}
                   >
                     <span className="mg-del-wrap" onClick={(e) => e.stopPropagation()}>
                       <Button size="small" type="link" danger icon={<DeleteOutlined />} loading={deletingId === it.id}>删除</Button>
@@ -223,6 +244,27 @@ export default function PluginManagement<T extends PluginItem>({
           ))}
           {!items.length && <div className="empty-tip">暂无{countLabel}</div>}
         </div>
+      )}
+      {askNameOnCreate && (
+        <Modal
+          title={`新建${countLabel}`}
+          open={createOpen}
+          okText="创建"
+          cancelText="取消"
+          okButtonProps={{ disabled: !createName.trim(), loading: creating }}
+          onOk={() => doNew(createName)}
+          onCancel={() => setCreateOpen(false)}
+          afterOpenChange={(open) => { if (open) setCreateName('') }}
+        >
+          <Input
+            autoFocus
+            placeholder={`请输入${countLabel}名称`}
+            value={createName}
+            maxLength={50}
+            onChange={(e) => setCreateName(e.target.value)}
+            onPressEnter={() => doNew(createName)}
+          />
+        </Modal>
       )}
     </div>
   )

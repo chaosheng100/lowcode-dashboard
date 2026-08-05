@@ -143,13 +143,14 @@ export default function TwinManagement() {
         saveItem={(b) => api.saveTwinScene(b)}
         deleteItem={(id) => api.deleteTwinScene(id)}
         blankItem={() => ({ id: '', name: '新建场景', models: [], lighting: 'day', fog: false, status: 'offline', updatedAt: '' })}
+        askNameOnCreate
         renderThumb={(s) => <TwinThumb scene={s} label="孪生场景" />}
         renderMeta={(s) => [
           `模型数：${s.models.length} · 光照：${s.lighting === 'day' ? '日照' : '夜景'} · 雾效：${s.fog ? '开' : '关'}`,
           `更新：${formatTime(s.updatedAt)}`
         ]}
         renderTags={(s) => {
-          const st = TWIN_STATUS[s.status]
+          const st = TWIN_STATUS[s.status] ?? TWIN_STATUS.offline
           return (
             <div className="twin-status-row">
               <Tag color={st.color}>{st.text}</Tag>
