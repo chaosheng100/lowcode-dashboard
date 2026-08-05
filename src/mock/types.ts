@@ -226,6 +226,8 @@ export interface TwinModelDTO {
   version?: number
   /** 历史版本（含当前版本之前的记录） */
   versions?: TwinModelVersion[]
+  /** 是否进入共享模型市场 */
+  market?: boolean
 }
 export type TwinGeometryType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'torus' | 'plane'
 export interface TwinSceneModel {

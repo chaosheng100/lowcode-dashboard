@@ -6,10 +6,12 @@ import {
   ArrowLeftOutlined,
   CloseOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   EyeOutlined,
   InboxOutlined,
   SearchOutlined,
+  ShareAltOutlined,
   UploadOutlined
 } from '@ant-design/icons'
 import {
@@ -72,6 +74,7 @@ export default function TwinModelLibrary() {
 
   const [kw, setKw] = useState('')
   const [category, setCategory] = useState<TwinCategory | undefined>(undefined)
+  const [libView, setLibView] = useState<'mine' | 'market'>('mine')
 
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadFiles, setUploadFiles] = useState<File[]>([])
@@ -91,15 +94,17 @@ export default function TwinModelLibrary() {
 
   const [previewing, setPreviewing] = useState<TwinModelDTO | null>(null)
 
-  const modelList = useMemo(() => (models?.list ?? []).filter((m) => !m.builtin), [models])
+  const modelList = useMemo(() => (models?.list ?? []).filter((m) => !m.builtin && m.market !== true), [models])
+  const marketList = useMemo(() => (models?.list ?? []).filter((m) => m.market === true), [models])
+  const activeList = libView === 'market' ? marketList : modelList
   const filtered = useMemo(() => {
     const q = kw.trim().toLowerCase()
-    return modelList.filter((m) => {
+    return activeList.filter((m) => {
       const hitKw = !q || m.name.toLowerCase().includes(q) || (m.tags ?? []).some((t) => t.toLowerCase().includes(q))
       const hitCat = !category || m.category === category
       return hitKw && hitCat
     })
-  }, [modelList, kw, category])
+  }, [activeList, kw, category])
 
   const pickFiles = (list: FileList | null) => {
     if (!list) return
@@ -229,6 +234,45 @@ export default function TwinModelLibrary() {
     reload()
   }
 
+  const publishToMarket = async (m: TwinModelDTO) => {
+    const r = await api.updateTwinModel(m.id, { market: true })
+    if (r.code !== 0) {
+      message.error(r.message)
+      return
+    }
+    message.success(`「${m.name}」已加入共享模型市场`)
+    reload()
+  }
+
+  const importMarketModel = async (m: TwinModelDTO) => {
+    const created = await api.createTwinModel({
+      name: m.name,
+      category: m.category || '其他',
+      tags: m.tags ?? [],
+      status: 'active',
+      builtin: false,
+      thumbnail: '',
+      market: false
+    })
+    if (created.code !== 0) {
+      message.error(created.message)
+      return
+    }
+    const patched = await api.updateTwinModel(created.data.id, {
+      thumbnail: m.thumbnail,
+      assetUrl: m.assetUrl,
+      format: m.format,
+      fileSize: m.fileSize,
+      version: m.version ?? 1
+    })
+    if (patched.code !== 0) {
+      message.error(patched.message)
+      return
+    }
+    message.success(`已从市场导入「${m.name}」`)
+    reload()
+  }
+
   return (
     <div className="feature-page">
       <div className="fp-head">
@@ -242,6 +286,12 @@ export default function TwinModelLibrary() {
           <p className="fp-sub">模型资产集中管理 · 上传 / 命名 / 分类 / 标签 / 预览 / 删除</p>
         </div>
         <div className="fp-actions">
+          <Button size="small" type={libView === 'mine' ? 'primary' : 'default'} onClick={() => { setLibView('mine'); setKw(''); setCategory(undefined) }}>
+            我的模型库
+          </Button>
+          <Button size="small" type={libView === 'market' ? 'primary' : 'default'} icon={<ShareAltOutlined />} onClick={() => { setLibView('market'); setKw(''); setCategory(undefined) }}>
+            模型市场
+          </Button>
           <Input
             style={{ width: 220 }}
             placeholder="搜索名称/标签"
@@ -258,17 +308,19 @@ export default function TwinModelLibrary() {
             onChange={setCategory}
             options={categoryOptions}
           />
-          <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadOpen(true)}>
-            上传模型
-          </Button>
+          {libView === 'mine' && (
+            <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadOpen(true)}>
+              上传模型
+            </Button>
+          )}
         </div>
-        <span className="fp-count">共 {filtered.length} 个模型</span>
+        <span className="fp-count">共 {filtered.length} 个模型 · {libView === 'market' ? '共享资产' : '我的资产'}</span>
       </div>
 
       {loading ? (
         <div className="empty-tip">加载中...</div>
       ) : filtered.length === 0 ? (
-        <div className="empty-tip">暂无模型，点击「上传模型」导入 GLB / GLTF</div>
+        <div className="empty-tip">{libView === 'market' ? '市场暂无共享模型' : '暂无模型，点击「上传模型」导入 GLB / GLTF'}</div>
       ) : (
         <div className="twin-lib-grid">
           {filtered.map((m) => (
@@ -300,22 +352,29 @@ export default function TwinModelLibrary() {
                 </div>
               )}
               <div className="twin-lib-actions">
-                {m.status !== 'active' && (
-                  <Button size="small" type="text" onClick={() => setModelStatus(m, 'active')}>上架</Button>
+                {libView === 'market' ? (
+                  <Button size="small" type="text" icon={<DownloadOutlined />} onClick={() => importMarketModel(m)}>导入</Button>
+                ) : (
+                  <>
+                    {m.status !== 'active' && (
+                      <Button size="small" type="text" onClick={() => setModelStatus(m, 'active')}>上架</Button>
+                    )}
+                    {m.status === 'active' && (
+                      <Button size="small" type="text" onClick={() => setModelStatus(m, 'inactive')}>下架</Button>
+                    )}
+                    <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => publishToMarket(m)}>设为共享</Button>
+                    <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)}>预览</Button>
+                    <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)}>编辑</Button>
+                    <Popconfirm
+                      title={`删除「${m.name}」？`}
+                      okText="删除"
+                      cancelText="取消"
+                      onConfirm={() => removeModel(m)}
+                    >
+                      <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
+                    </Popconfirm>
+                  </>
                 )}
-                {m.status === 'active' && (
-                  <Button size="small" type="text" onClick={() => setModelStatus(m, 'inactive')}>下架</Button>
-                )}
-                <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)}>预览</Button>
-                <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)}>编辑</Button>
-                <Popconfirm
-                  title={`删除「${m.name}」？`}
-                  okText="删除"
-                  cancelText="取消"
-                  onConfirm={() => removeModel(m)}
-                >
-                  <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
-                </Popconfirm>
               </div>
             </div>
           ))}
