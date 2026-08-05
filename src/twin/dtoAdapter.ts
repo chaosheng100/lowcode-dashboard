@@ -11,6 +11,8 @@ import { healthToState } from './twinTypes'
 export function modelToEntity(m: TwinSceneModel): TwinEntity {
   return {
     id: m.id || m.modelId,
+    modelId: m.modelId,
+    assetUrl: m.assetUrl,
     name: m.name,
     geoType: m.geoType,
     color: m.color,
@@ -29,6 +31,7 @@ export function entityToModel(e: TwinEntity, modelId?: string): TwinSceneModel {
   return {
     id: e.id,
     modelId: modelId ?? e.id,
+    assetUrl: e.assetUrl,
     name: e.name,
     geoType: e.geoType,
     color: e.color,

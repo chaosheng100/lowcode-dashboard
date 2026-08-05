@@ -203,6 +203,13 @@ export interface TwinModelDTO {
   category: TwinCategory
   builtin: boolean // 预置 91 种 / 用户上传
   thumbnail: string
+  /** 外部模型文件地址（上传的 GLB/GLTF），空串表示内置几何体 */
+  assetUrl?: string
+  /** 文件格式：glb / gltf / bin */
+  format?: string
+  /** 文件大小（字节） */
+  fileSize?: number
+  uploadedAt?: string
 }
 export type TwinGeometryType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'torus' | 'plane'
 export interface TwinSceneModel {
@@ -211,6 +218,8 @@ export interface TwinSceneModel {
   name: string
   geoType: TwinGeometryType
   color: string
+  /** 外部模型资源地址；缺省时按 geoType 渲染内置几何体 */
+  assetUrl?: string
   x: number
   y: number
   z: number

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { TwinScene, TwinEntity, TwinEntityState, HighlightLevel, GeoType } from './twinTypes'
 import { STATE_COLORS } from './twinTypes'
 
@@ -25,6 +26,29 @@ function createGeometry(type: GeoType, s: number): THREE.BufferGeometry {
     case 'plane': return new THREE.BoxGeometry(1.5 * s, 0.1 * s, 1.5 * s)
     default: return new THREE.BoxGeometry(0.8 * s, 1 * s, 0.8 * s)
   }
+}
+
+/** 深拷贝 GLTF 场景并克隆材质，保证同一资产可被多个实体独立着色 */
+function cloneGltfScene(src: THREE.Object3D): THREE.Group {
+  const group = src.clone(true) as THREE.Group
+  group.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh) return
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    mesh.material = mats.map((m) => m.clone())
+  })
+  return group
+}
+
+function collectMaterials(obj: THREE.Object3D): THREE.Material[] {
+  const mats: THREE.Material[] = []
+  obj.traverse((o) => {
+    const mesh = o as THREE.Mesh
+    if (!mesh.isMesh) return
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const m of list) if (!mats.includes(m)) mats.push(m)
+  })
+  return mats
 }
 
 /** 生成实体名称文字精灵（Sprite，billboard 始终朝向相机） */
@@ -63,8 +87,13 @@ export class TwinRenderer {
   private ground!: THREE.Mesh
   private ambientLight!: THREE.AmbientLight
   private dirLight!: THREE.DirectionalLight
-  private entityMeshes = new Map<string, THREE.Mesh>()
-  private entityMats = new Map<string, THREE.MeshStandardMaterial>()
+  private entityMeshes = new Map<string, THREE.Object3D>()
+  private entityMats = new Map<string, THREE.Material[]>()
+  /** 渲染器自建的几何体（内置体/占位体），外部 GLTF 几何体由资产缓存共享，不在此处 */
+  private entityGeos = new Map<string, THREE.BufferGeometry>()
+  private assetEntities = new Set<string>()
+  /** 资产加载缓存：同一 URL 只解析一次，多个实体克隆复用 */
+  private assetCache = new Map<string, Promise<THREE.Group>>()
   private labelSprites = new Map<string, THREE.Sprite>()
   private entityStates = new Map<string, TwinEntityState>()
   /** 当前实体快照（供编辑页 TwinPage 读取/操作，与渲染网格保持同步） */
@@ -143,15 +172,7 @@ export class TwinRenderer {
 
   /** 重建实体网格（场景变化或首次构建时调用） */
   setEntities(sceneData: TwinScene): void {
-    // 清理旧实体
-    for (const [id, mesh] of this.entityMeshes) {
-      this.scene.remove(mesh)
-      mesh.geometry.dispose()
-      ;(mesh.material as THREE.Material).dispose()
-      this.entityMeshes.delete(id)
-      this.entityMats.delete(id)
-      this.entityStates.delete(id)
-    }
+    for (const id of Array.from(this.entityMeshes.keys())) this.disposeEntityObject(id)
     for (const [, sp] of this.labelSprites) {
       this.scene.remove(sp)
       const m = sp.material as THREE.SpriteMaterial
@@ -160,60 +181,30 @@ export class TwinRenderer {
     }
     this.labelSprites.clear()
     if (this.highlight) { this.scene.remove(this.highlight); this.highlight = null }
-
-    for (const e of sceneData.entities) {
-      const geo = createGeometry(e.geoType, e.scale ?? 1)
-      const mat = new THREE.MeshStandardMaterial({ color: e.color, metalness: 0.3, roughness: 0.6 })
-      const mesh = new THREE.Mesh(geo, mat)
-      mesh.position.set(e.x, e.y, e.z)
-      mesh.rotation.y = e.rotationY ?? 0
-      mesh.userData.entityId = e.id
-      this.scene.add(mesh)
-      this.entityMeshes.set(e.id, mesh)
-      this.entityMats.set(e.id, mat)
-      this.entityStates.set(e.id, e.state)
-
-      const label = makeLabel(e.name)
-      label.position.set(e.x, e.y + 1.4, e.z)
-      label.visible = this.labelsVisible
-      this.scene.add(label)
-      this.labelSprites.set(e.id, label)
-
-      this.applyStateColor(e.id, e.state)
-    }
-    this.entities = sceneData.entities.map((e) => ({ ...e }))
+    this.entities = []
+    for (const e of sceneData.entities) this.addEntity(e)
   }
 
   // ---- 编辑器复用接口（TwinPage 拖拽/属性/关键帧操作实体） ----
   addEntity(e: TwinEntity): void {
     if (this.entityMeshes.has(e.id)) return
-    const geo = createGeometry(e.geoType, e.scale ?? 1)
-    const mat = new THREE.MeshStandardMaterial({ color: e.color, metalness: 0.3, roughness: 0.6 })
-    const mesh = new THREE.Mesh(geo, mat)
-    mesh.position.set(e.x, e.y, e.z)
-    mesh.rotation.y = e.rotationY ?? 0
-    mesh.userData.entityId = e.id
-    this.scene.add(mesh)
-    this.entityMeshes.set(e.id, mesh)
-    this.entityMats.set(e.id, mat)
+    const obj = e.assetUrl ? this.makePlaceholder(e) : this.makeBuiltin(e)
+    obj.userData.entityId = e.id
+    this.scene.add(obj)
+    this.entityMeshes.set(e.id, obj)
     this.entityStates.set(e.id, e.state)
+    this.applyStateColor(e.id, e.state)
     const label = makeLabel(e.name)
     label.position.set(e.x, e.y + 1.4, e.z)
     label.visible = this.labelsVisible
     this.scene.add(label)
     this.labelSprites.set(e.id, label)
-    this.applyStateColor(e.id, e.state)
+    if (e.assetUrl) this.attachAsset(e, obj)
     this.entities.push({ ...e })
   }
 
   removeEntity(id: string): void {
-    const mesh = this.entityMeshes.get(id)
-    if (mesh) {
-      this.scene.remove(mesh)
-      mesh.geometry.dispose()
-      ;(mesh.material as THREE.Material).dispose()
-      this.entityMeshes.delete(id)
-    }
+    this.disposeEntityObject(id)
     const sp = this.labelSprites.get(id)
     if (sp) {
       this.scene.remove(sp)
@@ -222,9 +213,100 @@ export class TwinRenderer {
       m.dispose()
       this.labelSprites.delete(id)
     }
-    this.entityMats.delete(id)
-    this.entityStates.delete(id)
     this.entities = this.entities.filter((e) => e.id !== id)
+  }
+
+  /** 创建内置几何体对象（几何体/材质由渲染器持有，可安全释放） */
+  private makeBuiltin(e: TwinEntity): THREE.Mesh {
+    const geo = createGeometry(e.geoType, e.scale ?? 1)
+    const mat = new THREE.MeshStandardMaterial({ color: e.color, metalness: 0.3, roughness: 0.6 })
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.position.set(e.x, e.y, e.z)
+    mesh.rotation.y = e.rotationY ?? 0
+    this.entityGeos.set(e.id, geo)
+    this.entityMats.set(e.id, [mat])
+    return mesh
+  }
+
+  /** 外部模型加载期间的占位体（加载失败时保留并标红提示） */
+  private makePlaceholder(e: TwinEntity): THREE.Mesh {
+    const geo = new THREE.BoxGeometry(1.1, 1.2, 1.1)
+    const mat = new THREE.MeshStandardMaterial({
+      color: '#1d4ed8',
+      transparent: true,
+      opacity: 0.55,
+      wireframe: true
+    })
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.position.set(e.x, e.y, e.z)
+    mesh.rotation.y = e.rotationY ?? 0
+    mesh.scale.setScalar(e.scale ?? 1)
+    this.entityGeos.set(e.id, geo)
+    this.entityMats.set(e.id, [mat])
+    return mesh
+  }
+
+  /** 异步加载外部模型并替换占位体；同一 URL 复用缓存 */
+  private attachAsset(e: TwinEntity, placeholder: THREE.Object3D): void {
+    const url = e.assetUrl!
+    let load = this.assetCache.get(url)
+    if (!load) {
+      load = new Promise<THREE.Group>((resolve, reject) => {
+        new GLTFLoader().load(url, (gltf) => resolve(gltf.scene), undefined, (err) => reject(err))
+      })
+      this.assetCache.set(url, load)
+    }
+    load
+      .then((src) => {
+        if (this.disposed || !this.entityMeshes.has(e.id)) return
+        const group = cloneGltfScene(src)
+        group.position.copy(placeholder.position)
+        group.rotation.copy(placeholder.rotation)
+        group.scale.copy(placeholder.scale)
+        group.userData.entityId = e.id
+        this.scene.remove(placeholder)
+        const geo = this.entityGeos.get(e.id)
+        if (geo) geo.dispose()
+        this.entityMats.get(e.id)?.forEach((m) => m.dispose())
+        this.entityGeos.delete(e.id)
+        this.scene.add(group)
+        this.entityMeshes.set(e.id, group)
+        this.entityMats.set(e.id, collectMaterials(group))
+        this.assetEntities.add(e.id)
+        this.applyStateColor(e.id, this.entityStates.get(e.id) ?? e.state)
+      })
+      .catch(() => {
+        if (this.disposed || !this.entityMeshes.has(e.id)) return
+        this.entityMats.get(e.id)?.forEach((m) => {
+          const std = m as THREE.MeshStandardMaterial
+          if (std && 'color' in std && std.color) std.color.set('#ef4444')
+        })
+      })
+  }
+
+  /** 移除实体对象并释放渲染器自有的几何体/材质 */
+  private disposeEntityObject(id: string): void {
+    const obj = this.entityMeshes.get(id)
+    if (obj) this.scene.remove(obj)
+    const geo = this.entityGeos.get(id)
+    if (geo) geo.dispose()
+    this.entityMats.get(id)?.forEach((m) => m.dispose())
+    this.entityMeshes.delete(id)
+    this.entityMats.delete(id)
+    this.entityGeos.delete(id)
+    this.entityStates.delete(id)
+    this.assetEntities.delete(id)
+  }
+
+  /** 命中 GLTF 子网格时向上回溯找到实体根节点 id */
+  private entityIdOf(obj: THREE.Object3D): string | null {
+    let cur: THREE.Object3D | null = obj
+    while (cur) {
+      const id = cur.userData.entityId as string | undefined
+      if (id) return id
+      cur = cur.parent
+    }
+    return null
   }
 
   updateEntityTransform(id: string, t: { x?: number; y?: number; z?: number; rotationY?: number; scale?: number }): void {
@@ -242,9 +324,10 @@ export class TwinRenderer {
   }
 
   setEntityColor(id: string, color: string): void {
-    const mat = this.entityMats.get(id)
-    if (!mat) return
-    mat.color.set(color)
+    this.entityMats.get(id)?.forEach((m) => {
+      const std = m as THREE.MeshStandardMaterial
+      if (std && 'color' in std && std.color) std.color.set(color)
+    })
     const ent = this.entities.find((e) => e.id === id)
     if (ent) ent.color = color
   }
@@ -275,7 +358,7 @@ export class TwinRenderer {
     this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1
     this.raycaster.setFromCamera(this.pointer, this.camera)
     const hits = this.raycaster.intersectObjects(Array.from(this.entityMeshes.values()))
-    return hits[0] ? (hits[0].object.userData.entityId as string) : null
+    return hits[0] ? this.entityIdOf(hits[0].object) : null
   }
 
   /** 屏幕坐标投射到地面，返回 {x,z} 世界坐标 */
@@ -289,12 +372,16 @@ export class TwinRenderer {
   }
 
   private applyStateColor(id: string, state: TwinEntityState): void {
-    const mat = this.entityMats.get(id)
-    if (!mat) return
-    mat.color.set(STATE_COLORS[state])
-    if (state === 'fault') { mat.emissive.set('#ef4444'); mat.emissiveIntensity = 0.5 }
-    else if (state === 'running') { mat.emissive.set('#0e7490'); mat.emissiveIntensity = 0.25 }
-    else { mat.emissive.set('#000000'); mat.emissiveIntensity = 0 }
+    const mats = this.entityMats.get(id)
+    if (!mats?.length) return
+    const isAsset = this.assetEntities.has(id)
+    for (const m of mats) {
+      const std = m as THREE.MeshStandardMaterial
+      if (!isAsset && std && 'color' in std && std.color) std.color.set(STATE_COLORS[state])
+      if (state === 'fault') { std.emissive?.set('#ef4444'); std.emissiveIntensity = 0.5 }
+      else if (state === 'running') { std.emissive?.set('#0e7490'); std.emissiveIntensity = 0.25 }
+      else { std.emissive?.set('#000000'); std.emissiveIntensity = 0 }
+    }
   }
 
   // ---- 联动接口 ----
@@ -319,14 +406,17 @@ export class TwinRenderer {
       this.highlight = null
     }
     if (!id) return
-    const mesh = this.entityMeshes.get(id)
-    if (!mesh) return
-    const edges = new THREE.EdgesGeometry(mesh.geometry)
+    const obj = this.entityMeshes.get(id)
+    if (!obj) return
+    const box = new THREE.Box3().setFromObject(obj)
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const edges = new THREE.EdgesGeometry(
+      new THREE.BoxGeometry(Math.max(size.x, 0.01), Math.max(size.y, 0.01), Math.max(size.z, 0.01))
+    )
     const color = level === 'warn' ? 0xf59e0b : 0x4ade80
     const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color, linewidth: 2 }))
-    line.position.copy(mesh.position)
-    line.rotation.copy(mesh.rotation)
-    line.scale.copy(mesh.scale)
+    line.position.copy(center)
     this.scene.add(line)
     this.highlight = line
   }
@@ -394,8 +484,8 @@ export class TwinRenderer {
     const meshes = Array.from(this.entityMeshes.values())
     const hits = this.raycaster.intersectObjects(meshes)
     if (hits[0]) {
-      const id = hits[0].object.userData.entityId as string
-      this.clickHandler?.(id)
+      const id = this.entityIdOf(hits[0].object)
+      if (id) this.clickHandler?.(id)
     }
   }
 
@@ -425,9 +515,12 @@ export class TwinRenderer {
 
     // 故障实体呼吸光
     const t = performance.now() * 0.006
-    for (const [id, mat] of this.entityMats) {
-      if (this.entityStates.get(id) === 'fault') {
-        mat.emissiveIntensity = 0.35 + 0.35 * Math.abs(Math.sin(t))
+    for (const [id, mats] of this.entityMats) {
+      if (this.entityStates.get(id) !== 'fault') continue
+      for (const m of mats) {
+        const std = m as THREE.MeshStandardMaterial
+        if (!std || !('emissiveIntensity' in std)) continue
+        std.emissiveIntensity = 0.35 + 0.35 * Math.abs(Math.sin(t))
       }
     }
 
@@ -441,15 +534,25 @@ export class TwinRenderer {
     dom.removeEventListener('pointerdown', this.onPointerDown)
     dom.removeEventListener('pointerup', this.onPointerUp)
     this.controls.dispose()
-    for (const [, mesh] of this.entityMeshes) {
-      mesh.geometry.dispose()
-      ;(mesh.material as THREE.Material).dispose()
-    }
+    for (const id of Array.from(this.entityMeshes.keys())) this.disposeEntityObject(id)
     for (const [, sp] of this.labelSprites) {
       const m = sp.material as THREE.SpriteMaterial
       m.map?.dispose()
       m.dispose()
     }
+    // 释放资产缓存源几何体/材质（克隆实体的几何体与其共享）
+    for (const [, p] of this.assetCache) {
+      p.then((src) => {
+        src.traverse((o) => {
+          const mesh = o as THREE.Mesh
+          if (!mesh.isMesh) return
+          mesh.geometry?.dispose()
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+          mats.forEach((m) => m.dispose())
+        })
+      }).catch(() => undefined)
+    }
+    this.assetCache.clear()
     this.renderer.dispose()
     if (dom.parentNode === this.mount) this.mount.removeChild(dom)
   }

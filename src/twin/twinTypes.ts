@@ -30,6 +30,10 @@ export interface TwinEntity {
   name: string
   geoType: GeoType
   color: string
+  /** 外部模型资源地址；有值时优先加载 GLTF/GLB，否则渲染内置几何体 */
+  assetUrl?: string
+  /** 来源模型库 id（上传模型用） */
+  modelId?: string
   x: number
   y: number
   z: number

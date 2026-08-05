@@ -35,10 +35,10 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   const method = opts.method || (opts.body ? 'POST' : 'GET')
   const url = `${BASE_URL}${path}${buildQuery(opts.query)}`
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(opts.headers || {}),
-  }
+  const isFormData = opts.body instanceof FormData
+  const headers: Record<string, string> = { ...(opts.headers || {}) }
+  // FormData 由浏览器自动生成 multipart boundary，不能预置 Content-Type
+  if (!isFormData) headers['Content-Type'] = 'application/json'
   // 自动附加登录令牌
   if (!opts.skipAuth) {
     const token = getToken()
@@ -49,7 +49,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     const res = await fetch(url, {
       method,
       headers,
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      body: isFormData ? (opts.body as FormData) : opts.body ? JSON.stringify(opts.body) : undefined,
     })
 
     const contentType = res.headers.get('content-type') || ''

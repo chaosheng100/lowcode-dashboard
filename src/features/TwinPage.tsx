@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Button, ColorPicker, InputNumber } from 'antd'
+import { App, Button, ColorPicker, InputNumber } from 'antd'
 import {
+  AppstoreOutlined,
   CameraOutlined,
   CaretRightOutlined,
   CloudOutlined,
@@ -9,10 +10,11 @@ import {
   MoonOutlined,
   PauseOutlined,
   StopOutlined,
-  SunOutlined
+  SunOutlined,
+  UploadOutlined
 } from '@ant-design/icons'
 import { useApi } from './useApi'
-import { api } from '../mock'
+import { api, type TwinModelDTO } from '../mock'
 import { Input, Tag } from './common'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
@@ -71,6 +73,24 @@ function makeEntity(preset: (typeof PRESETS)[number], x: number, z: number): Twi
   }
 }
 
+function makeAssetEntity(model: TwinModelDTO, x: number, z: number): TwinEntity {
+  return {
+    id: nextId(),
+    name: model.name,
+    geoType: 'box',
+    color: '#ffffff', // 白色乘色不改变 GLB 原生材质，用户可在属性面板改色
+    assetUrl: model.assetUrl,
+    modelId: model.id,
+    x,
+    y: 0.6,
+    z,
+    rotationY: 0,
+    scale: 1,
+    state: 'normal',
+    metrics: { temperature: 40, health: 80, load: 40 }
+  }
+}
+
 interface TwinPageProps {
   scene?: TwinScene
   readOnly?: boolean
@@ -82,7 +102,8 @@ const TWIN_MODULE_INSTANCE = 'twin-module'
 
 export default function TwinPage(props: TwinPageProps = {}) {
   const { scene: externalScene, readOnly, onSave } = props
-  const { data: models } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
+  const { message } = App.useApp()
+  const { data: models, reload: reloadModels } = useApi(() => api.listTwinModels({ pageSize: 30 }), [])
   const rt = useTwinRuntimeStore((s) => s.instances[TWIN_MODULE_INSTANCE]) ?? EMPTY_TWIN_INSTANCE
 
   // 命令式接口（拖拽/属性/关键帧/控制操作经由共享内核 TwinSceneView）
@@ -112,6 +133,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const [playing, setPlaying] = useState(false)
 
   const draggingRef = useRef<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   const syncRefs = useCallback(() => {
     entitiesRef.current = entities
@@ -208,6 +231,42 @@ export default function TwinPage(props: TwinPageProps = {}) {
     }
   }, [])
 
+  const triggerUpload = () => fileInputRef.current?.click()
+
+  const handleFileChange = async (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0]
+    ev.target.value = ''
+    if (!file) return
+    if (!/\.(glb|gltf|bin)$/i.test(file.name)) {
+      message.warning('仅支持 .glb / .gltf / .bin 模型文件')
+      return
+    }
+    setUploading(true)
+    try {
+      const created = await api.createTwinModel({ name: file.name.replace(/\.[^.]+$/, '') })
+      if (created.code !== 0) throw new Error(created.message)
+      const uploaded = await api.uploadTwinModelFile(created.data.id, file)
+      if (uploaded.code !== 0) throw new Error(uploaded.message)
+      message.success(`模型「${file.name}」上传成功`)
+      reloadModels()
+    } catch (e) {
+      message.error(`上传失败：${(e as Error).message}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDeleteModel = async (m: TwinModelDTO) => {
+    try {
+      const res = await api.deleteTwinModel(m.id)
+      if (res.code !== 0) throw new Error(res.message)
+      message.success(`已删除「${m.name}」`)
+      reloadModels()
+    } catch (e) {
+      message.error(`删除失败：${(e as Error).message}`)
+    }
+  }
+
   // ---- 关键帧播放（独立 rAF，驱动渲染器实体变换） ----
   useEffect(() => {
     let raf = 0
@@ -256,12 +315,24 @@ export default function TwinPage(props: TwinPageProps = {}) {
   // ---- 操作 ----
   const handleDrop = useCallback((ev: React.DragEvent) => {
     ev.preventDefault()
-    const idx = parseInt(ev.dataTransfer.getData('text/plain'), 10)
-    if (isNaN(idx) || idx < 0 || idx >= PRESETS.length) return
-    const preset = PRESETS[idx]
     const view = viewRef.current
     if (!view) return
     const gp = view.groundPointAt(ev.clientX, ev.clientY)
+    const rawModel = ev.dataTransfer.getData('application/x-lowcode-twin-model')
+    if (rawModel) {
+      try {
+        const model = JSON.parse(rawModel) as TwinModelDTO
+        const ent = makeAssetEntity(model, gp?.x ?? 0, gp?.z ?? 0)
+        view.addEntity(ent)
+        setEntities((prev) => [...prev, ent])
+        return
+      } catch {
+        // 拖拽数据异常时回退到内置几何体处理
+      }
+    }
+    const idx = parseInt(ev.dataTransfer.getData('text/plain'), 10)
+    if (isNaN(idx) || idx < 0 || idx >= PRESETS.length) return
+    const preset = PRESETS[idx]
     const ent = makeEntity(preset, gp?.x ?? 0, gp?.z ?? 0)
     view.addEntity(ent)
     setEntities((prev) => [...prev, ent])
@@ -352,6 +423,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
           <div className="twin-panel twin-left">
             <div className="twin-panel-head">
               <span className="twin-panel-title">模型库（拖拽到画布放置）</span>
+              <Button size="small" icon={<UploadOutlined />} loading={uploading} onClick={triggerUpload}>上传模型</Button>
+              <input ref={fileInputRef} type="file" accept=".glb,.gltf,.bin" hidden onChange={handleFileChange} />
             </div>
             <div className="twin-preset-grid">
               {PRESETS.map((p, i) => (
@@ -370,10 +443,36 @@ export default function TwinPage(props: TwinPageProps = {}) {
             {(models?.list ?? []).length > 0 && (
               <div className="twin-model-grid">
                 <div className="twin-panel-title">在线模型库（共 {models?.total ?? models?.list?.length ?? 0} 种）</div>
-                {(models?.list ?? []).slice(0, 12).map((m) => (
-                  <div key={m.id} className="card twin-model-item">
-                    <img src={m.thumbnail} alt={m.name} width={36} height={36} />
+                {(models?.list ?? []).map((m) => (
+                  <div
+                    key={m.id}
+                    draggable
+                    className="card twin-model-item"
+                    title={m.assetUrl ? '拖拽到画布放置（外部模型）' : '内置模型'}
+                    onDragStart={(ev) => {
+                      ev.dataTransfer.setData(
+                        'application/x-lowcode-twin-model',
+                        JSON.stringify({ id: m.id, name: m.name, assetUrl: m.assetUrl })
+                      )
+                      ev.dataTransfer.effectAllowed = 'copy'
+                    }}
+                  >
+                    {m.thumbnail ? (
+                      <img src={m.thumbnail} alt={m.name} width={36} height={36} />
+                    ) : (
+                      <span className="twin-model-thumb"><AppstoreOutlined /></span>
+                    )}
                     <div className="muted2 twin-model-name">{m.name}</div>
+                    <Button
+                      type="text"
+                      size="small"
+                      className="twin-model-del"
+                      icon={<DeleteOutlined />}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        handleDeleteModel(m)
+                      }}
+                    />
                   </div>
                 ))}
               </div>

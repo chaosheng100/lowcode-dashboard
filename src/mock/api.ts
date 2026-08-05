@@ -350,6 +350,13 @@ export const api = {
 
   // —— 数字孪生 ——
   listTwinModels: (q: PageQuery = {}) => mockFetch<PageResult<TwinModelDTO>>('GET', '/api/twinModels', { query: q }),
+  createTwinModel: (body: Partial<TwinModelDTO>) => mockFetch<TwinModelDTO>('POST', '/api/twinModels', { body }),
+  uploadTwinModelFile: (id: string, file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return mockFetch<TwinModelDTO>('POST', `/api/twinModels/${id}/file`, { body: fd })
+  },
+  deleteTwinModel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinModels/${id}`),
   listTwinScenes: (q: PageQuery = {}) => mockFetch<PageResult<TwinSceneDTO>>('GET', '/api/twinScenes', { query: q }),
   saveTwinScene: (body: Partial<TwinSceneDTO>) =>
     mockFetch<TwinSceneDTO>(body.id ? 'PATCH' : 'POST', `/api/twinScenes${body.id ? '/' + body.id : ''}`, { body }),

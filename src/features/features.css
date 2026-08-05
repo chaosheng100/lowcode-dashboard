@@ -993,7 +993,7 @@
 .twin-editor { display: grid; grid-template-columns: 180px minmax(0, 1fr) 260px; gap: 12px; align-items: start; }
 .twin-editor.twin-preview { grid-template-columns: minmax(0, 1fr); }
 .twin-panel { min-width: 0; }
-.twin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.twin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .twin-panel-title { color: var(--sub); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
 .twin-preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 360px; overflow: auto; }
 .twin-preset { padding: 8px; text-align: center; cursor: grab; }
@@ -1002,8 +1002,11 @@
 .twin-preset-name { font-size: 11px; color: #cfd9e6; }
 .twin-model-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 160px; overflow: auto; margin-top: 10px; }
 .twin-model-grid .twin-panel-title { grid-column: 1 / -1; margin-bottom: 2px; }
-.twin-model-item { padding: 4px; text-align: center; }
+.twin-model-item { position: relative; padding: 4px; text-align: center; cursor: grab; }
 .twin-model-item img { display: block; width: 36px; height: 36px; margin: 0 auto; border-radius: 4px; }
+.twin-model-thumb { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: 0 auto; border-radius: 4px; background: rgba(79, 140, 255, 0.14); border: 1px solid rgba(79, 140, 255, 0.28); color: #7dd3fc; font-size: 16px; }
+.twin-model-del { position: absolute; top: 0; right: 0; padding: 0 3px; font-size: 11px; opacity: 0; transition: opacity 0.15s; }
+.twin-model-item:hover .twin-model-del { opacity: 1; }
 .twin-model-name { font-size: 10px; margin-top: 2px; }
 .twin-toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .twin-toolbar-hint { margin-left: auto; line-height: 30px; white-space: nowrap; }
