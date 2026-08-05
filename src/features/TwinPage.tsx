@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Button, ColorPicker, InputNumber } from 'antd'
+import {
+  CameraOutlined,
+  CaretRightOutlined,
+  CloudOutlined,
+  CloseOutlined,
+  DeleteOutlined,
+  MoonOutlined,
+  PauseOutlined,
+  StopOutlined,
+  SunOutlined
+} from '@ant-design/icons'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { Input, Tag } from './common'
@@ -332,60 +343,55 @@ export default function TwinPage(props: TwinPageProps = {}) {
             {readOnly ? '场景预览 · ' : '拖拽搭建 · 关键帧轨迹 · '}日照/夜景/雾效 · {entities.length} 个场景对象 · {totalKeyframes} 个关键帧{readOnly ? '' : ' · 仿真/控制/告警已接入'}
           </p>
         </div>
-        <span className="fp-count">预置模型 91 种</span>
+        <span className="fp-count">模型库 {models?.total ?? (models?.list?.length ?? 0)} 种</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: readOnly ? '1fr' : '180px 1fr 260px', gap: 12 }}>
+      <div className={readOnly ? 'twin-editor twin-preview' : 'twin-editor'}>
         {/* 左：模型库（预览模式隐藏） */}
         {!readOnly && (
-        <div>
-          <div className="muted2" style={{ marginBottom: 8 }}>模型库（拖拽到画布放置）</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 360, overflow: 'auto' }}>
-            {PRESETS.map((p, i) => (
-              <div
-                draggable
-                key={i}
-                className={'card' + (activePreset === i ? ' sel' : '')}
-                style={{ padding: 8, textAlign: 'center', cursor: 'grab', borderColor: activePreset === i ? 'var(--accent)' : undefined }}
-                onDragStart={(ev) => { ev.dataTransfer.setData('text/plain', String(i)); ev.dataTransfer.effectAllowed = 'copy' }}
-                onClick={() => setActivePreset(i)}
-              >
-                <div style={{ width: 32, height: 32, margin: '0 auto 4px', background: p.color, borderRadius: p.geoType === 'sphere' ? '50%' : 6, opacity: 0.8 }} />
-                <div style={{ fontSize: 11, color: '#cfd9e6' }}>{p.name}</div>
-              </div>
-            ))}
-          </div>
-          {(models?.list ?? []).length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <div className="muted2" style={{ marginBottom: 6 }}>在线模型库（共 91 种）</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, maxHeight: 120, overflow: 'auto' }}>
+          <div className="twin-panel twin-left">
+            <div className="twin-panel-head">
+              <span className="twin-panel-title">模型库（拖拽到画布放置）</span>
+            </div>
+            <div className="twin-preset-grid">
+              {PRESETS.map((p, i) => (
+                <div
+                  draggable
+                  key={i}
+                  className={'card twin-preset' + (activePreset === i ? ' sel' : '')}
+                  onDragStart={(ev) => { ev.dataTransfer.setData('text/plain', String(i)); ev.dataTransfer.effectAllowed = 'copy' }}
+                  onClick={() => setActivePreset(i)}
+                >
+                  <i className={'twin-preset-swatch' + (p.geoType === 'sphere' ? ' round' : '')} style={{ background: p.color }} />
+                  <div className="twin-preset-name">{p.name}</div>
+                </div>
+              ))}
+            </div>
+            {(models?.list ?? []).length > 0 && (
+              <div className="twin-model-grid">
+                <div className="twin-panel-title">在线模型库（共 {models?.total ?? models?.list?.length ?? 0} 种）</div>
                 {(models?.list ?? []).slice(0, 12).map((m) => (
-                  <div key={m.id} className="card" style={{ padding: 4, textAlign: 'center' }}>
-                    <img src={m.thumbnail} alt={m.name} width={36} height={36} style={{ borderRadius: 4 }} />
-                    <div className="muted2" style={{ fontSize: 10 }}>{m.name}</div>
+                  <div key={m.id} className="card twin-model-item">
+                    <img src={m.thumbnail} alt={m.name} width={36} height={36} />
+                    <div className="muted2 twin-model-name">{m.name}</div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {/* 中：3D 视口（共享内核 TwinSceneView） */}
-        <div>
-          <div className="flex" style={{ marginBottom: 8 }}>
-            <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} onClick={() => setLighting('day')}>☀ 日照</Button>
-            <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} onClick={() => setLighting('night')}>🌙 夜景</Button>
-            <Button size="small" type={fog ? 'primary' : 'default'} onClick={() => setFog((v) => !v)}>🌫 雾效 {fog ? '开' : '关'}</Button>
-            <span className="muted2" style={{ marginLeft: 'auto', lineHeight: '30px' }}>
+        <div className="twin-panel twin-center">
+          <div className="twin-toolbar">
+            <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} icon={<SunOutlined />} onClick={() => setLighting('day')}>日照</Button>
+            <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} icon={<MoonOutlined />} onClick={() => setLighting('night')}>夜景</Button>
+            <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效 {fog ? '开' : '关'}</Button>
+            <span className="muted2 twin-toolbar-hint">
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>
           </div>
-          <div
-            style={{ width: '100%', height: 420, background: '#05080f', borderRadius: 10, border: '1px solid #1a2433', overflow: 'hidden' }}
-            onDragOver={(ev) => ev.preventDefault()}
-            onDrop={handleDrop}
-          >
+          <div className="twin-viewport" onDragOver={(ev) => ev.preventDefault()} onDrop={handleDrop}>
             <TwinSceneView
               ref={viewRef}
               key={activeSceneId}
@@ -398,163 +404,168 @@ export default function TwinPage(props: TwinPageProps = {}) {
             />
           </div>
           {entities.length === 0 && (
-            <div className="muted2" style={{ textAlign: 'center', marginTop: 8 }}>从模型库拖拽模型到 3D 视口放置</div>
+            <div className="muted2 twin-empty-hint">从模型库拖拽模型到 3D 视口放置</div>
           )}
         </div>
 
         {/* 右：属性 / 仿真 / 控制 / 告警（预览模式隐藏编辑控件） */}
         {!readOnly && (
-        <div>
-          {selected ? (
-            <div className="sec">
-              <div className="sec-head">
-                <span className="sec-title">选中对象</span>
-                <Button size="small" danger onClick={deleteSelected}>删除</Button>
-              </div>
-              <div className="sec-body">
-                <div className="field">
-                  <span className="field-label" style={{ width: 70 }}>名称</span>
-                  <Input value={selected.name} onChange={(e) => updateSelected({ name: e.target.value })} />
+          <div className="twin-panel twin-right">
+            {selected ? (
+              <div className="sec">
+                <div className="sec-head">
+                  <span className="sec-title">选中对象</span>
+                  <Button size="small" danger icon={<DeleteOutlined />} onClick={deleteSelected}>删除</Button>
                 </div>
-                <div className="field">
-                  <span className="field-label" style={{ width: 70 }}>颜色</span>
-                  <ColorPicker value={selected.color} onChange={(c) => updateSelected({ color: c.toHexString() })} />
-                </div>
-                <div className="field">
-                  <span className="field-label" style={{ width: 70 }}>旋转°</span>
-                  <InputNumber style={{ width: '100%' }} value={Math.round((selected.rotationY ?? 0) * 180 / Math.PI)}
-                    onChange={(v) => updateSelected({ rotationY: (v ?? 0) * Math.PI / 180 })} />
-                </div>
-                <div className="field">
-                  <span className="field-label" style={{ width: 70 }}>缩放</span>
-                  <InputNumber style={{ width: '100%' }} step={0.1} value={selected.scale ?? 1}
-                    onChange={(v) => updateSelected({ scale: v || 1 })} />
-                </div>
-                <div className="field">
-                  <span className="field-label" style={{ width: 70 }}>绑定源</span>
-                  <Input placeholder="liveSourceId（OPC-UA/WS/MQTT）" value={selected.bindings?.liveSourceId ?? ''}
-                    onChange={(e) => updateSelected({ bindings: { liveSourceId: e.target.value, fields: selected.bindings?.fields ?? {} } })} />
-                </div>
-
-                {pred && (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)', fontSize: 11, color: '#9fb0c3' }}>
-                    仿真预测：健康指数 <b style={{ color: '#7dd3fc' }}>{pred.healthIndex}</b>
-                    {pred.rul != null && <> · RUL <b style={{ color: '#7dd3fc' }}>{pred.rul}h</b></>} · 状态 {pred.state}
+                <div className="sec-body">
+                  <div className="twin-field">
+                    <span className="twin-field-label">名称</span>
+                    <div className="twin-field-ctrl">
+                      <Input value={selected.name} onChange={(e) => updateSelected({ name: e.target.value })} />
+                    </div>
                   </div>
-                )}
-
-                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-                  <div className="muted2" style={{ marginBottom: 6 }}>闭环控制</div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {(['start', 'stop', 'reset'] as ControlAction[]).map((a) => (
-                      <Button key={a} size="small" onClick={() => dispatchControl(a)}>{CONTROL_LABELS[a]}</Button>
-                    ))}
+                  <div className="twin-field">
+                    <span className="twin-field-label">颜色</span>
+                    <ColorPicker value={selected.color} onChange={(c) => updateSelected({ color: c.toHexString() })} />
                   </div>
-                  {entityAlarms.length > 0 && (
-                    <div style={{ marginTop: 6, color: '#f59e0b', fontSize: 11 }}>
-                      {entityAlarms[0].message}
+                  <div className="twin-field">
+                    <span className="twin-field-label">旋转°</span>
+                    <InputNumber style={{ width: '100%' }} value={Math.round((selected.rotationY ?? 0) * 180 / Math.PI)}
+                      onChange={(v) => updateSelected({ rotationY: (v ?? 0) * Math.PI / 180 })} />
+                  </div>
+                  <div className="twin-field">
+                    <span className="twin-field-label">缩放</span>
+                    <InputNumber style={{ width: '100%' }} step={0.1} value={selected.scale ?? 1}
+                      onChange={(v) => updateSelected({ scale: v || 1 })} />
+                  </div>
+                  <div className="twin-field">
+                    <span className="twin-field-label">绑定源</span>
+                    <div className="twin-field-ctrl">
+                      <Input placeholder="liveSourceId（OPC-UA/WS/MQTT）" value={selected.bindings?.liveSourceId ?? ''}
+                        onChange={(e) => updateSelected({ bindings: { liveSourceId: e.target.value, fields: selected.bindings?.fields ?? {} } })} />
+                    </div>
+                  </div>
+
+                  {pred && (
+                    <div className="twin-divider twin-pred">
+                      仿真预测：健康指数 <b>{pred.healthIndex}</b>
+                      {pred.rul != null && <> · RUL <b>{pred.rul}h</b></>} · 状态 {pred.state}
                     </div>
                   )}
-                </div>
 
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
-                  <div className="muted2" style={{ marginBottom: 6 }}>关键帧轨迹（{keyframes[selected.id]?.length ?? 0} 个）</div>
-                  <Button size="small" block style={{ marginBottom: 6 }} onClick={recordKeyframe}>⏺ 录制关键帧 @ {currentTime.toFixed(1)}s</Button>
-                  {(keyframes[selected.id] ?? []).map((kf, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9fb0c3', marginBottom: 3 }}>
-                      <span style={{ color: '#4ade80' }}>◆</span>
-                      <span>{kf.time.toFixed(1)}s</span>
-                      <span>x:{kf.x.toFixed(1)} z:{kf.z.toFixed(1)}</span>
-                      <Button type="text" size="small" style={{ marginLeft: 'auto' }} onClick={() => deleteKeyframe(selected.id, kf.time)}>✕</Button>
+                  <div className="twin-divider">
+                    <div className="muted2 twin-section-label">闭环控制</div>
+                    <div className="twin-control-grid">
+                      {(['start', 'stop', 'reset'] as ControlAction[]).map((a) => (
+                        <Button key={a} size="small" onClick={() => dispatchControl(a)}>{CONTROL_LABELS[a]}</Button>
+                      ))}
                     </div>
-                  ))}
+                    {entityAlarms.length > 0 && (
+                      <div className="twin-alarm">{entityAlarms[0].message}</div>
+                    )}
+                  </div>
+
+                  <div className="twin-divider">
+                    <div className="muted2 twin-section-label">关键帧轨迹（{keyframes[selected.id]?.length ?? 0} 个）</div>
+                    <Button size="small" block icon={<CameraOutlined />} className="twin-record-btn" onClick={recordKeyframe}>
+                      录制关键帧 @ {currentTime.toFixed(1)}s
+                    </Button>
+                    <div className="twin-kf-list">
+                      {(keyframes[selected.id] ?? []).map((kf, i) => (
+                        <div key={i} className="twin-kf-row">
+                          <span className="twin-kf-dot" aria-hidden />
+                          <span>{kf.time.toFixed(1)}s</span>
+                          <span>x:{kf.x.toFixed(1)} z:{kf.z.toFixed(1)}</span>
+                          <Button type="text" size="small" className="twin-kf-del" icon={<CloseOutlined />}
+                            onClick={() => deleteKeyframe(selected.id, kf.time)} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="sec">
-              <div className="sec-title">属性面板</div>
-              <div className="muted2" style={{ marginTop: 8 }}>点击 3D 视口中的对象查看属性 / 仿真 / 控制</div>
-            </div>
-          )}
+            ) : (
+              <div className="sec">
+                <div className="sec-title">属性面板</div>
+                <div className="muted2 twin-empty-hint twin-select-hint">点击 3D 视口中的对象查看属性 / 仿真 / 控制</div>
+              </div>
+            )}
 
-          {/* 场景对象列表 */}
-          <div className="sec">
-            <div className="sec-title">场景对象（{entities.length}）</div>
-            <div style={{ maxHeight: 160, overflow: 'auto', marginTop: 8 }}>
-              {entities.map((o) => (
-                <div key={o.id} className={'card' + (o.id === selectedId ? ' sel' : '')}
-                  style={{ padding: '6px 8px', marginBottom: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-                  onClick={() => setSelectedId(o.id)}>
-                  <div style={{ width: 12, height: 12, borderRadius: 3, background: o.color }} />
-                  <span style={{ fontSize: 12, color: '#cfd9e6' }}>{o.name}</span>
-                  {(keyframes[o.id]?.length ?? 0) > 0 && <Tag>{keyframes[o.id].length}帧</Tag>}
-                </div>
-              ))}
-              {entities.length === 0 && <div className="muted2">暂无对象</div>}
+            {/* 场景对象列表 */}
+            <div className="sec">
+              <div className="sec-title">场景对象（{entities.length}）</div>
+              <div className="twin-object-list">
+                {entities.map((o) => (
+                  <div key={o.id} className={'card twin-object-item' + (o.id === selectedId ? ' sel' : '')} onClick={() => setSelectedId(o.id)}>
+                    <i className="twin-object-dot" style={{ background: o.color }} />
+                    <span className="twin-object-name">{o.name}</span>
+                    {(keyframes[o.id]?.length ?? 0) > 0 && <Tag>{keyframes[o.id].length}帧</Tag>}
+                  </div>
+                ))}
+                {entities.length === 0 && <div className="muted2">暂无对象</div>}
+              </div>
             </div>
           </div>
-        </div>
         )}
       </div>
 
       {/* 时间轴（预览模式仅显示，不可编辑） */}
       {!readOnly && (
-      <div className="sec" style={{ marginTop: 4 }}>
-        <div className="sec-head">
-          <div>
-            <span className="sec-title">关键帧时间轴</span>
-            <span className="muted2" style={{ marginLeft: 8 }}>点击轨道空白处移动播放头 · 录制按钮在右侧属性面板</span>
+        <div className="sec twin-timeline">
+          <div className="sec-head twin-timeline-head">
+            <div className="twin-timeline-title">
+              <span className="sec-title">关键帧时间轴</span>
+              <span className="muted2 twin-timeline-hint">点击轨道空白处移动播放头 · 录制按钮在右侧属性面板</span>
+            </div>
+            <div className="twin-timeline-controls">
+              <span className="muted2">时长</span>
+              <InputNumber size="small" min={1} max={60} value={duration} style={{ width: 64 }} onChange={(v) => setDuration(Math.max(1, v ?? 1))} />
+              <span className="muted2">s</span>
+              <span className="muted2 twin-timeline-time">{currentTime.toFixed(1)}s / {duration}s</span>
+              <Button size="small" icon={playing ? <PauseOutlined /> : <CaretRightOutlined />} onClick={play}>{playing ? '暂停' : '播放'}</Button>
+              <Button size="small" icon={<StopOutlined />} onClick={stop}>停止</Button>
+            </div>
           </div>
-          <div className="flex" style={{ alignItems: 'center' }}>
-            <span className="muted2">时长</span>
-            <InputNumber size="small" min={1} max={60} value={duration} style={{ width: 64 }} onChange={(v) => setDuration(Math.max(1, v ?? 1))} />
-            <span className="muted2">s</span>
-            <span className="muted2" style={{ marginLeft: 12 }}>{currentTime.toFixed(1)}s / {duration}s</span>
-            <Button size="small" onClick={play}>{playing ? '⏸ 暂停' : '▶ 播放'}</Button>
-            <Button size="small" onClick={stop}>⏹ 停止</Button>
-          </div>
-        </div>
 
-        <svg width={TL_WIDTH} height={Math.max(tlContentH, TL_HEIGHT)} style={{ background: '#080d16', borderRadius: 8, border: '1px solid var(--line)', display: 'block' }}
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            const x = e.clientX - rect.left
-            scrub(Math.max(0, Math.min(duration, (x / TL_WIDTH) * duration)))
-          }}>
-          {Array.from({ length: duration + 1 }).map((_, i) => {
-            const x = (i / duration) * TL_WIDTH
-            return (
-              <g key={i}>
-                <line x1={x} y1={0} x2={x} y2={RULER_H} stroke="#2a3340" strokeWidth={1} />
-                <text x={x + 3} y={14} fill="#6b7d8f" fontSize={10}>{i}s</text>
-              </g>
-            )
-          })}
-          {objectsWithKfs.length === 0 ? (
-            <text x={TL_WIDTH / 2 - 60} y={RULER_H + 30} fill="#6b7d8f" fontSize={12}>选中对象后点击「录制关键帧」添加轨迹</text>
-          ) : (
-            objectsWithKfs.map((o, rowIdx) => {
-              const y = RULER_H + rowIdx * ROW_H
-              const kfs = keyframes[o.id] || []
+          <svg className="twin-timeline-svg" viewBox={`0 0 ${TL_WIDTH} ${Math.max(tlContentH, TL_HEIGHT)}`}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const x = (e.clientX - rect.left) / rect.width * TL_WIDTH
+              scrub(Math.max(0, Math.min(duration, (x / TL_WIDTH) * duration)))
+            }}>
+            {Array.from({ length: duration + 1 }).map((_, i) => {
+              const x = (i / duration) * TL_WIDTH
               return (
-                <g key={o.id}>
-                  <line x1={0} y1={y} x2={TL_WIDTH} y2={y} stroke="#1a2433" strokeWidth={1} />
-                  <text x={4} y={y + 14} fill="#9fb0c3" fontSize={10}>{o.name}</text>
-                  {kfs.map((kf, i) => {
-                    const kx = (kf.time / duration) * TL_WIDTH
-                    return (
-                      <polygon key={i} points={`${kx - 5},${y + 10} ${kx},${y + 4} ${kx + 5},${y + 10} ${kx},${y + 16}`} fill={o.color} stroke="#0a0e1a" strokeWidth={0.5} style={{ cursor: 'pointer' }} />
-                    )
-                  })}
+                <g key={i}>
+                  <line x1={x} y1={0} x2={x} y2={RULER_H} stroke="#2a3340" strokeWidth={1} />
+                  <text x={x + 3} y={14} fill="#6b7d8f" fontSize={10}>{i}s</text>
                 </g>
               )
-            })
-          )}
-          <line x1={(currentTime / duration) * TL_WIDTH} y1={0} x2={(currentTime / duration) * TL_WIDTH} y2={Math.max(tlContentH, TL_HEIGHT)} stroke="#ef4444" strokeWidth={1.5} />
-          <polygon points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`} fill="#ef4444" />
-        </svg>
-      </div>
+            })}
+            {objectsWithKfs.length === 0 ? (
+              <text x={TL_WIDTH / 2 - 60} y={RULER_H + 30} fill="#6b7d8f" fontSize={12}>选中对象后点击「录制关键帧」添加轨迹</text>
+            ) : (
+              objectsWithKfs.map((o, rowIdx) => {
+                const y = RULER_H + rowIdx * ROW_H
+                const kfs = keyframes[o.id] || []
+                return (
+                  <g key={o.id}>
+                    <line x1={0} y1={y} x2={TL_WIDTH} y2={y} stroke="#1a2433" strokeWidth={1} />
+                    <text x={4} y={y + 14} fill="#9fb0c3" fontSize={10}>{o.name}</text>
+                    {kfs.map((kf, i) => {
+                      const kx = (kf.time / duration) * TL_WIDTH
+                      return (
+                        <polygon key={i} points={`${kx - 5},${y + 10} ${kx},${y + 4} ${kx + 5},${y + 10} ${kx},${y + 16}`} fill={o.color} stroke="#0a0e1a" strokeWidth={0.5} style={{ cursor: 'pointer' }} />
+                      )
+                    })}
+                  </g>
+                )
+              })
+            )}
+            <line x1={(currentTime / duration) * TL_WIDTH} y1={0} x2={(currentTime / duration) * TL_WIDTH} y2={Math.max(tlContentH, TL_HEIGHT)} stroke="#ef4444" strokeWidth={1.5} />
+            <polygon points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`} fill="#ef4444" />
+          </svg>
+        </div>
       )}
     </div>
   )

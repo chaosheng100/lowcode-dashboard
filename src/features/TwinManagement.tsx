@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Select } from 'antd'
+import { DesktopOutlined } from '@ant-design/icons'
 import PluginManagement from './PluginManagement'
 import { api } from '../mock'
 import type { TwinSceneDTO } from '../mock/types'
@@ -13,6 +14,41 @@ import {
   unlinkTwinFromDashboard,
   twinComponentAssets
 } from './twinWidgetCatalog'
+
+const TWIN_STATUS: Record<TwinSceneDTO['status'], { text: string; color: string }> = {
+  online: { text: '在线', color: '#4ade80' },
+  maintenance: { text: '维护', color: '#facc15' },
+  offline: { text: '离线', color: '#94a3b8' }
+}
+
+function formatTime(iso?: string): string {
+  if (!iso) return '暂无'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '暂无'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function TwinThumb({ scene, label }: { scene: TwinSceneDTO; label: string }) {
+  const blocks = scene.models.slice(0, 12)
+  return (
+    <>
+      <div className="twin-thumb-grid" aria-hidden>
+        {Array.from({ length: 12 }).map((_, i) => {
+          const m = blocks[i]
+          return (
+            <i
+              key={i}
+              className="twin-thumb-block"
+              style={m ? { background: m.color, opacity: 0.75 } : undefined}
+            />
+          )
+        })}
+      </div>
+      <span className="mg-badge">{label}</span>
+    </>
+  )
+}
 
 /** 数字孪生：场景列表 + 进入编辑器（3D 场景编辑器）+ 预览 + 投放到大屏 */
 export default function TwinManagement() {
@@ -69,21 +105,32 @@ export default function TwinManagement() {
         saveItem={(b) => api.saveTwinScene(b)}
         deleteItem={(id) => api.deleteTwinScene(id)}
         blankItem={() => ({ id: '', name: '新建场景', models: [], lighting: 'day', fog: false, status: 'offline', updatedAt: '' })}
-        renderMeta={(s) => [`模型数：${s.models.length}`, `光照：${s.lighting === 'day' ? '日照' : '夜景'}`, s.fog ? '雾效：开' : '雾效：关']}
-        renderTags={(s) => (
-          <div className="flex" style={{ margin: '6px 0' }}>
-            <Tag color={s.lighting === 'day' ? '#facc15' : '#6366f1'}>{s.lighting === 'day' ? '日照' : '夜景'}</Tag>
-            {s.fog && <Tag>雾效</Tag>}
-          </div>
-        )}
+        renderThumb={(s) => <TwinThumb scene={s} label="孪生场景" />}
+        renderMeta={(s) => [
+          `模型数：${s.models.length} · 光照：${s.lighting === 'day' ? '日照' : '夜景'} · 雾效：${s.fog ? '开' : '关'}`,
+          `更新：${formatTime(s.updatedAt)}`
+        ]}
+        renderTags={(s) => {
+          const st = TWIN_STATUS[s.status]
+          return (
+            <div className="twin-status-row">
+              <Tag color={st.color}>{st.text}</Tag>
+              <Tag color={s.lighting === 'day' ? '#facc15' : '#6366f1'}>{s.lighting === 'day' ? '日照' : '夜景'}</Tag>
+              {s.fog && <Tag>雾效</Tag>}
+              {s.dashboardId && <Tag color="#2dd4bf">已投放</Tag>}
+            </div>
+          )
+        }}
         renderActions={(scene) => (
-          <span
-            className="mg-open"
-            style={{ color: '#4ade80' }}
+          <Button
+            size="small"
+            type="link"
+            icon={<DesktopOutlined />}
+            title="投放孪生场景到大屏"
             onClick={(e) => { e.stopPropagation(); openDeploy(scene) }}
           >
             投放到大屏
-          </span>
+          </Button>
         )}
         renderEditor={(item, save) => {
           const scene: TwinScene = dtoToScene(item)
