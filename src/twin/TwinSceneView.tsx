@@ -9,6 +9,7 @@ import {
   type HighlightLevel,
   type TelemetrySample,
   type TwinEntity,
+  type TwinEntityMaterial,
   type TwinEntityState,
   type TwinScene,
   type WhatIfResult,
@@ -50,6 +51,8 @@ export interface TwinSceneViewController {
   removeEntity: (id: string) => void
   updateEntityTransform: (id: string, t: { x?: number; y?: number; z?: number; rotationY?: number; scale?: number }) => void
   setEntityColor: (id: string, color: string) => void
+  setEntityVisible: (id: string, visible: boolean) => void
+  setEntityMaterial: (id: string, patch: TwinEntityMaterial) => void
   getEntityTransform: (id: string) => { x: number; y: number; z: number; rotationY: number } | null
   /** 屏幕坐标拾取实体 */
   pickEntityAt: (clientX: number, clientY: number) => string | null
@@ -188,6 +191,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     },
     updateEntityTransform: (id, t) => rendererRef.current?.updateEntityTransform(id, t),
     setEntityColor: (id, color) => rendererRef.current?.setEntityColor(id, color),
+    setEntityVisible: (id, visible) => rendererRef.current?.setEntityVisible(id, visible),
+    setEntityMaterial: (id, patch) => rendererRef.current?.setEntityMaterial(id, patch),
     getEntityTransform: (id) => rendererRef.current?.getEntityTransform(id) ?? null,
     pickEntityAt: (x, y) => rendererRef.current?.pickEntityAt(x, y) ?? null,
     groundPointAt: (x, y) => rendererRef.current?.groundPointAt(x, y) ?? null,

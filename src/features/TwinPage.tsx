@@ -8,12 +8,16 @@ import {
   CloudOutlined,
   CloseOutlined,
   DeleteOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  LockOutlined,
   MoonOutlined,
   PauseOutlined,
   SearchOutlined,
   SettingOutlined,
   StopOutlined,
-  SunOutlined
+  SunOutlined,
+  UnlockOutlined
 } from '@ant-design/icons'
 import { useApi } from './useApi'
 import { api, type TwinCategory, type TwinModelDTO } from '../mock'
@@ -205,6 +209,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
       if (ev.button !== 0) return
       const id = view.pickEntityAt(ev.clientX, ev.clientY)
       if (id) {
+        const ent = entitiesRef.current.find((e) => e.id === id)
+        if (ent?.locked) return
         draggingRef.current = id
         view.setControlsEnabled(false)
         setSelectedId(id)
@@ -335,10 +341,27 @@ export default function TwinPage(props: TwinPageProps = {}) {
     const view = viewRef.current
     if (!view) return
     if (patch.color) view.setEntityColor(selectedId, patch.color)
+    if (patch.visible !== undefined) view.setEntityVisible(selectedId, patch.visible)
+    if (patch.material) view.setEntityMaterial(selectedId, patch.material)
     if (patch.x !== undefined || patch.z !== undefined || patch.rotationY !== undefined || patch.scale !== undefined) {
       const t = view.getEntityTransform(selectedId)
       if (t) view.updateEntityTransform(selectedId, { x: patch.x ?? t.x, y: t.y, z: patch.z ?? t.z, rotationY: patch.rotationY ?? t.rotationY, scale: patch.scale })
     }
+  }
+
+  const toggleEntityVisible = (id: string) => {
+    const ent = entities.find((e) => e.id === id)
+    if (!ent) return
+    const visible = ent.visible === false ? true : false
+    setEntities((prev) => prev.map((o) => (o.id === id ? { ...o, visible } : o)))
+    viewRef.current?.setEntityVisible(id, visible)
+  }
+
+  const toggleEntityLocked = (id: string) => {
+    const ent = entities.find((e) => e.id === id)
+    if (!ent) return
+    const locked = !ent.locked
+    setEntities((prev) => prev.map((o) => (o.id === id ? { ...o, locked } : o)))
   }
 
   const recordKeyframe = () => {
@@ -480,6 +503,26 @@ export default function TwinPage(props: TwinPageProps = {}) {
         {/* 中：3D 视口（共享内核 TwinSceneView） */}
         <div className="twin-panel twin-center">
           <div className="twin-toolbar">
+            <Select
+              size="small"
+              style={{ width: 120 }}
+              value={lighting + (fog ? '-fog' : '')}
+              onChange={(v) => {
+                if (v === 'day' || v === 'night') {
+                  setLighting(v)
+                  setFog(false)
+                } else if (v === 'day-fog' || v === 'night-fog') {
+                  setLighting(v === 'day-fog' ? 'day' : 'night')
+                  setFog(true)
+                }
+              }}
+              options={[
+                { value: 'day', label: '日景预设' },
+                { value: 'night', label: '夜景预设' },
+                { value: 'day-fog', label: '日景雾效' },
+                { value: 'night-fog', label: '夜景雾效' }
+              ]}
+            />
             <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} icon={<SunOutlined />} onClick={() => setLighting('day')}>日照</Button>
             <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} icon={<MoonOutlined />} onClick={() => setLighting('night')}>夜景</Button>
             <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效 {fog ? '开' : '关'}</Button>
@@ -523,6 +566,38 @@ export default function TwinPage(props: TwinPageProps = {}) {
                   <div className="twin-field">
                     <span className="twin-field-label">颜色</span>
                     <ColorPicker value={selected.color} onChange={(c) => updateSelected({ color: c.toHexString() })} />
+                  </div>
+                  <div className="twin-divider">
+                    <div className="muted2 twin-section-label">材质</div>
+                    <div className="twin-material-grid">
+                      <div className="twin-field">
+                        <span className="twin-field-label">金属度</span>
+                        <InputNumber style={{ width: '100%' }} min={0} max={1} step={0.05}
+                          value={selected.material?.metalness ?? 0.3}
+                          onChange={(v) => updateSelected({ material: { ...(selected.material || {}), metalness: v ?? 0 } })} />
+                      </div>
+                      <div className="twin-field">
+                        <span className="twin-field-label">粗糙度</span>
+                        <InputNumber style={{ width: '100%' }} min={0} max={1} step={0.05}
+                          value={selected.material?.roughness ?? 0.6}
+                          onChange={(v) => updateSelected({ material: { ...(selected.material || {}), roughness: v ?? 0 } })} />
+                      </div>
+                      <div className="twin-field">
+                        <span className="twin-field-label">透明度</span>
+                        <InputNumber style={{ width: '100%' }} min={0} max={1} step={0.05}
+                          value={selected.material?.opacity ?? 1}
+                          onChange={(v) => updateSelected({ material: { ...(selected.material || {}), opacity: v ?? 1 } })} />
+                      </div>
+                      <div className="twin-field">
+                        <span className="twin-field-label">自发光</span>
+                        <ColorPicker
+                          value={selected.material?.emissive || '#000000'}
+                          onChange={(c) => updateSelected({
+                            material: { ...(selected.material || {}), emissive: c.toHexString(), emissiveIntensity: selected.material?.emissiveIntensity ?? 0 }
+                          })}
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="twin-field">
                     <span className="twin-field-label">旋转°</span>
@@ -592,10 +667,38 @@ export default function TwinPage(props: TwinPageProps = {}) {
               <div className="sec-title">场景对象（{entities.length}）</div>
               <div className="twin-object-list">
                 {entities.map((o) => (
-                  <div key={o.id} className={'card twin-object-item' + (o.id === selectedId ? ' sel' : '')} onClick={() => setSelectedId(o.id)}>
+                  <div
+                    key={o.id}
+                    className={'card twin-object-item' + (o.id === selectedId ? ' sel' : '') + (o.visible === false ? ' hidden' : '')}
+                    onClick={() => setSelectedId(o.id)}
+                  >
                     <i className="twin-object-dot" style={{ background: o.color }} />
-                    <span className="twin-object-name">{o.name}</span>
+                    <span className="twin-object-name" title={o.name}>{o.name}</span>
                     {(keyframes[o.id]?.length ?? 0) > 0 && <Tag>{keyframes[o.id].length}帧</Tag>}
+                    <span className="twin-object-ops">
+                      <Button
+                        type="text"
+                        size="small"
+                        className="icon-btn"
+                        title={o.visible === false ? '显示' : '隐藏'}
+                        icon={o.visible === false ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          toggleEntityVisible(o.id)
+                        }}
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        className="icon-btn"
+                        title={o.locked ? '解锁' : '锁定'}
+                        icon={o.locked ? <LockOutlined /> : <UnlockOutlined />}
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          toggleEntityLocked(o.id)
+                        }}
+                      />
+                    </span>
                   </div>
                 ))}
                 {entities.length === 0 && <div className="muted2">暂无对象</div>}

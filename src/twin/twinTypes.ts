@@ -24,6 +24,15 @@ export interface TwinEntityMetrics {
   [k: string]: number | undefined
 }
 
+/** 材质覆盖参数（图层/材质面板写入，渲染器按实体应用） */
+export interface TwinEntityMaterial {
+  metalness?: number
+  roughness?: number
+  opacity?: number
+  emissive?: string
+  emissiveIntensity?: number
+}
+
 /** 单个孪生实体 */
 export interface TwinEntity {
   id: string
@@ -43,6 +52,12 @@ export interface TwinEntity {
   metrics?: TwinEntityMetrics
   /** 绑定实时源：孪生指标字段 → 源字段（进阶接入预留） */
   bindings?: { liveSourceId?: string; fields?: Record<string, string> }
+  /** 图层树：是否可见 */
+  visible?: boolean
+  /** 图层树：是否锁定（锁定后不可选中/拖拽） */
+  locked?: boolean
+  /** 材质覆盖（金属度/粗糙度/透明度/自发光） */
+  material?: TwinEntityMaterial
 }
 
 /** 孪生场景（一组实体 + 环境配置） */

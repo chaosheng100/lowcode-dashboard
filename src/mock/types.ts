@@ -243,6 +243,18 @@ export interface TwinSceneModel {
   ry: number
   rz: number
   scale: number
+  /** 图层树：可见性 */
+  visible?: boolean
+  /** 图层树：锁定 */
+  locked?: boolean
+  /** 材质覆盖参数 */
+  material?: {
+    metalness?: number
+    roughness?: number
+    opacity?: number
+    emissive?: string
+    emissiveIntensity?: number
+  }
 }
 export interface TwinKeyframeDTO {
   time: number

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import type { TwinScene, TwinEntity, TwinEntityState, HighlightLevel, GeoType } from './twinTypes'
+import type { TwinScene, TwinEntity, TwinEntityState, TwinEntityMaterial, HighlightLevel, GeoType } from './twinTypes'
 import { STATE_COLORS } from './twinTypes'
 
 // ============================================================
@@ -201,6 +201,11 @@ export class TwinRenderer {
     this.labelSprites.set(e.id, label)
     if (e.assetUrl) this.attachAsset(e, obj)
     this.entities.push({ ...e })
+    if (e.visible === false) {
+      obj.visible = false
+      label.visible = false
+    }
+    if (e.material) this.setEntityMaterial(e.id, e.material)
   }
 
   removeEntity(id: string): void {
@@ -274,6 +279,11 @@ export class TwinRenderer {
         this.entityMats.set(e.id, collectMaterials(group))
         this.assetEntities.add(e.id)
         this.applyStateColor(e.id, this.entityStates.get(e.id) ?? e.state)
+        group.visible = placeholder.visible !== false
+        const sp = this.labelSprites.get(e.id)
+        if (sp) sp.visible = this.labelsVisible && placeholder.visible !== false
+        const ent = this.entities.find((x) => x.id === e.id)
+        if (ent?.material) this.setEntityMaterial(e.id, ent.material)
       })
       .catch(() => {
         if (this.disposed || !this.entityMeshes.has(e.id)) return
@@ -332,6 +342,32 @@ export class TwinRenderer {
     if (ent) ent.color = color
   }
 
+  setEntityVisible(id: string, visible: boolean): void {
+    const obj = this.entityMeshes.get(id)
+    if (obj) obj.visible = visible
+    const sp = this.labelSprites.get(id)
+    if (sp) sp.visible = this.labelsVisible && visible
+    const ent = this.entities.find((e) => e.id === id)
+    if (ent) ent.visible = visible
+  }
+
+  setEntityMaterial(id: string, patch: TwinEntityMaterial): void {
+    for (const m of this.entityMats.get(id) ?? []) {
+      const std = m as THREE.MeshStandardMaterial
+      if (!std || !('color' in std)) continue
+      if (patch.metalness !== undefined) std.metalness = patch.metalness
+      if (patch.roughness !== undefined) std.roughness = patch.roughness
+      if (patch.opacity !== undefined) {
+        std.transparent = patch.opacity < 1
+        std.opacity = patch.opacity
+      }
+      if (patch.emissive !== undefined) std.emissive?.set(patch.emissive)
+      if (patch.emissiveIntensity !== undefined) std.emissiveIntensity = patch.emissiveIntensity
+    }
+    const ent = this.entities.find((e) => e.id === id)
+    if (ent) ent.material = { ...(ent.material || {}), ...patch }
+  }
+
   getEntities(): TwinEntity[] {
     return this.entities.map((e) => ({ ...e }))
   }
@@ -357,7 +393,8 @@ export class TwinRenderer {
     this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1
     this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1
     this.raycaster.setFromCamera(this.pointer, this.camera)
-    const hits = this.raycaster.intersectObjects(Array.from(this.entityMeshes.values()))
+    const objects = Array.from(this.entityMeshes.values()).filter((o) => o.visible !== false)
+    const hits = this.raycaster.intersectObjects(objects)
     return hits[0] ? this.entityIdOf(hits[0].object) : null
   }
 
