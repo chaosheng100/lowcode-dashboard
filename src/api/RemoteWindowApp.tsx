@@ -160,11 +160,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
           try {
             const data = await resolveDataSource(ds, c.dataSource)
             if (!data.length) return c
-            const jittered = data.map((d) => ({
-              ...d,
-              value: Math.round(d.value * (0.9 + Math.random() * 0.2))
-            }))
-            return { ...c, props: { ...c.props, data: jittered } }
+            return { ...c, props: { ...c.props, data } }
           } catch {
             return c
           }

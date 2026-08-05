@@ -99,11 +99,7 @@ export default function WindowApp({ mode, routeId }: Props) {
             const data = await resolveDataSource(ds, c.dataSource)
             // 拿不到数据则保留原 props.data，避免实时刷新把图表清空
             if (!data.length) return c
-            const jittered = data.map((d) => ({
-              ...d,
-              value: Math.round(d.value * (0.9 + Math.random() * 0.2))
-            }))
-            return { ...c, props: { ...c.props, data: jittered } }
+            return { ...c, props: { ...c.props, data } }
           } catch {
             return c
           }
