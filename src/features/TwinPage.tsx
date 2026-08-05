@@ -356,6 +356,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
     const onDown = (ev: PointerEvent) => {
       if (ev.button !== 0) return
       if (measuringRef.current) return
+      if (lockInfoRef.current) return
       const id = view.pickEntityAt(ev.clientX, ev.clientY)
       if (id) {
         const ent = entitiesRef.current.find((e) => e.id === id)
@@ -449,6 +450,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   // ---- 操作 ----
   const handleDrop = useCallback((ev: React.DragEvent) => {
     ev.preventDefault()
+    if (lockInfoRef.current) return
     const view = viewRef.current
     if (!view) return
     const gp = view.groundPointAt(ev.clientX, ev.clientY)
@@ -485,7 +487,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   }
 
   const updateSelected = (patch: Partial<TwinEntity>) => {
-    if (!selectedId) return
+    if (!selectedId || lockInfoRef.current) return
     setEntities((prev) => prev.map((o) => (o.id === selectedId ? { ...o, ...patch } : o)))
     const view = viewRef.current
     if (!view) return
@@ -526,6 +528,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   }
 
   const toggleMeasure = () => {
+    if (lockInfoRef.current) return
     setMeasuring((v) => !v)
     measureStartRef.current = null
   }
