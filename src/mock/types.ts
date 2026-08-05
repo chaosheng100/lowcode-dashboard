@@ -276,6 +276,11 @@ export interface TwinSceneDTO {
   status: TwinSceneStatus
   dashboardId?: string
   lastSyncAt?: string
+  /** 发布审批状态 */
+  deployStatus?: 'none' | 'pending' | 'approved' | 'rejected'
+  deployEnv?: string
+  approvalNote?: string
+  deployedAt?: string
   keyframes?: Record<string, TwinKeyframeDTO[]>
   duration?: number
   annotations?: Array<{

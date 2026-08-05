@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Button, Select } from 'antd'
-import { DesktopOutlined } from '@ant-design/icons'
+import { App, Button, Input, Select } from 'antd'
+import {
+  AuditOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  DesktopOutlined
+} from '@ant-design/icons'
 import PluginManagement from './PluginManagement'
 import TwinModelLibrary from './TwinModelLibrary'
 import { api } from '../mock'
 import type { TwinSceneDTO } from '../mock/types'
 import { Tag, Field, Modal } from './common'
+import { useApi } from './useApi'
 import TwinPage from './TwinPage'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { dtoToScene, sceneToDTO } from '../twin/dtoAdapter'
@@ -104,6 +110,12 @@ export default function TwinManagement() {
   const [deploying, setDeploying] = useState<TwinSceneDTO | null>(null)
   const [dashboardId, setDashboardId] = useState('')
   const [busy, setBusy] = useState(false)
+  const { message } = App.useApp()
+  const { data: envData } = useApi(() => api.listDeployEnvs(), [])
+  const envs = envData?.list ?? []
+  const [listTick, setListTick] = useState(0)
+  const [approval, setApproval] = useState<{ scene: TwinSceneDTO; env: string; note: string } | null>(null)
+  const [approving, setApproving] = useState(false)
 
   const openDeploy = (scene: TwinSceneDTO) => {
     setDeploying(scene)
@@ -137,11 +149,66 @@ export default function TwinManagement() {
     }
   }
 
+  const openApproval = (scene: TwinSceneDTO) => {
+    setApproval({
+      scene,
+      env: scene.deployEnv ?? envs[0]?.name ?? '开发',
+      note: scene.approvalNote ?? ''
+    })
+  }
+
+  const submitApproval = async () => {
+    if (!approval) return
+    setApproving(true)
+    try {
+      const resp = await api.saveTwinScene({
+        id: approval.scene.id,
+        deployStatus: 'pending',
+        deployEnv: approval.env,
+        approvalNote: approval.note,
+        deployedAt: ''
+      })
+      if (resp.code !== 0) {
+        message.error(resp.message)
+        return
+      }
+      message.success('已提交审批')
+      setApproval(null)
+      setListTick((t) => t + 1)
+    } finally {
+      setApproving(false)
+    }
+  }
+
+  const decideApproval = async (pass: boolean) => {
+    if (!approval) return
+    setApproving(true)
+    try {
+      const resp = await api.saveTwinScene({
+        id: approval.scene.id,
+        deployStatus: pass ? 'approved' : 'rejected',
+        deployEnv: approval.env,
+        approvalNote: approval.note,
+        ...(pass ? { deployedAt: new Date().toISOString() } : {})
+      })
+      if (resp.code !== 0) {
+        message.error(resp.message)
+        return
+      }
+      message.success(pass ? '审批通过，已发布' : '已驳回')
+      setApproval(null)
+      setListTick((t) => t + 1)
+    } finally {
+      setApproving(false)
+    }
+  }
+
   if (view === 'models') return <TwinModelLibrary />
 
   return (
     <>
       <PluginManagement<TwinSceneDTO>
+        key={listTick}
         title="数字孪生"
         subtitle="三维可视化场景搭建与预览，支持 3D 编辑器设计"
         countLabel="场景"
@@ -163,19 +230,33 @@ export default function TwinManagement() {
               <Tag color={s.lighting === 'day' ? '#facc15' : '#6366f1'}>{s.lighting === 'day' ? '日照' : '夜景'}</Tag>
               {s.fog && <Tag>雾效</Tag>}
               {s.dashboardId && <Tag color="#2dd4bf">已投放</Tag>}
+              {s.deployStatus === 'pending' && <Tag color="#f59e0b">待审批</Tag>}
+              {s.deployStatus === 'approved' && <Tag color="#4ade80">已发布{s.deployEnv ? ` · ${s.deployEnv}` : ''}</Tag>}
+              {s.deployStatus === 'rejected' && <Tag color="#ef4444">已驳回</Tag>}
             </div>
           )
         }}
         renderActions={(scene) => (
-          <Button
-            size="small"
-            type="link"
-            icon={<DesktopOutlined />}
-            title="投放孪生场景到大屏"
-            onClick={(e) => { e.stopPropagation(); openDeploy(scene) }}
-          >
-            投放到大屏
-          </Button>
+          <>
+            <Button
+              size="small"
+              type="link"
+              icon={<AuditOutlined />}
+              title="发布审批"
+              onClick={(e) => { e.stopPropagation(); openApproval(scene) }}
+            >
+              发布审批
+            </Button>
+            <Button
+              size="small"
+              type="link"
+              icon={<DesktopOutlined />}
+              title="投放孪生场景到大屏"
+              onClick={(e) => { e.stopPropagation(); openDeploy(scene) }}
+            >
+              投放到大屏
+            </Button>
+          </>
         )}
         renderEditor={(item, save) => (
           <TwinSceneHost key={item.id || 'blank'} item={item} save={save} />
@@ -213,6 +294,52 @@ export default function TwinManagement() {
             >
               {busy ? '投放中...' : '确认投放'}
             </Button>
+          </div>
+        </Modal>
+      )}
+
+      {approval && (
+        <Modal title={`发布审批 · ${approval.scene.name || '未命名场景'}`} onClose={() => !approving && setApproval(null)}>
+          <p style={{ marginTop: 0, color: 'var(--sub)' }}>
+            {approval.scene.name} · {approval.scene.models?.length ?? 0} 个模型
+            {approval.scene.deployStatus === 'pending' ? ' · 当前待审批' : ''}
+          </p>
+          <Field label="目标环境">
+            <Select
+              style={{ width: '100%' }}
+              value={approval.env}
+              onChange={(v) => setApproval((a) => (a ? { ...a, env: v } : a))}
+              options={
+                envs.length
+                  ? envs.map((e) => ({ value: e.name, label: `${e.name} · ${e.kind}` }))
+                  : [
+                      { value: '开发', label: '开发' },
+                      { value: '测试', label: '测试' },
+                      { value: '生产', label: '生产' }
+                    ]
+              }
+            />
+          </Field>
+          <Field label="审批意见">
+            <Input.TextArea
+              rows={3}
+              value={approval.note}
+              placeholder="选填"
+              onChange={(e) => setApproval((a) => (a ? { ...a, note: e.target.value } : a))}
+            />
+          </Field>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            {approval.scene.deployStatus === 'pending' ? (
+              <>
+                <Button danger icon={<CloseCircleOutlined />} disabled={approving} onClick={() => decideApproval(false)}>驳回</Button>
+                <Button type="primary" icon={<CheckCircleOutlined />} loading={approving} onClick={() => decideApproval(true)}>通过并发布</Button>
+              </>
+            ) : (
+              <>
+                <Button disabled={approving} onClick={() => setApproval(null)}>取消</Button>
+                <Button type="primary" loading={approving} onClick={submitApproval}>提交审批</Button>
+              </>
+            )}
           </div>
         </Modal>
       )}
