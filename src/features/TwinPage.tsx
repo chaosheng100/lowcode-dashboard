@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { App, Button, ColorPicker, Input as AntInput, InputNumber, Select } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { io } from 'socket.io-client'
 import {
   AppstoreOutlined,
   CameraOutlined,
@@ -26,6 +27,7 @@ import { api, type TwinCategory, type TwinModelDTO } from '../mock'
 import { Input, Tag } from './common'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
+import { useAuthStore } from '../auth/store'
 import {
   CONTROL_LABELS,
   type ControlAction,
@@ -126,6 +128,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const navigate = useNavigate()
   const { data: models } = useApi(() => api.listTwinModels({ pageSize: 200 }), [])
   const { data: mapData } = useApi(() => api.listMaps({ pageSize: 100 }), [])
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const rt = useTwinRuntimeStore((s) => s.instances[TWIN_MODULE_INSTANCE]) ?? EMPTY_TWIN_INSTANCE
 
   // 命令式接口（拖拽/属性/关键帧/控制操作经由共享内核 TwinSceneView）
@@ -269,6 +272,31 @@ export default function TwinPage(props: TwinPageProps = {}) {
       api.unlockTwinScene(activeSceneId).catch(() => undefined)
     }
   }, [activeSceneId, readOnly])
+
+  useEffect(() => {
+    if (readOnly) return
+    const socket = io('http://localhost:3000/twin', { transports: ['websocket'] })
+    socket.on('connect', () => socket.emit('subscribe', { sceneId: activeSceneId }))
+    socket.on('data', (p: { type?: string; actorId?: string; lock?: { userId?: string; userName?: string } }) => {
+      if (!p || p.actorId === currentUserId) return
+      if (p.type === 'scene:updated') {
+        const msg = '场景已被他人更新，请刷新以同步'
+        setLockInfo(msg)
+        lockInfoRef.current = msg
+      } else if (p.type === 'scene:lock') {
+        const msg = `场景正在被 ${p.lock?.userName || '其他用户'} 编辑`
+        setLockInfo(msg)
+        lockInfoRef.current = msg
+      } else if (p.type === 'scene:unlock') {
+        setLockInfo(null)
+        lockInfoRef.current = null
+      }
+    })
+    return () => {
+      socket.emit('unsubscribe', { sceneId: activeSceneId })
+      socket.disconnect()
+    }
+  }, [activeSceneId, readOnly, currentUserId])
 
   // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
   useEffect(() => {
