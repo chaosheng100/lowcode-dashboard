@@ -25,7 +25,8 @@ export function modelToEntity(m: TwinSceneModel): TwinEntity {
     metrics: { temperature: 45, health: 80, load: 50 },
     visible: m.visible,
     locked: m.locked,
-    material: m.material
+    material: m.material,
+    animation: m.animation
   }
 }
 
@@ -47,7 +48,8 @@ export function entityToModel(e: TwinEntity, modelId?: string): TwinSceneModel {
     scale: e.scale ?? 1,
     visible: e.visible,
     locked: e.locked,
-    material: e.material
+    material: e.material,
+    animation: e.animation
   }
 }
 

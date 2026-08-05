@@ -101,7 +101,9 @@ export class TwinRenderer {
   private entityGeos = new Map<string, THREE.BufferGeometry>()
   private assetEntities = new Set<string>()
   /** 资产加载缓存：同一 URL 只解析一次，多个实体克隆复用 */
-  private assetCache = new Map<string, Promise<THREE.Group>>()
+  private assetCache = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>()
+  private entityClips = new Map<string, THREE.AnimationClip[]>()
+  private animationMixers = new Map<string, THREE.AnimationMixer>()
   private labelSprites = new Map<string, THREE.Sprite>()
   private entityStates = new Map<string, TwinEntityState>()
   private annotations = new Map<string, { group: THREE.Group; line: THREE.Line; d1: THREE.Mesh; d2: THREE.Mesh; label: THREE.Sprite }>()
@@ -119,6 +121,7 @@ export class TwinRenderer {
   private downPos = { x: 0, y: 0, t: 0 }
   private raf = 0
   private disposed = false
+  private lastAnimTime = performance.now()
 
   // 相机聚焦目标（anim 中平滑插值）
   private camGoal: THREE.Vector3 | null = null
@@ -313,15 +316,20 @@ export class TwinRenderer {
     const url = e.assetUrl!
     let load = this.assetCache.get(url)
     if (!load) {
-      load = new Promise<THREE.Group>((resolve, reject) => {
-        new GLTFLoader().load(url, (gltf) => resolve(gltf.scene), undefined, (err) => reject(err))
+      load = new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((resolve, reject) => {
+        new GLTFLoader().load(
+          url,
+          (gltf) => resolve({ scene: gltf.scene, animations: gltf.animations ?? [] }),
+          undefined,
+          (err) => reject(err)
+        )
       })
       this.assetCache.set(url, load)
     }
     load
       .then((src) => {
         if (this.disposed || !this.entityMeshes.has(e.id)) return
-        const group = cloneGltfScene(src)
+        const group = cloneGltfScene(src.scene)
         group.position.copy(placeholder.position)
         group.rotation.copy(placeholder.rotation)
         group.scale.copy(placeholder.scale)
@@ -341,6 +349,10 @@ export class TwinRenderer {
         if (sp) sp.visible = this.labelsVisible && placeholder.visible !== false
         const ent = this.entities.find((x) => x.id === e.id)
         if (ent?.material) this.setEntityMaterial(e.id, ent.material)
+        if (src.animations.length) {
+          this.entityClips.set(e.id, src.animations.map((c) => c.clone()))
+          if (e.animation) this.playAnimation(e.id, e.animation)
+        }
       })
       .catch(() => {
         if (this.disposed || !this.entityMeshes.has(e.id)) return
@@ -351,8 +363,40 @@ export class TwinRenderer {
       })
   }
 
+  getAnimationClips(id: string): string[] {
+    return (this.entityClips.get(id) ?? []).map((c) => c.name || 'clip')
+  }
+
+  playAnimation(id: string, clipName: string | null): void {
+    const obj = this.entityMeshes.get(id)
+    if (!obj) return
+    this.stopAnimation(id)
+    if (!clipName) {
+      const ent = this.entities.find((e) => e.id === id)
+      if (ent) ent.animation = undefined
+      return
+    }
+    const clip = (this.entityClips.get(id) ?? []).find((c) => c.name === clipName)
+    if (!clip) return
+    const mixer = new THREE.AnimationMixer(obj)
+    mixer.clipAction(clip).reset().play()
+    this.animationMixers.set(id, mixer)
+    const ent = this.entities.find((e) => e.id === id)
+    if (ent) ent.animation = clipName
+  }
+
+  stopAnimation(id: string): void {
+    const mixer = this.animationMixers.get(id)
+    if (mixer) {
+      mixer.stopAllAction()
+      this.animationMixers.delete(id)
+    }
+  }
+
   /** 移除实体对象并释放渲染器自有的几何体/材质 */
   private disposeEntityObject(id: string): void {
+    this.stopAnimation(id)
+    this.entityClips.delete(id)
     const obj = this.entityMeshes.get(id)
     if (obj) this.scene.remove(obj)
     const geo = this.entityGeos.get(id)
@@ -587,6 +631,10 @@ export class TwinRenderer {
     if (this.disposed) return
     this.raf = requestAnimationFrame(this.animate)
     this.controls.update()
+    const now = performance.now()
+    const dt = Math.min((now - this.lastAnimTime) / 1000, 0.1)
+    this.lastAnimTime = now
+    for (const [, mixer] of this.animationMixers) mixer.update(dt)
 
     // 自动旋转
     if (this.autoRotate) {
@@ -639,7 +687,7 @@ export class TwinRenderer {
     // 释放资产缓存源几何体/材质（克隆实体的几何体与其共享）
     for (const [, p] of this.assetCache) {
       p.then((src) => {
-        src.traverse((o) => {
+        src.scene.traverse((o) => {
           const mesh = o as THREE.Mesh
           if (!mesh.isMesh) return
           mesh.geometry?.dispose()

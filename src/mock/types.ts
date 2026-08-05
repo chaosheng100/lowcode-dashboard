@@ -255,6 +255,8 @@ export interface TwinSceneModel {
     emissive?: string
     emissiveIntensity?: number
   }
+  /** GLTF 内嵌动画名 */
+  animation?: string
 }
 export interface TwinKeyframeDTO {
   time: number

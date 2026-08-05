@@ -58,6 +58,8 @@ export interface TwinEntity {
   locked?: boolean
   /** 材质覆盖（金属度/粗糙度/透明度/自发光） */
   material?: TwinEntityMaterial
+  /** 选中的 GLTF 内嵌动画名（资产模型播放） */
+  animation?: string
 }
 
 /** 孪生场景（一组实体 + 环境配置） */

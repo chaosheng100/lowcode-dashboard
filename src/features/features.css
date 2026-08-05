@@ -1070,6 +1070,9 @@
 .twin-object-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #cfd9e6; }
 .twin-material-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
 .twin-material-grid .twin-field { margin-bottom: 4px; }
+.twin-anim-row { display: flex; align-items: center; gap: 6px; }
+.twin-anim-row .ant-btn { flex: none; }
+.twin-anim-empty { font-size: 11px; }
 .twin-annotation-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-height: 120px; overflow: auto; }
 .twin-annotation-item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
 .twin-annotation-item span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

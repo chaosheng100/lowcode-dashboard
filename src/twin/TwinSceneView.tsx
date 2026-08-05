@@ -57,6 +57,8 @@ export interface TwinSceneViewController {
   setEntityColor: (id: string, color: string) => void
   setEntityVisible: (id: string, visible: boolean) => void
   setEntityMaterial: (id: string, patch: TwinEntityMaterial) => void
+  getAnimationClips: (id: string) => string[]
+  playAnimation: (id: string, clipName: string | null) => void
   getEntityTransform: (id: string) => { x: number; y: number; z: number; rotationY: number } | null
   /** 屏幕坐标拾取实体 */
   pickEntityAt: (clientX: number, clientY: number) => string | null
@@ -201,6 +203,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     setEntityColor: (id, color) => rendererRef.current?.setEntityColor(id, color),
     setEntityVisible: (id, visible) => rendererRef.current?.setEntityVisible(id, visible),
     setEntityMaterial: (id, patch) => rendererRef.current?.setEntityMaterial(id, patch),
+    getAnimationClips: (id) => rendererRef.current?.getAnimationClips(id) ?? [],
+    playAnimation: (id, clipName) => rendererRef.current?.playAnimation(id, clipName),
     getEntityTransform: (id) => rendererRef.current?.getEntityTransform(id) ?? null,
     pickEntityAt: (x, y) => rendererRef.current?.pickEntityAt(x, y) ?? null,
     groundPointAt: (x, y) => rendererRef.current?.groundPointAt(x, y) ?? null,

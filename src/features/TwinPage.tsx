@@ -146,6 +146,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const [measuring, setMeasuring] = useState(false)
   const [annotations, setAnnotations] = useState<TwinAnnotation[]>(storeScene?.annotations ?? [])
   const annotationsRef = useRef<TwinAnnotation[]>(annotations)
+  const [animClips, setAnimClips] = useState<string[]>([])
+  const [playingAnim, setPlayingAnim] = useState(false)
   const [modelKw, setModelKw] = useState('')
   const [modelCategory, setModelCategory] = useState<TwinCategory | undefined>(undefined)
   measuringRef.current = measuring
@@ -418,6 +420,29 @@ export default function TwinPage(props: TwinPageProps = {}) {
     viewRef.current?.setAnnotations([])
   }
 
+  const playEntityAnimation = (id: string, clip?: string) => {
+    if (!clip) {
+      viewRef.current?.playAnimation(id, null)
+      setPlayingAnim(false)
+      setEntities((prev) => prev.map((o) => (o.id === id ? { ...o, animation: undefined } : o)))
+      return
+    }
+    viewRef.current?.playAnimation(id, clip)
+    setPlayingAnim(true)
+    setEntities((prev) => prev.map((o) => (o.id === id ? { ...o, animation: clip } : o)))
+  }
+
+  const toggleEntityAnimation = (id: string) => {
+    const ent = entities.find((e) => e.id === id)
+    if (!ent) return
+    if (playingAnim) {
+      playEntityAnimation(id)
+      return
+    }
+    const clip = ent.animation || animClips[0]
+    if (clip) playEntityAnimation(id, clip)
+  }
+
   const recordKeyframe = () => {
     if (!selectedId) return
     const t = viewRef.current?.getEntityTransform(selectedId)
@@ -449,6 +474,28 @@ export default function TwinPage(props: TwinPageProps = {}) {
   }
 
   const selected = entities.find((o) => o.id === selectedId)
+  useEffect(() => {
+    if (!selectedId || !selected?.assetUrl) {
+      setAnimClips([])
+      setPlayingAnim(false)
+      return
+    }
+    setPlayingAnim(!!selected.animation)
+    let alive = true
+    let tries = 0
+    const timer = setInterval(() => {
+      const clips = viewRef.current?.getAnimationClips(selectedId) ?? []
+      if (!alive) return
+      setAnimClips(clips)
+      tries += 1
+      if (clips.length > 0 || tries > 10) clearInterval(timer)
+    }, 500)
+    return () => {
+      alive = false
+      clearInterval(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, selected?.assetUrl, selected?.animation])
   const totalKeyframes = Object.values(keyframes).reduce((s, k) => s + k.length, 0)
   const pred = selectedId ? rt.predictions[selectedId] : undefined
   const entityAlarms = rt.alarms.filter((a) => a.entityId === selectedId)
@@ -654,6 +701,28 @@ export default function TwinPage(props: TwinPageProps = {}) {
                       </div>
                     </div>
                   </div>
+                  {selected.assetUrl && (
+                    <div className="twin-divider">
+                      <div className="muted2 twin-section-label">模型动画</div>
+                      {animClips.length === 0 ? (
+                        <div className="muted2 twin-anim-empty">该模型无内嵌动画</div>
+                      ) : (
+                        <div className="twin-anim-row">
+                          <Select
+                            size="small"
+                            style={{ width: '100%' }}
+                            value={selected.animation}
+                            placeholder="选择动画"
+                            onChange={(v) => playEntityAnimation(selected.id, v)}
+                            options={animClips.map((c) => ({ value: c, label: c }))}
+                          />
+                          <Button size="small" icon={playingAnim ? <PauseOutlined /> : <CaretRightOutlined />} onClick={() => toggleEntityAnimation(selected.id)}>
+                            {playingAnim ? '暂停' : '播放'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="twin-field">
                     <span className="twin-field-label">旋转°</span>
                     <InputNumber style={{ width: '100%' }} value={Math.round((selected.rotationY ?? 0) * 180 / Math.PI)}
