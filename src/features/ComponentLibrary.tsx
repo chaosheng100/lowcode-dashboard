@@ -381,7 +381,7 @@ export default function ComponentLibrary() {
                 value={sceneId || undefined}
                 placeholder={scenes.length ? '请选择场景' : '暂无可用场景'}
                 onChange={setSceneId}
-                options={scenes.map((scene) => ({ value: scene.id, label: `${scene.name} · ${scene.models.length} 个模型` }))}
+                options={scenes.map((scene) => ({ value: scene.id, label: `${scene.name} · ${scene.models?.length ?? 0} 个模型` }))}
               />
             </Field>
           )}

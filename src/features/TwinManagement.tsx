@@ -29,7 +29,7 @@ function formatTime(iso?: string): string {
 }
 
 function TwinThumb({ scene, label }: { scene: TwinSceneDTO; label: string }) {
-  const blocks = scene.models.slice(0, 12)
+  const blocks = scene.models?.slice(0, 12) ?? []
   return (
     <>
       <div className="twin-thumb-grid" aria-hidden>
@@ -146,7 +146,7 @@ export default function TwinManagement() {
         askNameOnCreate
         renderThumb={(s) => <TwinThumb scene={s} label="孪生场景" />}
         renderMeta={(s) => [
-          `模型数：${s.models.length} · 光照：${s.lighting === 'day' ? '日照' : '夜景'} · 雾效：${s.fog ? '开' : '关'}`,
+          `模型数：${s.models?.length ?? 0} · 光照：${s.lighting === 'day' ? '日照' : '夜景'} · 雾效：${s.fog ? '开' : '关'}`,
           `更新：${formatTime(s.updatedAt)}`
         ]}
         renderTags={(s) => {
@@ -183,7 +183,7 @@ export default function TwinManagement() {
       {deploying && (
         <Modal title="投放孪生场景到大屏" onClose={() => { if (!busy) setDeploying(null) }}>
           <p style={{ marginTop: 0, color: 'var(--sub)' }}>
-            {deploying.name} · {deploying.models.length} 个模型
+            {deploying.name} · {deploying.models?.length ?? 0} 个模型
           </p>
           <Field label="目标大屏">
             <Select

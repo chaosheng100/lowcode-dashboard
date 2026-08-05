@@ -53,12 +53,12 @@ export function createTwinComponent(scene: TwinSceneDTO, kind: TwinWidgetKind): 
         ...sourceProps,
         label: `${scene.name} · 场景模型`,
         unit: '个',
-        data: [{ name: '模型数', value: scene.models.length }]
+        data: [{ name: '模型数', value: scene.models?.length ?? 0 }]
       }
     }
   }
   if (kind === 'geometry') {
-    const counts = scene.models.reduce<Partial<Record<TwinGeometryType, number>>>((result, model) => {
+    const counts = (scene.models ?? []).reduce<Partial<Record<TwinGeometryType, number>>>((result, model) => {
       result[model.geoType] = (result[model.geoType] ?? 0) + 1
       return result
     }, {})
@@ -97,7 +97,7 @@ function sceneSnapshot(scene: TwinSceneDTO, syncedAt: string) {
     sceneId: scene.id,
     sceneName: scene.name,
     status: scene.status,
-    modelCount: scene.models.length,
+    modelCount: scene.models?.length ?? 0,
     lighting: scene.lighting,
     fog: scene.fog,
     syncedAt
