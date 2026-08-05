@@ -197,6 +197,14 @@ export interface AIBotDTO {
 
 // ---------------- 数字孪生 3D：模型库 + 场景 ----------------
 export type TwinCategory = '建筑' | '设备' | '交通' | '自然' | '人物' | '其他'
+export type TwinModelStatus = 'draft' | 'active' | 'inactive'
+export interface TwinModelVersion {
+  version: number
+  assetUrl: string
+  format: string
+  fileSize: number
+  uploadedAt: string
+}
 export interface TwinModelDTO {
   id: string
   name: string
@@ -212,6 +220,12 @@ export interface TwinModelDTO {
   /** 文件大小（字节） */
   fileSize?: number
   uploadedAt?: string
+  /** 审核状态：草稿 / 已上架 / 已下架 */
+  status?: TwinModelStatus
+  /** 当前版本号，重复上传会递增 */
+  version?: number
+  /** 历史版本（含当前版本之前的记录） */
+  versions?: TwinModelVersion[]
 }
 export type TwinGeometryType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'torus' | 'plane'
 export interface TwinSceneModel {

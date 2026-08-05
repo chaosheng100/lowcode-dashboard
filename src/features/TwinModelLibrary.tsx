@@ -12,7 +12,13 @@ import {
   SearchOutlined,
   UploadOutlined
 } from '@ant-design/icons'
-import { api, type TwinCategory, type TwinModelDTO } from '../mock'
+import {
+  api,
+  type TwinCategory,
+  type TwinModelDTO,
+  type TwinModelStatus,
+  type TwinModelVersion
+} from '../mock'
 import { Field, Modal, Tag } from './common'
 import { useApi } from './useApi'
 import { generateModelThumbnail } from '../twin/modelThumbnail'
@@ -25,6 +31,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   自然: '#4ade80',
   人物: '#f59e0b',
   其他: '#94a3b8'
+}
+const STATUS_LABELS: Record<TwinModelStatus, string> = {
+  draft: '草稿',
+  active: '已上架',
+  inactive: '已下架'
+}
+const STATUS_COLORS: Record<TwinModelStatus, string> = {
+  draft: '#f59e0b',
+  active: '#4ade80',
+  inactive: '#94a3b8'
 }
 
 function formatBytes(n?: number): string {
@@ -42,6 +58,11 @@ function formatTime(iso?: string): string {
 }
 
 const categoryOptions = CATEGORIES.map((c) => ({ value: c, label: c }))
+const statusOptions: { value: TwinModelStatus; label: string }[] = [
+  { value: 'draft', label: '草稿' },
+  { value: 'active', label: '已上架' },
+  { value: 'inactive', label: '已下架' }
+]
 
 export default function TwinModelLibrary() {
   const { message } = App.useApp()
@@ -56,6 +77,7 @@ export default function TwinModelLibrary() {
   const [uploadName, setUploadName] = useState('')
   const [uploadCategory, setUploadCategory] = useState<TwinCategory>('设备')
   const [uploadTags, setUploadTags] = useState<string[]>([])
+  const [uploadStatus, setUploadStatus] = useState<TwinModelStatus>('active')
   const [uploading, setUploading] = useState(false)
   const [uploadDrag, setUploadDrag] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -64,6 +86,7 @@ export default function TwinModelLibrary() {
   const [editName, setEditName] = useState('')
   const [editCategory, setEditCategory] = useState<TwinCategory>('其他')
   const [editTags, setEditTags] = useState<string[]>([])
+  const [editStatus, setEditStatus] = useState<TwinModelStatus>('active')
 
   const [previewing, setPreviewing] = useState<TwinModelDTO | null>(null)
 
@@ -105,6 +128,7 @@ export default function TwinModelLibrary() {
           name,
           category: uploadCategory,
           tags: uploadTags,
+          status: uploadStatus,
           builtin: false,
           thumbnail: ''
         })
@@ -138,6 +162,7 @@ export default function TwinModelLibrary() {
     setEditName(m.name)
     setEditCategory(m.category || '其他')
     setEditTags(m.tags ?? [])
+    setEditStatus(m.status || 'active')
   }
 
   const saveEdit = async () => {
@@ -147,13 +172,44 @@ export default function TwinModelLibrary() {
       message.warning('模型名称不能为空')
       return
     }
-    const r = await api.updateTwinModel(editing.id, { name, category: editCategory, tags: editTags })
+    const r = await api.updateTwinModel(editing.id, {
+      name,
+      category: editCategory,
+      tags: editTags,
+      status: editStatus
+    })
     if (r.code !== 0) {
       message.error(r.message)
       return
     }
     message.success(`已更新「${name}」`)
     setEditing(null)
+    reload()
+  }
+
+  const setModelStatus = async (m: TwinModelDTO, status: TwinModelStatus) => {
+    const r = await api.updateTwinModel(m.id, { status })
+    if (r.code !== 0) {
+      message.error(r.message)
+      return
+    }
+    message.success(`已${STATUS_LABELS[status]}`)
+    reload()
+  }
+
+  const restoreVersion = async (m: TwinModelDTO, v: TwinModelVersion) => {
+    const r = await api.updateTwinModel(m.id, {
+      version: v.version,
+      assetUrl: v.assetUrl,
+      format: v.format,
+      fileSize: v.fileSize,
+      uploadedAt: v.uploadedAt
+    })
+    if (r.code !== 0) {
+      message.error(r.message)
+      return
+    }
+    message.success(`已恢复到 v${v.version}`)
     reload()
   }
 
@@ -220,7 +276,10 @@ export default function TwinModelLibrary() {
               </div>
               <div className="twin-lib-name" title={m.name}>{m.name}</div>
               <div className="twin-lib-meta">
-                <Tag color={CATEGORY_COLORS[m.category] ?? '#4f8cff'}>{m.category || '其他'}</Tag>
+                <div className="twin-lib-status-row">
+                  <Tag color={STATUS_COLORS[m.status || 'active']}>{STATUS_LABELS[m.status || 'active']}</Tag>
+                  <Tag color={CATEGORY_COLORS[m.category] ?? '#4f8cff'}>{m.category || '其他'}</Tag>
+                </div>
                 {m.assetUrl ? (
                   <span className="muted2">{m.format?.toUpperCase()} · {formatBytes(m.fileSize)}</span>
                 ) : (
@@ -235,6 +294,12 @@ export default function TwinModelLibrary() {
                 </div>
               )}
               <div className="twin-lib-actions">
+                {m.status !== 'active' && (
+                  <Button size="small" type="text" onClick={() => setModelStatus(m, 'active')}>上架</Button>
+                )}
+                {m.status === 'active' && (
+                  <Button size="small" type="text" onClick={() => setModelStatus(m, 'inactive')}>下架</Button>
+                )}
                 <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)}>预览</Button>
                 <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)}>编辑</Button>
                 <Popconfirm
@@ -303,6 +368,9 @@ export default function TwinModelLibrary() {
           <Field label="标签">
             <Select mode="tags" style={{ width: '100%' }} value={uploadTags} onChange={setUploadTags} placeholder="输入后回车添加" />
           </Field>
+          <Field label="状态">
+            <Select style={{ width: '100%' }} value={uploadStatus} onChange={setUploadStatus} options={statusOptions} />
+          </Field>
           <div className="twin-modal-actions">
             <Button onClick={() => setUploadOpen(false)} disabled={uploading}>取消</Button>
             <Button type="primary" loading={uploading} disabled={!uploadFiles.length} onClick={submitUpload}>
@@ -322,6 +390,9 @@ export default function TwinModelLibrary() {
           </Field>
           <Field label="标签">
             <Select mode="tags" style={{ width: '100%' }} value={editTags} onChange={setEditTags} placeholder="输入后回车添加" />
+          </Field>
+          <Field label="状态">
+            <Select style={{ width: '100%' }} value={editStatus} onChange={setEditStatus} options={statusOptions} />
           </Field>
           <div className="twin-modal-actions">
             <Button onClick={() => setEditing(null)}>取消</Button>
@@ -353,10 +424,25 @@ export default function TwinModelLibrary() {
               <Field label="格式"><span>{previewing.format ? previewing.format.toUpperCase() : '-'}</span></Field>
               <Field label="大小"><span>{formatBytes(previewing.fileSize)}</span></Field>
               <Field label="上传时间"><span>{formatTime(previewing.uploadedAt)}</span></Field>
+              <Field label="当前版本"><span>v{previewing.version ?? 1}</span></Field>
               {previewing.assetUrl && (
                 <Field label="资源地址">
                   <span className="twin-asset-url" title={previewing.assetUrl}>{previewing.assetUrl}</span>
                 </Field>
+              )}
+              {(previewing.versions ?? []).length > 0 && (
+                <div className="twin-version-list">
+                  <div className="twin-section-label">版本历史</div>
+                  {[...(previewing.versions ?? [])]
+                    .sort((a, b) => b.version - a.version)
+                    .map((v) => (
+                      <div key={v.version} className="twin-version-item">
+                        <span>v{v.version}</span>
+                        <span className="muted2">{v.format?.toUpperCase()} · {formatBytes(v.fileSize)}</span>
+                        <Button size="small" type="text" onClick={() => restoreVersion(previewing, v)}>恢复</Button>
+                      </div>
+                    ))}
+                </div>
               )}
             </div>
           </div>
