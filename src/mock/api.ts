@@ -351,6 +351,8 @@ export const api = {
   // —— 数字孪生 ——
   listTwinModels: (q: PageQuery = {}) => mockFetch<PageResult<TwinModelDTO>>('GET', '/api/twinModels', { query: q }),
   createTwinModel: (body: Partial<TwinModelDTO>) => mockFetch<TwinModelDTO>('POST', '/api/twinModels', { body }),
+  updateTwinModel: (id: string, body: Partial<TwinModelDTO>) =>
+    mockFetch<TwinModelDTO>('PATCH', `/api/twinModels/${id}`, { body }),
   uploadTwinModelFile: (id: string, file: File) => {
     const fd = new FormData()
     fd.append('file', file)

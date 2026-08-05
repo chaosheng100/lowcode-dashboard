@@ -27,6 +27,7 @@ import {
   type TwinScene
 } from '../twin/twinTypes'
 import { TwinSceneView, type TwinSceneViewController } from '../twin/TwinSceneView'
+import { generateModelThumbnail } from '../twin/modelThumbnail'
 
 // ============================================================
 // 数字孪生 3D 编辑器（复用 TwinSceneView 共享内核，不再各自维护重复渲染/仿真/控制样板）
@@ -135,6 +136,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const draggingRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
   const syncRefs = useCallback(() => {
     entitiesRef.current = entities
@@ -233,10 +235,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
 
   const triggerUpload = () => fileInputRef.current?.click()
 
-  const handleFileChange = async (ev: React.ChangeEvent<HTMLInputElement>) => {
-    const file = ev.target.files?.[0]
-    ev.target.value = ''
-    if (!file) return
+  const uploadFile = async (file: File) => {
     if (!/\.(glb|gltf|bin)$/i.test(file.name)) {
       message.warning('仅支持 .glb / .gltf / .bin 模型文件')
       return
@@ -247,6 +246,14 @@ export default function TwinPage(props: TwinPageProps = {}) {
       if (created.code !== 0) throw new Error(created.message)
       const uploaded = await api.uploadTwinModelFile(created.data.id, file)
       if (uploaded.code !== 0) throw new Error(uploaded.message)
+      if (uploaded.data.assetUrl) {
+        try {
+          const thumb = await generateModelThumbnail(uploaded.data.assetUrl)
+          if (thumb) await api.updateTwinModel(created.data.id, { thumbnail: thumb })
+        } catch {
+          // thumbnail is optional; the model file itself is already uploaded
+        }
+      }
       message.success(`模型「${file.name}」上传成功`)
       reloadModels()
     } catch (e) {
@@ -254,6 +261,24 @@ export default function TwinPage(props: TwinPageProps = {}) {
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleFileChange = async (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0]
+    ev.target.value = ''
+    if (!file) return
+    await uploadFile(file)
+  }
+
+  const handlePanelDragOver = (ev: React.DragEvent) => {
+    ev.preventDefault()
+    ev.dataTransfer.dropEffect = 'copy'
+  }
+  const handlePanelDrop = async (ev: React.DragEvent) => {
+    ev.preventDefault()
+    setDragActive(false)
+    const file = ev.dataTransfer.files?.[0]
+    if (file) await uploadFile(file)
   }
 
   const handleDeleteModel = async (m: TwinModelDTO) => {
@@ -420,7 +445,13 @@ export default function TwinPage(props: TwinPageProps = {}) {
       <div className={readOnly ? 'twin-editor twin-preview' : 'twin-editor'}>
         {/* 左：模型库（预览模式隐藏） */}
         {!readOnly && (
-          <div className="twin-panel twin-left">
+          <div
+            className={'twin-panel twin-left' + (dragActive ? ' drag-active' : '')}
+            onDragOver={handlePanelDragOver}
+            onDragEnter={() => setDragActive(true)}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handlePanelDrop}
+          >
             <div className="twin-panel-head">
               <span className="twin-panel-title">模型库（拖拽到画布放置）</span>
               <Button size="small" icon={<UploadOutlined />} loading={uploading} onClick={triggerUpload}>上传模型</Button>
