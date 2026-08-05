@@ -8,6 +8,7 @@ import {
   type ControlAction,
   type HighlightLevel,
   type TelemetrySample,
+  type TwinAnnotation,
   type TwinEntity,
   type TwinEntityMaterial,
   type TwinEntityState,
@@ -49,6 +50,9 @@ export interface TwinSceneViewController {
   highlight: (id: string | null, level?: HighlightLevel) => void
   addEntity: (e: TwinEntity) => void
   removeEntity: (id: string) => void
+  addAnnotation: (a: TwinAnnotation) => void
+  removeAnnotation: (id: string) => void
+  setAnnotations: (list: TwinAnnotation[]) => void
   updateEntityTransform: (id: string, t: { x?: number; y?: number; z?: number; rotationY?: number; scale?: number }) => void
   setEntityColor: (id: string, color: string) => void
   setEntityVisible: (id: string, visible: boolean) => void
@@ -119,6 +123,7 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     })
     renderer.setLabelVisible(showLabels !== false)
     renderer.setClickHandler((id) => onSelectCbRef.current?.(id))
+    renderer.setAnnotations(scene.annotations ?? [])
     rendererRef.current = renderer
     simRef.current = new TwinSim(scene.entities)
     controlHubRef.current = new TwinControlHub(instanceId)
@@ -189,6 +194,9 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
       const r = rendererRef.current
       if (r && simRef.current) simRef.current.setEntities(r.getEntities())
     },
+    addAnnotation: (a) => rendererRef.current?.addAnnotation(a),
+    removeAnnotation: (id) => rendererRef.current?.removeAnnotation(id),
+    setAnnotations: (list) => rendererRef.current?.setAnnotations(list),
     updateEntityTransform: (id, t) => rendererRef.current?.updateEntityTransform(id, t),
     setEntityColor: (id, color) => rendererRef.current?.setEntityColor(id, color),
     setEntityVisible: (id, visible) => rendererRef.current?.setEntityVisible(id, visible),

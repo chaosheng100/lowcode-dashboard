@@ -4,6 +4,7 @@ import { makeThumb } from '../utils/thumb'
 import { widgetRegistry } from '../registry/widgetRegistry'
 import { buildPlatformProject, DEFAULT_ROUTE_ID } from '../routes/platformRoutes'
 import { createDemoScene } from '../../twin/sceneFactory'
+import type { TwinAnnotation } from '../../twin/twinTypes'
 import type {
   DesignerState,
   RouteConfig,
@@ -255,11 +256,16 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   /** 新增或覆盖一个孪生场景（id 为键） */
   upsertTwinScene: (scene) => set((s) => ({ twinScenes: { ...s.twinScenes, [scene.id]: scene } })),
   /** 编辑场景的实体集合与环境（模块编辑器写回，使大屏组件同步） */
-  updateTwinSceneEntities: (id, entities, env) =>
+  updateTwinSceneEntities: (id, entities, env, annotations?: TwinAnnotation[]) =>
     set((s) => {
       const cur = s.twinScenes[id]
       if (!cur) return s
-      return { twinScenes: { ...s.twinScenes, [id]: { ...cur, entities, env } } }
+      return {
+        twinScenes: {
+          ...s.twinScenes,
+          [id]: { ...cur, entities, env, ...(annotations ? { annotations } : {}) }
+        }
+      }
     }),
   /** 新建空白场景，返回其 id 并设为当前编辑场景 */
   addTwinScene: (name) => {

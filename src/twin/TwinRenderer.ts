@@ -1,7 +1,15 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import type { TwinScene, TwinEntity, TwinEntityState, TwinEntityMaterial, HighlightLevel, GeoType } from './twinTypes'
+import type {
+  TwinScene,
+  TwinEntity,
+  TwinEntityState,
+  TwinEntityMaterial,
+  TwinAnnotation,
+  HighlightLevel,
+  GeoType
+} from './twinTypes'
 import { STATE_COLORS } from './twinTypes'
 
 // ============================================================
@@ -96,6 +104,8 @@ export class TwinRenderer {
   private assetCache = new Map<string, Promise<THREE.Group>>()
   private labelSprites = new Map<string, THREE.Sprite>()
   private entityStates = new Map<string, TwinEntityState>()
+  private annotations = new Map<string, { group: THREE.Group; line: THREE.Line; d1: THREE.Mesh; d2: THREE.Mesh; label: THREE.Sprite }>()
+  private annotationLayer = new THREE.Group()
   /** 当前实体快照（供编辑页 TwinPage 读取/操作，与渲染网格保持同步） */
   private entities: TwinEntity[] = []
   private highlight: THREE.LineSegments | null = null
@@ -160,6 +170,7 @@ export class TwinRenderer {
     this.ground.name = 'ground'
     this.scene.add(this.ground)
     this.scene.add(new THREE.GridHelper(40, 40, 0x1a3050, 0x122038))
+    this.scene.add(this.annotationLayer)
 
     this.setEntities(sceneData)
 
@@ -183,6 +194,52 @@ export class TwinRenderer {
     if (this.highlight) { this.scene.remove(this.highlight); this.highlight = null }
     this.entities = []
     for (const e of sceneData.entities) this.addEntity(e)
+    this.setAnnotations(sceneData.annotations ?? [])
+  }
+
+  setAnnotations(list: TwinAnnotation[]): void {
+    for (const id of Array.from(this.annotations.keys())) this.removeAnnotation(id)
+    for (const a of list) this.addAnnotation(a)
+  }
+
+  addAnnotation(a: TwinAnnotation): void {
+    if (this.annotations.has(a.id)) return
+    const y = 0.06
+    const color = a.color ?? '#4ade80'
+    const p1 = new THREE.Vector3(a.start.x, y, a.start.z)
+    const p2 = new THREE.Vector3(a.end.x, y, a.end.z)
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([p1, p2]),
+      new THREE.LineBasicMaterial({ color })
+    )
+    const dotMat = new THREE.MeshBasicMaterial({ color })
+    const d1 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), dotMat)
+    d1.position.copy(p1)
+    const d2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), dotMat.clone())
+    d2.position.copy(p2)
+    const dist = Math.hypot(a.end.x - a.start.x, a.end.z - a.start.z)
+    const label = makeLabel(`${a.name} ${dist.toFixed(1)}m`)
+    label.position.set((a.start.x + a.end.x) / 2, y + 0.8, (a.start.z + a.end.z) / 2)
+    const group = new THREE.Group()
+    group.add(line, d1, d2, label)
+    this.annotationLayer.add(group)
+    this.annotations.set(a.id, { group, line, d1, d2, label })
+  }
+
+  removeAnnotation(id: string): void {
+    const a = this.annotations.get(id)
+    if (!a) return
+    this.annotationLayer.remove(a.group)
+    a.line.geometry.dispose()
+    ;(a.line.material as THREE.Material).dispose()
+    a.d1.geometry.dispose()
+    ;(a.d1.material as THREE.Material).dispose()
+    a.d2.geometry.dispose()
+    ;(a.d2.material as THREE.Material).dispose()
+    const lm = a.label.material as THREE.SpriteMaterial
+    lm.map?.dispose()
+    lm.dispose()
+    this.annotations.delete(id)
   }
 
   // ---- 编辑器复用接口（TwinPage 拖拽/属性/关键帧操作实体） ----
@@ -577,6 +634,8 @@ export class TwinRenderer {
       m.map?.dispose()
       m.dispose()
     }
+    for (const id of Array.from(this.annotations.keys())) this.removeAnnotation(id)
+    this.scene.remove(this.annotationLayer)
     // 释放资产缓存源几何体/材质（克隆实体的几何体与其共享）
     for (const [, p] of this.assetCache) {
       p.then((src) => {

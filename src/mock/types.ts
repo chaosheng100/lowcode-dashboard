@@ -274,6 +274,13 @@ export interface TwinSceneDTO {
   lastSyncAt?: string
   keyframes?: Record<string, TwinKeyframeDTO[]>
   duration?: number
+  annotations?: Array<{
+    id: string
+    name: string
+    start: { x: number; z: number }
+    end: { x: number; z: number }
+    color?: string
+  }>
   updatedAt: string
 }
 

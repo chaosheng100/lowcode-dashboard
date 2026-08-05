@@ -11,6 +11,7 @@ import {
   EyeInvisibleOutlined,
   EyeOutlined,
   LockOutlined,
+  LineOutlined,
   MoonOutlined,
   PauseOutlined,
   SearchOutlined,
@@ -29,6 +30,7 @@ import {
   type ControlAction,
   type GeoType,
   type TelemetrySample,
+  type TwinAnnotation,
   type TwinEntity,
   type TwinScene
 } from '../twin/twinTypes'
@@ -139,13 +141,20 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const [playing, setPlaying] = useState(false)
 
   const draggingRef = useRef<string | null>(null)
+  const measuringRef = useRef(false)
+  const measureStartRef = useRef<{ x: number; z: number } | null>(null)
+  const [measuring, setMeasuring] = useState(false)
+  const [annotations, setAnnotations] = useState<TwinAnnotation[]>(storeScene?.annotations ?? [])
+  const annotationsRef = useRef<TwinAnnotation[]>(annotations)
   const [modelKw, setModelKw] = useState('')
   const [modelCategory, setModelCategory] = useState<TwinCategory | undefined>(undefined)
+  measuringRef.current = measuring
 
   const syncRefs = useCallback(() => {
     entitiesRef.current = entities
     keyframesRef.current = keyframes
-  }, [entities, keyframes])
+    annotationsRef.current = annotations
+  }, [entities, keyframes, annotations])
 
   const sceneOf = useCallback(
     (ents: TwinEntity[]): TwinScene => ({ id: 'editor', name: '编辑场景', entities: ents, env: { lighting, fog } }),
@@ -176,25 +185,31 @@ export default function TwinPage(props: TwinPageProps = {}) {
   // 编辑结果写回全局孪生场景库：使大屏数字孪生组件同步同一份场景，且切换路由不丢失
   useEffect(() => {
     const id = externalScene?.id ?? (useDesignerStore.getState().activeTwinSceneId || 'main')
-    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog })
-  }, [entities, lighting, fog, externalScene])
+    useDesignerStore.getState().updateTwinSceneEntities(id, entities, { lighting, fog }, annotations)
+  }, [entities, lighting, fog, annotations, externalScene])
 
   // 场景变更时通过 onSave 回调写回 API（防抖 1.5s，避免频繁请求）
   useEffect(() => {
     if (!onSave) return
     const timer = setTimeout(() => {
-      const scene: TwinScene = { id: activeSceneId, name: storeScene?.name ?? '', entities, env: { lighting, fog } }
+      const scene: TwinScene = { id: activeSceneId, name: storeScene?.name ?? '', entities, env: { lighting, fog }, annotations }
       onSave(scene)
     }, 1500)
     return () => clearTimeout(timer)
-  }, [entities, lighting, fog, onSave, activeSceneId, storeScene?.name])
+  }, [entities, lighting, fog, annotations, onSave, activeSceneId, storeScene?.name])
 
   // 退出编辑页时：清理仿真告警 + 最终回写 API
   useEffect(() => () => {
     useTwinRuntimeStore.getState().clearAlarms(TWIN_MODULE_INSTANCE)
     // 最终保存：确保不丢失未触发的防抖
     if (onSave) {
-      const scene: TwinScene = { id: activeSceneId, name: storeScene?.name ?? '', entities: entitiesRef.current, env: { lighting, fog } }
+      const scene: TwinScene = {
+        id: activeSceneId,
+        name: storeScene?.name ?? '',
+        entities: entitiesRef.current,
+        env: { lighting, fog },
+        annotations: annotationsRef.current
+      }
       onSave(scene)
     }
   }, [])
@@ -207,6 +222,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
     if (!canvas) return
     const onDown = (ev: PointerEvent) => {
       if (ev.button !== 0) return
+      if (measuringRef.current) return
       const id = view.pickEntityAt(ev.clientX, ev.clientY)
       if (id) {
         const ent = entitiesRef.current.find((e) => e.id === id)
@@ -362,6 +378,44 @@ export default function TwinPage(props: TwinPageProps = {}) {
     if (!ent) return
     const locked = !ent.locked
     setEntities((prev) => prev.map((o) => (o.id === id ? { ...o, locked } : o)))
+  }
+
+  const toggleMeasure = () => {
+    setMeasuring((v) => !v)
+    measureStartRef.current = null
+  }
+
+  const handleViewportClick = (ev: React.MouseEvent) => {
+    if (!measuring) return
+    const view = viewRef.current
+    if (!view) return
+    const gp = view.groundPointAt(ev.clientX, ev.clientY)
+    if (!gp) return
+    if (!measureStartRef.current) {
+      measureStartRef.current = { x: gp.x, z: gp.z }
+      return
+    }
+    const start = measureStartRef.current
+    measureStartRef.current = null
+    const ann: TwinAnnotation = {
+      id: `ann_${Date.now()}`,
+      name: `测量${annotations.length + 1}`,
+      start,
+      end: { x: gp.x, z: gp.z },
+      color: '#4ade80'
+    }
+    setAnnotations((prev) => [...prev, ann])
+    view.addAnnotation(ann)
+  }
+
+  const removeAnnotation = (id: string) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id))
+    viewRef.current?.removeAnnotation(id)
+  }
+
+  const clearAnnotations = () => {
+    setAnnotations([])
+    viewRef.current?.setAnnotations([])
   }
 
   const recordKeyframe = () => {
@@ -526,11 +580,12 @@ export default function TwinPage(props: TwinPageProps = {}) {
             <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} icon={<SunOutlined />} onClick={() => setLighting('day')}>日照</Button>
             <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} icon={<MoonOutlined />} onClick={() => setLighting('night')}>夜景</Button>
             <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效 {fog ? '开' : '关'}</Button>
+            <Button size="small" type={measuring ? 'primary' : 'default'} icon={<LineOutlined />} onClick={toggleMeasure}>{measuring ? '测量中' : '测量'}</Button>
             <span className="muted2 twin-toolbar-hint">
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>
           </div>
-          <div className="twin-viewport" onDragOver={(ev) => ev.preventDefault()} onDrop={handleDrop}>
+          <div className="twin-viewport" onDragOver={(ev) => ev.preventDefault()} onDrop={handleDrop} onClick={handleViewportClick}>
             <TwinSceneView
               ref={viewRef}
               key={activeSceneId}
@@ -704,6 +759,26 @@ export default function TwinPage(props: TwinPageProps = {}) {
                 {entities.length === 0 && <div className="muted2">暂无对象</div>}
               </div>
             </div>
+            {annotations.length > 0 && (
+              <div className="sec">
+                <div className="sec-head">
+                  <span className="sec-title">测量标注（{annotations.length}）</span>
+                  <Button size="small" danger icon={<DeleteOutlined />} onClick={clearAnnotations}>清除</Button>
+                </div>
+                <div className="twin-annotation-list">
+                  {annotations.map((a) => {
+                    const dist = Math.hypot(a.end.x - a.start.x, a.end.z - a.start.z)
+                    return (
+                      <div key={a.id} className="twin-annotation-item">
+                        <span>{a.name}</span>
+                        <span className="muted2">{dist.toFixed(1)}m</span>
+                        <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => removeAnnotation(a.id)} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -67,6 +67,16 @@ export interface TwinScene {
   entities: TwinEntity[]
   env: { lighting: 'day' | 'night'; fog: boolean }
   camera?: { x: number; y: number; z: number }
+  /** 测量标注（两点地面距离） */
+  annotations?: TwinAnnotation[]
+}
+
+export interface TwinAnnotation {
+  id: string
+  name: string
+  start: { x: number; z: number }
+  end: { x: number; z: number }
+  color?: string
 }
 
 /** 状态 → 显示颜色 */

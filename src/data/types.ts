@@ -273,7 +273,12 @@ export interface DesignerState {
   activeTwinSceneId: string
   setActiveTwinScene: (id: string) => void
   upsertTwinScene: (scene: TwinScene) => void
-  updateTwinSceneEntities: (id: string, entities: TwinScene['entities'], env: TwinScene['env']) => void
+  updateTwinSceneEntities: (
+    id: string,
+    entities: TwinScene['entities'],
+    env: TwinScene['env'],
+    annotations?: TwinScene['annotations']
+  ) => void
   addTwinScene: (name: string) => string
   removeTwinScene: (id: string) => void
   renameTwinScene: (id: string, name: string) => void

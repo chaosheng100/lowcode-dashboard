@@ -58,7 +58,8 @@ export function dtoToScene(dto: TwinSceneDTO): TwinScene {
     name: dto.name,
     entities: (dto.models ?? []).map(modelToEntity),
     env: { lighting: dto.lighting, fog: dto.fog },
-    camera: { x: 8, y: 7, z: 10 }
+    camera: { x: 8, y: 7, z: 10 },
+    annotations: dto.annotations
   }
 }
 
@@ -72,6 +73,7 @@ export function sceneToDTO(scene: Partial<TwinScene>): Partial<TwinSceneDTO> {
     patch.lighting = scene.env.lighting
     patch.fog = scene.env.fog
   }
+  if (scene.annotations) patch.annotations = scene.annotations
   return patch
 }
 
