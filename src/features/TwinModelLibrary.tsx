@@ -22,6 +22,7 @@ import {
 import { Field, Modal, Tag } from './common'
 import { useApi } from './useApi'
 import { generateModelThumbnail } from '../twin/modelThumbnail'
+import { convertToGlb, isConvertibleModel } from '../twin/modelConvert'
 
 const CATEGORIES: TwinCategory[] = ['建筑', '设备', '交通', '自然', '人物', '其他']
 const CATEGORY_COLORS: Record<string, string> = {
@@ -102,9 +103,9 @@ export default function TwinModelLibrary() {
 
   const pickFiles = (list: FileList | null) => {
     if (!list) return
-    const ok = Array.from(list).filter((f) => /\.(glb|gltf|bin)$/i.test(f.name))
+    const ok = Array.from(list).filter((f) => /\.(glb|gltf|bin|obj|fbx)$/i.test(f.name))
     if (!ok.length) {
-      message.warning('仅支持 .glb / .gltf / .bin 模型文件')
+      message.warning('仅支持 .glb / .gltf / .bin / .obj / .fbx 模型文件')
       return
     }
     setUploadFiles((prev) => [...prev, ...ok])
@@ -133,7 +134,12 @@ export default function TwinModelLibrary() {
           thumbnail: ''
         })
         if (created.code !== 0) throw new Error(created.message)
-        const uploaded = await api.uploadTwinModelFile(created.data.id, file)
+        let uploadFile = file
+        if (isConvertibleModel(file.name)) {
+          const conv = await convertToGlb(file)
+          uploadFile = new File([conv.blob], conv.fileName, { type: 'model/gltf-binary' })
+        }
+        const uploaded = await api.uploadTwinModelFile(created.data.id, uploadFile)
         if (uploaded.code !== 0) throw new Error(uploaded.message)
         if (uploaded.data.assetUrl) {
           try {
@@ -331,11 +337,11 @@ export default function TwinModelLibrary() {
             onClick={() => fileInputRef.current?.click()}
           >
             <InboxOutlined />
-            <div>点击选择或拖入 .glb / .gltf / .bin 文件</div>
+            <div>点击选择或拖入 .glb / .gltf / .bin / .obj / .fbx 文件</div>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".glb,.gltf,.bin"
+              accept=".glb,.gltf,.bin,.obj,.fbx"
               multiple
               hidden
               onChange={(e) => {
