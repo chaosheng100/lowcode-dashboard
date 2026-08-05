@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { App, Button, ColorPicker, Input as AntInput, InputNumber, Select } from 'antd'
+import { App, Button, ColorPicker, Input as AntInput, InputNumber, Select, Slider } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import {
@@ -846,7 +846,15 @@ export default function TwinPage(props: TwinPageProps = {}) {
                   </div>
                   <div className="twin-field">
                     <span className="twin-field-label">颜色</span>
-                    <ColorPicker value={selected.color} onChange={(c) => updateSelected({ color: c.toHexString() })} />
+                    <div className="twin-field-ctrl">
+                      <ColorPicker
+                        showText
+                        disabledAlpha
+                        style={{ width: '100%' }}
+                        value={selected.color}
+                        onChange={(c) => updateSelected({ color: c.toHexString() })}
+                      />
+                    </div>
                   </div>
                   <div className="twin-divider">
                     <div className="muted2 twin-section-label">材质</div>
@@ -869,14 +877,49 @@ export default function TwinPage(props: TwinPageProps = {}) {
                           value={selected.material?.opacity ?? 1}
                           onChange={(v) => updateSelected({ material: { ...(selected.material || {}), opacity: v ?? 1 } })} />
                       </div>
-                      <div className="twin-field">
+                      <div className="twin-field twin-glow-color">
                         <span className="twin-field-label">自发光</span>
-                        <ColorPicker
-                          value={selected.material?.emissive || '#000000'}
-                          onChange={(c) => updateSelected({
-                            material: { ...(selected.material || {}), emissive: c.toHexString(), emissiveIntensity: selected.material?.emissiveIntensity ?? 0 }
-                          })}
-                        />
+                        <div className="twin-field-ctrl">
+                          <ColorPicker
+                            showText
+                            disabledAlpha
+                            style={{ width: '100%' }}
+                            value={selected.material?.emissive || '#000000'}
+                            onChange={(c) => updateSelected({
+                              material: {
+                                ...(selected.material || {}),
+                                emissive: c.toHexString(),
+                                emissiveIntensity: (selected.material?.emissiveIntensity ?? 0) > 0
+                                  ? (selected.material?.emissiveIntensity ?? 0)
+                                  : 1
+                              }
+                            })}
+                          />
+                        </div>
+                      </div>
+                      <div className="twin-field twin-glow-intensity">
+                        <span className="twin-field-label">发光强度</span>
+                        <div className="twin-field-ctrl">
+                          <Slider
+                            min={0}
+                            max={3}
+                            step={0.1}
+                            value={selected.material?.emissiveIntensity ?? (selected.material?.emissive && selected.material.emissive !== '#000000' ? 1 : 0)}
+                            onChange={(v) => {
+                              const glowColor = selected.material?.emissive && selected.material.emissive !== '#000000'
+                                ? selected.material.emissive
+                                : '#4f8cff'
+                              updateSelected({
+                                material: {
+                                  ...(selected.material || {}),
+                                  emissive: v > 0 ? glowColor : '#000000',
+                                  emissiveIntensity: v
+                                }
+                              })
+                            }}
+                            tooltip={{ formatter: (val) => `${(val ?? 0).toFixed(1)}x` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

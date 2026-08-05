@@ -633,13 +633,31 @@ export class TwinRenderer {
     const mats = this.entityMats.get(id)
     if (!mats?.length) return
     const isAsset = this.assetEntities.has(id)
+    const userGlow = this.userGlowOf(id)
     for (const m of mats) {
       const std = m as THREE.MeshStandardMaterial
       if (!isAsset && std && 'color' in std && std.color) std.color.set(STATE_COLORS[state])
-      if (state === 'fault') { std.emissive?.set('#ef4444'); std.emissiveIntensity = 0.5 }
-      else if (state === 'running') { std.emissive?.set('#0e7490'); std.emissiveIntensity = 0.25 }
-      else { std.emissive?.set('#000000'); std.emissiveIntensity = 0 }
+      if (userGlow) {
+        std.emissive?.set(userGlow.color)
+        std.emissiveIntensity = userGlow.intensity
+      } else if (state === 'fault') {
+        std.emissive?.set('#ef4444')
+        std.emissiveIntensity = 0.5
+      } else if (state === 'running') {
+        std.emissive?.set('#0e7490')
+        std.emissiveIntensity = 0.25
+      } else {
+        std.emissive?.set('#000000')
+        std.emissiveIntensity = 0
+      }
     }
+  }
+
+  private userGlowOf(id: string): { color: string; intensity: number } | null {
+    const m = this.entities.find((e) => e.id === id)?.material
+    if (!m?.emissive || m.emissive.toLowerCase() === '#000000') return null
+    const intensity = m.emissiveIntensity ?? 1
+    return intensity > 0 ? { color: m.emissive, intensity } : null
   }
 
   // ---- 联动接口 ----
@@ -779,7 +797,7 @@ export class TwinRenderer {
     // 故障实体呼吸光
     const t = performance.now() * 0.006
     for (const [id, mats] of this.entityMats) {
-      if (this.entityStates.get(id) !== 'fault') continue
+      if (this.entityStates.get(id) !== 'fault' || this.userGlowOf(id)) continue
       for (const m of mats) {
         const std = m as THREE.MeshStandardMaterial
         if (!std || !('emissiveIntensity' in std)) continue
