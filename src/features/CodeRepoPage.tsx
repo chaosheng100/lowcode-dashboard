@@ -22,7 +22,7 @@ export default function CodeRepoPage() {
 
   const openEdit = (s: CodeSnippetDTO) => {
     setEditing({ ...s })
-    setTagsText(s.tags.join(', '))
+    setTagsText((s.tags ?? []).join(', '))
   }
   const openNew = () => {
     const b = blankSnippet()
@@ -73,10 +73,10 @@ export default function CodeRepoPage() {
             {(data?.list ?? []).map((s) => (
               <div key={s.id} className="card">
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
-                  <b style={{ color: '#e6edf3' }}>{s.name}</b><Tag>{LANG_LABEL[s.lang]}</Tag>
+                  <b style={{ color: '#e6edf3' }}>{s.name}</b><Tag>{LANG_LABEL[s.lang] ?? s.lang}</Tag>
                 </div>
-                <div className="flex" style={{ margin: '8px 0' }}>{s.tags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
-                <div className="muted2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.code.split('\n')[0]}</div>
+                <div className="flex" style={{ margin: '8px 0' }}>{(s.tags ?? []).map((t) => <Tag key={t}>{t}</Tag>)}</div>
+                <div className="muted2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(s.code ?? '').split('\n')[0]}</div>
                 <div className="fp-toolbar" style={{ marginTop: 8 }}>
                   <Button size="small" onClick={() => openEdit(s)}>查看 / 编辑</Button>
                   <Popconfirm title={`确定删除片段「${s.name}」？`} onConfirm={() => remove(s)}>
