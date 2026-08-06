@@ -5,7 +5,7 @@
 // - 保留原 WindowApp 的全部 UI（顶栏、缩放、编辑器/预览渲染）
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Button, Slider, Switch, Spin, message } from 'antd'
+import { App, Button, Slider, Switch, Spin } from 'antd'
 import {
   CloseOutlined,
   FullscreenExitOutlined,
@@ -26,6 +26,7 @@ interface Props {
 
 export default function RemoteWindowApp({ mode, screenId }: Props) {
   const isEditor = mode === 'editor'
+  const { message } = App.useApp()
   const route = useDesignerStore((s) => s.routes.find((r) => r.id === screenId))
   const routeName = route?.name ?? '加载中...'
 

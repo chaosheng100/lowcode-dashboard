@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Input, Table, message, type TableProps } from 'antd'
+import { Alert, App, Button, Input, Table, type TableProps } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { api } from '../mock'
 import type { DatasetDTO, DatasetField, DatasetRow, PageResult } from '../mock'
@@ -104,6 +104,7 @@ const DATASET_TYPES: Array<{ value: DatasetDTO['type']; label: string }> = [
 ]
 
 export default function DatasetManagement() {
+  const { message } = App.useApp()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 8

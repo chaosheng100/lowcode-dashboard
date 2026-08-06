@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Collapse, Empty, Input, Tag, message, Select, Button, Space, Switch, Spin } from 'antd'
+import { App, Collapse, Empty, Input, Tag, Select, Button, Space, Switch, Spin } from 'antd'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../mock/api'
 import type { AIModelDTO, AIBotDTO } from '../mock/types'
@@ -76,6 +76,7 @@ function BotList() {
  *    支持切换预览、从历史版本继续迭代、版本命名/删除，避免后续微调方案与第一次截然不同。
  */
 export default function AIAssistantPage() {
+  const { message } = App.useApp()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('generate')
 

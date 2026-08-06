@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from "react"
-import { Button, Empty, Input, Modal, Popconfirm, Select, message } from "antd"
+import { App, Button, Empty, Input, Modal, Popconfirm, Select } from "antd"
 import { PlusOutlined, SearchOutlined, SortAscendingOutlined, SortDescendingOutlined } from "@ant-design/icons"
 import { useDesignerStore } from "../data/store/useDesignerStore"
 import { api } from "../mock"
@@ -57,6 +57,7 @@ function MiniChart({ seed }: { seed: string }) {
 }
 
 export default function DashboardManagement({ onOpen, onOpenPreview }: Props) {
+  const { message } = App.useApp()
   const routes = useDesignerStore((s) => s.routes)
   const createDashboard = useDesignerStore((s) => s.createDashboard)
   const deleteDashboard = useDesignerStore((s) => s.deleteDashboard)

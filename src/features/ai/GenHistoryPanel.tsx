@@ -3,7 +3,7 @@
 // —— 展示每次 AI 生成的版本节点，支持切换预览、从某版本继续、重命名、删除
 // ============================================================
 import { useState } from 'react'
-import { Button, Input, Popconfirm, Tooltip, Empty, Tag, message } from 'antd'
+import { App, Button, Input, Popconfirm, Tooltip, Empty, Tag } from 'antd'
 import {
   DeleteOutlined,
   EditOutlined,
@@ -42,6 +42,7 @@ export default function GenHistoryPanel({
   onDelete,
   onClearAll,
 }: Props) {
+  const { message } = App.useApp()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
 
