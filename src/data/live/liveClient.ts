@@ -11,7 +11,8 @@ export interface LivePoint {
 }
 export type LiveCallback = (data: LivePoint[], meta: { transport: 'proxy' | 'mock'; ts: number }) => void
 
-import { getToken, useAuthStore } from '../../auth/store'
+import { getToken } from '../../auth/store'
+import { forceLogin } from '../../auth/session'
 
 const PROXY_HTTP = (import.meta.env.VITE_PROXY_URL as string | undefined) || 'http://localhost:5175'
 const PROXY_WS = `${PROXY_HTTP.replace(/^http/, 'ws')}/stream`
@@ -23,9 +24,7 @@ function authHeaders(): Record<string, string> {
 
 /** 代理侧登录态失效：清空本地会话并回到登录页，避免继续携带过期 token */
 function handleAuthFailure(message: string): never {
-  useAuthStore.getState().logout()
-  const h = (location.hash || '').replace(/^#/, '')
-  if (h !== '/login' && h !== '/register') location.hash = '#/login'
+  forceLogin()
   throw new Error(message)
 }
 

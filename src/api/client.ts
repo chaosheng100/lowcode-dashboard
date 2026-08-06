@@ -7,9 +7,11 @@
 // - 失败时 code 为 HTTP 状态码，message 来自后端
 // ============================================================
 import type { ApiResp } from '../mock/types'
-import { getToken, clearAuthStorage } from '../auth/store'
+import { getToken } from '../auth/store'
+import { forceLogin } from '../auth/session'
+import { API_BASE_URL } from './config'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+const BASE_URL = API_BASE_URL
 
 interface RequestOptions {
   query?: Record<string, unknown>
@@ -60,17 +62,12 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
         const data = await res.json()
         // 后端全局异常过滤器也返回 { code, data, message }
         if (data && typeof data.code === 'number') {
-          // 401/403：登录态失效，清理并跳登录页（HashRouter 用 hash 跳转）
-          if (data.code === 401 || data.code === 403) {
-            clearAuthStorage()
-            const h = (location.hash || '').replace(/^#/, '')
-            if (h !== '/login' && h !== '/register') {
-              location.hash = '#/login'
-            }
-          }
+          // 401/403：登录态失效，统一清理并回登录页
+          if (data.code === 401 || data.code === 403) forceLogin()
           return data as ApiResp<T>
         }
       }
+      if (res.status === 401 || res.status === 403) forceLogin()
       return { code: res.status, message: res.statusText, data: null as unknown as T }
     }
 

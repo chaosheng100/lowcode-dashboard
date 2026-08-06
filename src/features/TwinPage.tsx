@@ -27,7 +27,7 @@ import { api, type TwinCategory, type TwinModelDTO } from '../mock'
 import { Input, Tag } from './common'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
-import { useAuthStore } from '../auth/store'
+import { getToken, useAuthStore } from '../auth/store'
 import {
   CONTROL_LABELS,
   type ControlAction,
@@ -275,7 +275,10 @@ export default function TwinPage(props: TwinPageProps = {}) {
 
   useEffect(() => {
     if (readOnly) return
-    const socket = io('http://localhost:3000/twin', { transports: ['websocket'] })
+    const socket = io('http://localhost:3000/twin', {
+      transports: ['websocket'],
+      auth: { token: getToken() || undefined },
+    })
     socket.on('connect', () => socket.emit('subscribe', { sceneId: activeSceneId }))
     socket.on('data', (p: { type?: string; actorId?: string; lock?: { userId?: string; userName?: string } }) => {
       if (!p || p.actorId === currentUserId) return

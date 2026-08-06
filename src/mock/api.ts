@@ -3,6 +3,8 @@
 // 真实接入后端时，只需把内部 mockFetch 替换为 fetch 即可，调用方无感。
 // ============================================================
 import { mockFetch, type RequestOptions } from './client'
+import { getToken } from '../auth/store'
+import { forceLogin } from '../auth/session'
 import type {
   PageQuery,
   PageResult,
@@ -92,12 +94,16 @@ interface SseCallbacks {
 
 async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<SseResult> {
   const url = `${SSE_BASE_URL}${path.replace(/^\/api/, '')}`
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = getToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
     signal: cb?.signal,
   })
+  if (res.status === 401 || res.status === 403) forceLogin()
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
     const msg = `SSE 请求失败 (${res.status}): ${text || res.statusText}`
