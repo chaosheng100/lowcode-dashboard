@@ -817,7 +817,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
               key={activeSceneId}
               scene={sceneOf(entitiesRef.current)}
               instanceId={TWIN_MODULE_INSTANCE}
-              options={{ lighting, fog }}
+              options={{ lighting, fog, frameOnAssetLoad: true }}
               getTelemetry={() => liveRef.current}
               simIntervalMs={2500}
               onSelectEntity={(id) => setSelectedId(id)}

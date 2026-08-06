@@ -40,6 +40,8 @@ export interface TwinSceneViewOptions {
   fog?: boolean
   autoRotate?: boolean
   showLabels?: boolean
+  /** 外部 GLB 加载完成并替换占位体后，自动将相机对准该模型（TwinPage 编辑器开启，大屏组件默认关闭） */
+  frameOnAssetLoad?: boolean
 }
 
 /** TwinSceneView 暴露给父组件的命令式接口（供编辑/联动/控制操作） */
@@ -124,7 +126,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     const renderer = new TwinRenderer(el, scene, {
       lighting: lighting === 'night' ? 'night' : 'day',
       fog: !!fog,
-      autoRotate: !!autoRotate
+      autoRotate: !!autoRotate,
+      frameOnAssetLoad: !!options?.frameOnAssetLoad
     })
     renderer.setLabelVisible(showLabels !== false)
     renderer.setClickHandler((id) => onSelectCbRef.current?.(id))

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { SimplifyModifier } from 'three/examples/jsm/modifiers/SimplifyModifier.js'
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { TilesRenderer } from '3d-tiles-renderer'
 import type {
   TwinScene,
@@ -26,6 +26,8 @@ export interface TwinRendererOptions {
   lighting?: 'day' | 'night'
   fog?: boolean
   autoRotate?: boolean
+  /** 外部 GLB 加载完成并替换占位体后，自动将相机对准该模型包围盒（编辑器拖入模型场景使用） */
+  frameOnAssetLoad?: boolean
 }
 
 function createGeometry(type: GeoType, s: number): THREE.BufferGeometry {
@@ -39,14 +41,20 @@ function createGeometry(type: GeoType, s: number): THREE.BufferGeometry {
   }
 }
 
-/** 深拷贝 GLTF 场景并克隆材质，保证同一资产可被多个实体独立着色 */
+/** 深拷贝 GLTF 场景并克隆材质，保证同一资产可被多个实体独立着色。
+ *  注意：WebGLRenderer 对「材质数组」只会按 geometry.groups 逐组渲染，
+ *  而 GLTF 单材质网格没有 groups，若把单个材质包成数组会导致模型不可见，
+ *  因此仅当材质本身是数组时才映射克隆，单个材质直接 clone() 保持非数组。 */
 function cloneGltfScene(src: THREE.Object3D): THREE.Group {
-  const group = src.clone(true) as THREE.Group
+  const group = cloneSkeleton(src) as THREE.Group
   group.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!mesh.isMesh) return
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    mesh.material = mats.map((m) => m.clone())
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map((m) => m.clone())
+    } else {
+      mesh.material = mesh.material.clone()
+    }
   })
   return group
 }
@@ -62,34 +70,9 @@ function collectMaterials(obj: THREE.Object3D): THREE.Material[] {
   return mats
 }
 
-function simplifyGroupLevel(root: THREE.Group, ratio: number): boolean {
-  let reduced = 0
-  root.traverse((o) => {
-    const mesh = o as THREE.Mesh
-    if (!mesh.isMesh || !mesh.geometry?.index || !mesh.geometry.attributes.position) return
-    const count = mesh.geometry.attributes.position.count
-    const target = Math.max(24, Math.floor(count * ratio))
-    if (target >= count) return
-    try {
-      mesh.geometry = new SimplifyModifier().modify(mesh.geometry.clone(), count - target)
-      reduced++
-    } catch {
-      /* 简化失败则保留当前级别 */
-    }
-  })
-  return reduced > 0
-}
-
-/** 自动 LOD：原始级别 + 50% 简化 + 20% 简化 */
+/** 深拷贝外部模型场景；SimplifyModifier 自动 LOD 会令几何体过度简化为空导致模型无法显示，故直接使用原始精度 */
 function buildAssetLod(src: THREE.Group): THREE.Group {
-  const original = cloneGltfScene(src)
-  const lod = new THREE.LOD()
-  lod.addLevel(original, 0)
-  const half = cloneGltfScene(src)
-  if (simplifyGroupLevel(half, 0.5)) lod.addLevel(half, 28)
-  const quarter = cloneGltfScene(src)
-  if (simplifyGroupLevel(quarter, 0.2)) lod.addLevel(quarter, 70)
-  return lod.children.length > 1 ? (lod as unknown as THREE.Group) : original
+  return cloneGltfScene(src)
 }
 
 /** 生成实体名称文字精灵（Sprite，billboard 始终朝向相机） */
@@ -163,12 +146,16 @@ export class TwinRenderer {
   private camGoal: THREE.Vector3 | null = null
   private targetGoal: THREE.Vector3 | null = null
   private defaultCam: THREE.Vector3
+  private frameOnAssetLoad = false
+  /** 待取景模型队列：等渲染帧跑过（骨骼矩阵就绪）后再计算包围盒 */
+  private frameQueue: { obj: THREE.Object3D; ticks: number }[] = []
 
   constructor(mount: HTMLElement, sceneData: TwinScene, opts: TwinRendererOptions = {}) {
     this.mount = mount
     this.lighting = opts.lighting ?? sceneData.env.lighting ?? 'day'
     this.fog = opts.fog ?? sceneData.env.fog ?? false
     this.autoRotate = opts.autoRotate ?? false
+    this.frameOnAssetLoad = opts.frameOnAssetLoad ?? false
 
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(this.lighting === 'day' ? '#0a1422' : '#05080f')
@@ -469,6 +456,7 @@ export class TwinRenderer {
         if (sp) sp.visible = this.labelsVisible && placeholder.visible !== false
         const ent = this.entities.find((x) => x.id === e.id)
         if (ent?.material) this.setEntityMaterial(e.id, ent.material)
+        if (this.frameOnAssetLoad) this.frameQueue.push({ obj: group, ticks: 2 })
         if (src.animations.length) {
           this.entityClips.set(e.id, src.animations.map((c) => c.clone()))
           if (e.animation) this.playAnimation(e.id, e.animation)
@@ -697,6 +685,18 @@ export class TwinRenderer {
     this.highlight = line
   }
 
+  /** 将相机平滑对准目标对象的包围盒（等价于 demo 的自动取景）；须在对象入场景并渲染后再调用 */
+  private frameToObject(obj: THREE.Object3D): void {
+    const box = new THREE.Box3().setFromObject(obj)
+    if (box.isEmpty()) return
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const maxDim = Math.max(size.x, size.y, size.z, 0.01)
+    const dist = (maxDim / 2 / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) * 1.4
+    this.targetGoal = center.clone()
+    this.camGoal = center.clone().add(new THREE.Vector3(dist, dist * 0.7, dist))
+  }
+
   focusEntity(id: string | null): void {
     if (!id) {
       this.camGoal = this.defaultCam.clone()
@@ -806,11 +806,23 @@ export class TwinRenderer {
     }
 
     this.renderer.render(this.scene, this.camera)
+
+    // 资产加载完成延迟到渲染帧再取景：提前计算会在骨骼矩阵未就绪时得到错误的极小包围盒
+    if (this.frameQueue.length) {
+      const remaining: { obj: THREE.Object3D; ticks: number }[] = []
+      for (const item of this.frameQueue) {
+        item.ticks--
+        if (item.ticks <= 0) this.frameToObject(item.obj)
+        else remaining.push(item)
+      }
+      this.frameQueue = remaining
+    }
   }
 
   dispose(): void {
     this.disposed = true
     cancelAnimationFrame(this.raf)
+    this.frameQueue = []
     const dom = this.renderer.domElement
     dom.removeEventListener('pointerdown', this.onPointerDown)
     dom.removeEventListener('pointerup', this.onPointerUp)

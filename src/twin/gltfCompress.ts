@@ -1,16 +1,13 @@
 import { NodeIO } from '@gltf-transform/core'
-import { dedup, quantize, simplify, weld } from '@gltf-transform/functions'
-import { MeshoptSimplifier } from 'meshoptimizer'
+import { dedup, quantize, weld } from '@gltf-transform/functions'
 
-/** 用 glTF-Transform 压缩 GLB：焊接顶点 → 去重 → 网格简化 → 量化精度 */
+/** 上传 GLB 仅做无损处理（焊接重复顶点 -> 去重 -> 量化精度），不简化模型顶点 */
 export async function compressGlb(buffer: ArrayBuffer): Promise<ArrayBuffer> {
-  await MeshoptSimplifier.ready
   const io = new NodeIO()
   const doc = await io.readBinary(new Uint8Array(buffer))
   await doc.transform(
     weld(),
     dedup(),
-    simplify({ simplifier: MeshoptSimplifier, ratio: 0.75, error: 1e-3 }),
     quantize({ pattern: /POSITION|NORMAL|TEXCOORD_0|COLOR_0/ })
   )
   const out = await io.writeBinary(doc)
