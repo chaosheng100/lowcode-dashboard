@@ -72,7 +72,11 @@ const PREVIEW_IOT_DEVICE: IoTDeviceDTO = {
 }
 
 function previewComponent(asset: LibraryAsset): ComponentInstance {
-  if (asset.businessType === 'twin' && asset.kind) return createTwinComponent(PREVIEW_SCENE, asset.kind as TwinWidgetKind)
+  if (asset.businessType === 'twin' && asset.kind) {
+    const comp = createTwinComponent(PREVIEW_SCENE, asset.kind as TwinWidgetKind)
+    if (asset.kind === 'scene') comp.props.preview = true
+    return comp
+  }
   if (asset.category === '物联组态' && 'kind' in asset && asset.kind) {
     const kind = asset.kind as IoTWidgetKind
     const comp =

@@ -1,8 +1,9 @@
 import type { ComponentInstance, RouteConfig } from '../data/types'
 import { mergeManagedComponents, type ComponentAssetDefinition } from '../data/registry/componentAssetRegistry'
 import type { TwinGeometryType, TwinSceneDTO, TwinSceneStatus } from '../mock/types'
+import { dtoToScene } from '../twin/dtoAdapter'
 
-export type TwinWidgetKind = 'summary' | 'models' | 'geometry'
+export type TwinWidgetKind = 'summary' | 'models' | 'geometry' | 'scene'
 
 const STATUS_LABELS: Record<TwinSceneStatus, string> = {
   online: '在线运行',
@@ -22,7 +23,8 @@ const GEOMETRY_LABELS: Record<TwinGeometryType, string> = {
 export const twinComponentAssets: Array<ComponentAssetDefinition & { kind: TwinWidgetKind }> = [
   { key: 'twin:summary', name: '孪生场景摘要', category: '数字孪生', description: '场景名称、运行状态与环境摘要', type: 'text', businessType: 'twin', kind: 'summary' },
   { key: 'twin:models', name: '孪生模型总数', category: '数字孪生', description: '当前场景模型资产总量', type: 'metric', businessType: 'twin', kind: 'models' },
-  { key: 'twin:geometry', name: '模型类型分布', category: '数字孪生', description: '按几何类型展示场景模型构成', type: 'echartPie', businessType: 'twin', kind: 'geometry' }
+  { key: 'twin:geometry', name: '模型类型分布', category: '数字孪生', description: '按几何类型展示场景模型构成', type: 'echartPie', businessType: 'twin', kind: 'geometry' },
+  { key: 'twin:scene', name: '孪生场景 3D', category: '数字孪生', description: '将孪生场景以 3D 画布形式投放到大屏', type: 'digitalTwin', businessType: 'twin', kind: 'scene' }
 ]
 
 export function twinSource(sceneId: string, kind: TwinWidgetKind): string {
@@ -78,6 +80,28 @@ export function createTwinComponent(scene: TwinSceneDTO, kind: TwinWidgetKind): 
       }
     }
   }
+  if (kind === 'scene') {
+    return {
+      id: `twin_${scene.id}_scene`,
+      type: 'digitalTwin',
+      style: { x: 940, y: 60, w: 920, h: 960 },
+      props: {
+        ...sourceProps,
+        title: `${scene.name} · 3D 孪生场景`,
+        sceneId: scene.id,
+        lighting: scene.lighting === 'night' ? 'night' : 'day',
+        fog: !!scene.fog,
+        showLabels: true,
+        showHud: true,
+        showControl: false,
+        showSim: false,
+        autoRotate: false,
+        interactive: true,
+        filterField: 'entityId',
+        sourceKind: 'simulated'
+      }
+    }
+  }
   return {
     id: `twin_${scene.id}_summary`,
     type: 'text',
@@ -100,6 +124,7 @@ function sceneSnapshot(scene: TwinSceneDTO, syncedAt: string) {
     modelCount: scene.models?.length ?? 0,
     lighting: scene.lighting,
     fog: scene.fog,
+    scene: dtoToScene(scene),
     syncedAt
   }
 }
@@ -112,12 +137,17 @@ export function syncTwinWidgetsToDashboard(
 ): Partial<RouteConfig> {
   const managed = kinds.map((kind) => createTwinComponent(scene, kind))
   const sources = new Set(managed.map((component) => component.props.catalogSourceId))
-  const migrated = route.components.map((component) => {
-    const sourceId = component.props.catalogSourceId ?? component.props.dataSourceId
-    return sourceId && sources.has(sourceId)
-      ? { ...component, props: { ...component.props, catalogSourceId: sourceId } }
-      : component
-  })
+  const migrated = route.components
+    .map((component) => {
+      const sourceId = component.props.catalogSourceId ?? component.props.dataSourceId
+      if (sourceId && sources.has(sourceId)) {
+        return { ...component, props: { ...component.props, catalogSourceId: sourceId } }
+      }
+      // 清理该场景历史投放留下的旧组件（摘要/模型数/分布），本次投放结果只保留 kinds 中的组件。
+      if (typeof sourceId === 'string' && sourceId.startsWith(`twin:${scene.id}:`)) return null
+      return component
+    })
+    .filter((c): c is ComponentInstance => c !== null)
   const previousScenes = typeof route.state.twinScenes === 'object' && route.state.twinScenes
     ? route.state.twinScenes as Record<string, unknown>
     : {}

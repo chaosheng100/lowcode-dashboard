@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Slider, Button, Empty } from 'antd'
 import type { WidgetViewProps, Filter } from '../../data/types'
-import { createDemoScene } from '../../twin/sceneFactory'
 import {
   subscribeTwinLive,
   subscribeTwinSource,
@@ -12,6 +11,10 @@ import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../../twin/twinRuntime
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { STATE_COLORS, CONTROL_LABELS, type ControlAction, type TwinScene } from '../../twin/twinTypes'
 import { TwinSceneView, type TwinSceneViewController, type TwinEntityLive, type TwinSceneViewOptions } from '../../twin/TwinSceneView'
+import { resolveWidgetScene } from '../../twin/sceneResolver'
+import { dtoToScene } from '../../twin/dtoAdapter'
+import { api } from '../../mock'
+import { getToken } from '../../auth/store'
 
 // ============================================================
 // TwinWidget：嵌入数据大屏的「数字孪生组件」
@@ -30,13 +33,15 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
   const instanceId = component.id
   const filterField = p.filterField || 'entityId'
 
-  // 优先使用全局孪生场景库中同 sceneId 的场景，实现大屏组件与数字孪生模块数据互通；
-  // 取不到时兜底回演示场景，保证永远有可渲染内容。
-  const resolveScene = (id: string): TwinScene => {
-    const s = useDesignerStore.getState().twinScenes[id]
-    return s ?? createDemoScene()
-  }
-  const sceneRef = useRef<TwinScene>(resolveScene(sceneId))
+  // 大屏组件先从引用路由的孪生快照 / 全局孪生缓存解析场景，再异步拉取后端权威场景，
+  // 避免新开标签或刷新后回退到示范工厂 demo，导致大屏与孪生模块内容不一致。
+  const route = useDesignerStore((s) => s.routes.find((r) => r.components.some((c) => c.id === component.id)))
+  const [scene, setScene] = useState<TwinScene>(() => {
+    const cached = useDesignerStore.getState().twinScenes[sceneId]
+    return resolveWidgetScene(route, sceneId, cached)
+  })
+  const sceneRef = useRef<TwinScene>(scene)
+  sceneRef.current = scene
   const rt = useTwinRuntimeStore((s) => s.instances[instanceId]) ?? EMPTY_TWIN_INSTANCE
 
   const [live, setLive] = useState<Record<string, TwinEntityLive>>(() => {
@@ -62,6 +67,49 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
   // 遥测累积区（数据源订阅只负责填充，渲染/仿真由 TwinSceneView 统一消费）
   const liveRef = useRef<Record<string, TelemetrySample>>({})
   const viewRef = useRef<TwinSceneViewController | null>(null)
+
+  // 从后端加载权威场景：写入全局孪生库并同步当前实例，防止大屏显示旧场景。
+  useEffect(() => {
+    // 匿名远端预览无 token，直接使用路由中的完整快照，避免 401 触发登录跳转。
+    if (sceneId === 'main' || p.preview || !getToken()) return
+    let alive = true
+    api.getTwinScene(sceneId)
+      .then((r) => {
+        if (!alive || r.code !== 0 || !r.data) return
+        const next = dtoToScene(r.data)
+        useDesignerStore.getState().upsertTwinScene(next)
+        sceneRef.current = next
+        setScene(next)
+        setLive((prev) => {
+          const merged = { ...prev }
+          for (const e of next.entities) {
+            if (!merged[e.id]) {
+              merged[e.id] = {
+                temperature: e.metrics?.temperature ?? 0,
+                health: e.metrics?.health ?? 0,
+                load: e.metrics?.load ?? 0,
+                state: e.state
+              }
+            }
+          }
+          return merged
+        })
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [sceneId, p.preview, instanceId])
+
+  // 同一 SPA 会话内孪生编辑器更新场景时，大屏组件跟随全局孪生库变化。
+  useEffect(() => {
+    return useDesignerStore.subscribe((s, prev) => {
+      const next = s.twinScenes[sceneId]
+      if (next === prev.twinScenes[sceneId] || !next?.entities) return
+      sceneRef.current = next
+      setScene(next)
+    })
+  }, [sceneId])
 
   // 数据源订阅：仅负责把遥测写入 liveRef（实时性由 source 节奏决定，仿真/渲染由内核统一消费）
   useEffect(() => {
@@ -94,7 +142,7 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
       stopSim?.()
       stopLive?.()
     }
-  }, [sceneId, p.liveSourceId, p.liveIntervalMs, p.sourceKind, instanceId])
+  }, [scene, sceneId, p.liveSourceId, p.liveIntervalMs, p.sourceKind, instanceId])
 
   // ---- 下行联动：大屏筛选 → 聚焦/高亮孪生体 ----
   useEffect(() => {
@@ -149,8 +197,8 @@ export default function TwinWidget({ component, filter, onPick }: WidgetViewProp
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#05080f', overflow: 'hidden' }}>
       <TwinSceneView
         ref={viewRef}
-        key={sceneId}
-        scene={sceneRef.current}
+        key={`${sceneId}:${scene.revision ?? 'local'}`}
+        scene={scene}
         instanceId={instanceId}
         options={options}
         getTelemetry={() => liveRef.current}

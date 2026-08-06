@@ -361,6 +361,7 @@ export const api = {
   },
   deleteTwinModel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinModels/${id}`),
   listTwinScenes: (q: PageQuery = {}) => mockFetch<PageResult<TwinSceneDTO>>('GET', '/api/twinScenes', { query: q }),
+  getTwinScene: (id: string) => mockFetch<TwinSceneDTO>('GET', `/api/twinScenes/${id}`),
   saveTwinScene: (body: Partial<TwinSceneDTO>) =>
     mockFetch<TwinSceneDTO>(body.id ? 'PATCH' : 'POST', `/api/twinScenes${body.id ? '/' + body.id : ''}`, { body }),
   deleteTwinScene: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinScenes/${id}`),

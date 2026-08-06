@@ -18,11 +18,7 @@ import { useAuthStore } from '../auth/store'
 import TwinPage from './TwinPage'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { dtoToScene, sceneToDTO } from '../twin/dtoAdapter'
-import {
-  syncTwinWidgetsToDashboard,
-  unlinkTwinFromDashboard,
-  twinComponentAssets
-} from './twinWidgetCatalog'
+import { syncTwinWidgetsToDashboard, unlinkTwinFromDashboard } from './twinWidgetCatalog'
 
 const TWIN_STATUS: Record<TwinSceneDTO['status'], { text: string; color: string }> = {
   online: { text: '在线', color: '#4ade80' },
@@ -152,10 +148,10 @@ export default function TwinManagement() {
         const prevRoute = routes.find((r) => r.id === deploying.dashboardId)
         if (prevRoute) updateRoute(prevRoute.id, unlinkTwinFromDashboard(prevRoute, deploying.id))
       }
-      // 同步孪生组件到大屏（全部三种：summary/models/geometry）
+      // 同步 3D 场景组件到大屏，并清理该场景历史投放的旧组件
       updateRoute(
         route.id,
-        syncTwinWidgetsToDashboard(route, resp.data, syncedAt, twinComponentAssets.map((a) => a.kind))
+        syncTwinWidgetsToDashboard(route, resp.data, syncedAt, ['scene'])
       )
       // 同步 store 镜像
       upsertTwinScene(dtoToScene(resp.data))
@@ -340,7 +336,7 @@ export default function TwinManagement() {
             />
           </Field>
           <p style={{ color: 'var(--sub)', fontSize: 12, lineHeight: 1.6 }}>
-            投放时将场景摘要、模型总数、类型分布组件写入大屏，并建立场景与大屏绑定。同一场景重复投放会原位更新已投组件。
+            投放时将 3D 场景组件写入大屏，并建立场景与大屏绑定。同一场景重复投放会原位更新已投组件。
           </p>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button disabled={busy} onClick={() => setDeploying(null)}>取消</Button>
