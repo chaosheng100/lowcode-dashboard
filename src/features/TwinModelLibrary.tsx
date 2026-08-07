@@ -62,6 +62,17 @@ function formatTime(iso?: string): string {
   return d.toLocaleString()
 }
 
+/** 按文件地址去重，避免“共享模型 + 导入副本”同一文件出现多条 */
+function dedupeModels(list: TwinModelDTO[]): TwinModelDTO[] {
+  const seen = new Set<string>()
+  return list.filter((m) => {
+    const key = m.assetUrl || m.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 const categoryOptions = CATEGORIES.map((c) => ({ value: c, label: c }))
 const statusOptions: { value: TwinModelStatus; label: string }[] = [
   { value: 'draft', label: '草稿' },
@@ -97,8 +108,14 @@ export default function TwinModelLibrary() {
 
   const [previewing, setPreviewing] = useState<TwinModelDTO | null>(null)
 
-  const modelList = useMemo(() => (models?.list ?? []).filter((m) => !m.builtin && m.market !== true), [models])
-  const marketList = useMemo(() => (models?.list ?? []).filter((m) => m.market === true), [models])
+  const modelList = useMemo(
+    () => dedupeModels((models?.list ?? []).filter((m) => !m.builtin)),
+    [models],
+  )
+  const marketList = useMemo(
+    () => dedupeModels((models?.list ?? []).filter((m) => m.market === true)),
+    [models],
+  )
   const activeList = libView === 'market' ? marketList : modelList
   const filtered = useMemo(() => {
     const q = kw.trim().toLowerCase()
@@ -248,6 +265,14 @@ export default function TwinModelLibrary() {
   }
 
   const importMarketModel = async (m: TwinModelDTO) => {
+    const duplicated = (models?.list ?? []).some(
+      (e) => e.id === m.id || (e.assetUrl && m.assetUrl && e.assetUrl === m.assetUrl),
+    )
+    if (duplicated) {
+      message.info(`「${m.name}」已在模型库中`)
+      reload()
+      return
+    }
     const created = await api.createTwinModel({
       name: m.name,
       category: m.category || '其他',
@@ -389,7 +414,11 @@ export default function TwinModelLibrary() {
                       <Button size="small" type="text" onClick={() => setModelStatus(m, 'inactive')}>下架</Button>
                     )}
                     <Button size="small" type="text" icon={<CompressOutlined />} loading={compressingId === m.id} onClick={() => compressModel(m)}>压缩</Button>
-                    <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => publishToMarket(m)}>设为共享</Button>
+                    {m.market ? (
+                      <Button size="small" type="text" disabled icon={<ShareAltOutlined />}>已共享</Button>
+                    ) : (
+                      <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => publishToMarket(m)}>设为共享</Button>
+                    )}
                     <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)}>预览</Button>
                     <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)}>编辑</Button>
                     <Popconfirm

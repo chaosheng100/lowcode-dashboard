@@ -392,7 +392,14 @@ export default function TwinPage(props: TwinPageProps = {}) {
     }
   }, [])
 
-  const modelList = (models?.list ?? []).filter((m) => !m.builtin && (m.status ?? 'active') === 'active')
+  const seenModelKeys = new Set<string>()
+  const modelList = (models?.list ?? []).filter((m) => {
+    if (m.builtin || (m.status ?? 'active') !== 'active') return false
+    const key = m.assetUrl || m.id
+    if (seenModelKeys.has(key)) return false
+    seenModelKeys.add(key)
+    return true
+  })
   const modelKeyword = modelKw.trim().toLowerCase()
   const filteredModels = modelList.filter((m) => {
     const hitKw =
