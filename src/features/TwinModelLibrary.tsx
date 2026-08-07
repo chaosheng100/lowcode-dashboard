@@ -1,9 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { App, Button, Input, Popconfirm, Select } from 'antd'
+import { App, Button, Input, Popconfirm, Progress, Select, Tooltip } from 'antd'
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
   CloseOutlined,
   CompressOutlined,
   DeleteOutlined,
@@ -96,6 +98,8 @@ export default function TwinModelLibrary() {
   const [uploadTags, setUploadTags] = useState<string[]>([])
   const [uploadStatus, setUploadStatus] = useState<TwinModelStatus>('active')
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
+  const [compressProgress, setCompressProgress] = useState<number | null>(null)
   const [uploadDrag, setUploadDrag] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -143,13 +147,17 @@ export default function TwinModelLibrary() {
       return
     }
     setUploading(true)
+    setUploadProgress({})
     let okCount = 0
     try {
-      for (const file of uploadFiles) {
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i]
+        const key = `${file.name}-${i}`
         const name =
           uploadFiles.length === 1 && uploadName.trim()
             ? uploadName.trim()
             : file.name.replace(/\.[^.]+$/, '')
+        setUploadProgress((p) => ({ ...p, [key]: 5 }))
         const created = await api.createTwinModel({
           name,
           category: uploadCategory,
@@ -161,10 +169,14 @@ export default function TwinModelLibrary() {
         if (created.code !== 0) throw new Error(created.message)
         let uploadFile = file
         if (isConvertibleModel(file.name)) {
+          setUploadProgress((p) => ({ ...p, [key]: 20 }))
           const conv = await convertToGlb(file)
           uploadFile = new File([conv.blob], conv.fileName, { type: 'model/gltf-binary' })
         }
-        const uploaded = await api.uploadTwinModelFile(created.data.id, uploadFile)
+        setUploadProgress((p) => ({ ...p, [key]: 35 }))
+        const uploaded = await api.uploadTwinModelFile(created.data.id, uploadFile, (percent) => {
+          setUploadProgress((p) => ({ ...p, [key]: 35 + Math.round(percent * 0.55) }))
+        })
         if (uploaded.code !== 0) throw new Error(uploaded.message)
         if (uploaded.data.assetUrl) {
           try {
@@ -174,6 +186,7 @@ export default function TwinModelLibrary() {
             // thumbnail is optional; the model file itself is already uploaded
           }
         }
+        setUploadProgress((p) => ({ ...p, [key]: 100 }))
         okCount++
       }
       message.success(`上传成功 ${okCount} 个模型`)
@@ -307,20 +320,27 @@ export default function TwinModelLibrary() {
       return
     }
     setCompressingId(m.id)
+    setCompressProgress(10)
     try {
       const res = await fetch(m.assetUrl)
       if (!res.ok) throw new Error('下载模型文件失败')
+      setCompressProgress(40)
       const buf = await res.arrayBuffer()
       const compressed = await compressGlb(buf)
+      setCompressProgress(70)
       const file = new File([compressed], `${m.name}-compressed.glb`, { type: 'model/gltf-binary' })
-      const uploaded = await api.uploadTwinModelFile(m.id, file)
+      const uploaded = await api.uploadTwinModelFile(m.id, file, (percent) => {
+        setCompressProgress(70 + Math.round(percent * 0.3))
+      })
       if (uploaded.code !== 0) throw new Error(uploaded.message)
+      setCompressProgress(100)
       message.success(`「${m.name}」已压缩为新版本 v${uploaded.data.version}`)
       reload()
     } catch (e) {
       message.error(`压缩失败：${(e as Error).message}`)
     } finally {
       setCompressingId(null)
+      setCompressProgress(null)
     }
   }
 
@@ -407,28 +427,49 @@ export default function TwinModelLibrary() {
                   <Button size="small" type="text" icon={<DownloadOutlined />} onClick={() => importMarketModel(m)}>导入</Button>
                 ) : (
                   <>
-                    {m.status !== 'active' && (
-                      <Button size="small" type="text" onClick={() => setModelStatus(m, 'active')}>上架</Button>
+                    <div className="twin-lib-action-row">
+                      <Tooltip title={m.status !== 'active' ? '上架' : '下架'}>
+                        <Button
+                          size="small"
+                          type="text"
+                          icon={m.status !== 'active' ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                          onClick={() => setModelStatus(m, m.status !== 'active' ? 'active' : 'inactive')}
+                        />
+                      </Tooltip>
+                      <Tooltip title="压缩">
+                        <Button size="small" type="text" icon={<CompressOutlined />} loading={compressingId === m.id} onClick={() => compressModel(m)} />
+                      </Tooltip>
+                    </div>
+                    {compressingId === m.id && compressProgress !== null && (
+                      <Progress percent={compressProgress} size="small" strokeColor="#22d3ee" />
                     )}
-                    {m.status === 'active' && (
-                      <Button size="small" type="text" onClick={() => setModelStatus(m, 'inactive')}>下架</Button>
-                    )}
-                    <Button size="small" type="text" icon={<CompressOutlined />} loading={compressingId === m.id} onClick={() => compressModel(m)}>压缩</Button>
-                    {m.market ? (
-                      <Button size="small" type="text" disabled icon={<ShareAltOutlined />}>已共享</Button>
-                    ) : (
-                      <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => publishToMarket(m)}>设为共享</Button>
-                    )}
-                    <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)}>预览</Button>
-                    <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)}>编辑</Button>
-                    <Popconfirm
-                      title={`删除「${m.name}」？`}
-                      okText="删除"
-                      cancelText="取消"
-                      onConfirm={() => removeModel(m)}
-                    >
-                      <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
-                    </Popconfirm>
+                    <div className="twin-lib-action-row">
+                      <Tooltip title="预览">
+                        <Button size="small" type="text" icon={<EyeOutlined />} onClick={() => setPreviewing(m)} />
+                      </Tooltip>
+                      <Tooltip title="编辑">
+                        <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(m)} />
+                      </Tooltip>
+                      {m.market ? (
+                        <Tooltip title="已共享">
+                          <Button size="small" type="text" disabled icon={<ShareAltOutlined />} />
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="设为共享">
+                          <Button size="small" type="text" icon={<ShareAltOutlined />} onClick={() => publishToMarket(m)} />
+                        </Tooltip>
+                      )}
+                      <Popconfirm
+                        title={`删除「${m.name}」？`}
+                        okText="删除"
+                        cancelText="取消"
+                        onConfirm={() => removeModel(m)}
+                      >
+                        <Tooltip title="删除">
+                          <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+                        </Tooltip>
+                      </Popconfirm>
+                    </div>
                   </>
                 )}
               </div>
@@ -468,12 +509,16 @@ export default function TwinModelLibrary() {
           {uploadFiles.length > 0 && (
             <div className="twin-upload-files">
               {uploadFiles.map((f, i) => (
-                <div key={i} className="twin-upload-file">
-                  <span title={f.name}>{f.name}</span>
+                <div key={`${f.name}-${i}`} className="twin-upload-file">
+                  <div className="twin-upload-file-main">
+                    <span className="twin-upload-file-name" title={f.name}>{f.name}</span>
+                    <Progress percent={uploadProgress[`${f.name}-${i}`] ?? 0} size="small" strokeColor="#22d3ee" />
+                  </div>
                   <Button
                     type="text"
                     size="small"
                     icon={<CloseOutlined />}
+                    disabled={uploading}
                     onClick={() => setUploadFiles((prev) => prev.filter((_, j) => j !== i))}
                   />
                 </div>

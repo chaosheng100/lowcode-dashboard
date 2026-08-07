@@ -1033,13 +1033,19 @@
 .twin-lib-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; flex-wrap: wrap; }
 .twin-lib-status-row { display: flex; flex-wrap: wrap; gap: 2px; }
 .twin-lib-tags { display: flex; flex-wrap: wrap; gap: 2px; min-height: 20px; }
-.twin-lib-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; border-top: 1px solid var(--line); padding-top: 6px; }
+.twin-lib-actions { display: flex; flex-direction: column; align-items: stretch; gap: 4px; border-top: 1px solid var(--line); padding-top: 6px; }
+.twin-lib-action-row { display: flex; align-items: center; justify-content: flex-start; gap: 4px; }
+.twin-lib-action-row .ant-btn { flex: 1; }
+.twin-lib-actions > .ant-progress { margin: 0 2px; }
 .twin-upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 120px; border: 1px dashed rgba(79, 140, 255, 0.45); border-radius: 8px; color: #7dd3fc; font-size: 13px; cursor: pointer; margin-bottom: 12px; transition: border-color 0.15s, background 0.15s; }
 .twin-upload-zone > .anticon { font-size: 28px; }
 .twin-upload-zone.drag-active { border-color: #4f8cff; background: rgba(79, 140, 255, 0.08); }
 .twin-upload-files { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; max-height: 140px; overflow: auto; }
 .twin-upload-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
 .twin-upload-file span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.twin-upload-file-main { flex: 1; min-width: 0; }
+.twin-upload-file-name { display: block; }
+.twin-upload-file-main .ant-progress { margin-top: 2px; }
 .twin-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .twin-preview-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; }
 .twin-preview-media { display: flex; align-items: center; justify-content: center; min-height: 280px; background: rgba(15, 23, 42, 0.55); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }

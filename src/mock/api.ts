@@ -5,6 +5,8 @@
 import { mockFetch, type RequestOptions } from './client'
 import { getToken } from '../auth/store'
 import { forceLogin } from '../auth/session'
+import { API_BASE_URL } from '../api/config'
+import type { ApiResp } from './types'
 import type {
   PageQuery,
   PageResult,
@@ -360,10 +362,40 @@ export const api = {
   createTwinModel: (body: Partial<TwinModelDTO>) => mockFetch<TwinModelDTO>('POST', '/api/twinModels', { body }),
   updateTwinModel: (id: string, body: Partial<TwinModelDTO>) =>
     mockFetch<TwinModelDTO>('PATCH', `/api/twinModels/${id}`, { body }),
-  uploadTwinModelFile: (id: string, file: File) => {
+  uploadTwinModelFile: (id: string, file: File, onProgress?: (percent: number) => void) => {
     const fd = new FormData()
     fd.append('file', file)
-    return mockFetch<TwinModelDTO>('POST', `/api/twinModels/${id}/file`, { body: fd })
+    return new Promise<ApiResp<TwinModelDTO>>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${API_BASE_URL}/twinModels/${id}/file`)
+      const token = getToken()
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100))
+        }
+      }
+      xhr.onload = () => {
+        try {
+          const json = JSON.parse(xhr.responseText) as ApiResp<TwinModelDTO>
+          if (json.code === 401 || json.code === 403) forceLogin()
+          resolve(json)
+        } catch {
+          resolve({
+            code: xhr.status || -1,
+            message: xhr.statusText || '上传失败',
+            data: null as unknown as TwinModelDTO,
+          })
+        }
+      }
+      xhr.onerror = () =>
+        resolve({
+          code: -1,
+          message: '网络错误，上传失败',
+          data: null as unknown as TwinModelDTO,
+        })
+      xhr.send(fd)
+    })
   },
   deleteTwinModel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinModels/${id}`),
   listTwinScenes: (q: PageQuery = {}) => mockFetch<PageResult<TwinSceneDTO>>('GET', '/api/twinScenes', { query: q }),
