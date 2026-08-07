@@ -90,6 +90,7 @@ function makeEntity(preset: (typeof PRESETS)[number], x: number, z: number): Twi
     z,
     rotationY: 0,
     scale: 1,
+    fitOnLoad: true,
     state: 'normal',
     metrics: { temperature: 40, health: 80, load: 40 }
   }
@@ -516,6 +517,13 @@ export default function TwinPage(props: TwinPageProps = {}) {
     updateSelected({ bindings: { liveSourceId: v, fields: cur?.fields ?? {} } })
   }
 
+  /** 外部模型加载完成并完成首次尺寸归一化后，同步实体缩放并去掉一次性标记 */
+  const handleAssetLoaded = useCallback((id: string, info: { baseScale: number }) => {
+    setEntities((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, scale: info.baseScale, fitOnLoad: false } : e)),
+    )
+  }, [])
+
   const updateBindingField = (key: string, value: string) => {
     if (!selectedId) return
     const cur = entities.find((o) => o.id === selectedId)?.bindings
@@ -817,6 +825,12 @@ export default function TwinPage(props: TwinPageProps = {}) {
             <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效 {fog ? '开' : '关'}</Button>
             <Button size="small" type={measuring ? 'primary' : 'default'} icon={<LineOutlined />} onClick={toggleMeasure}>{measuring ? '测量中' : '测量'}</Button>
             <Button size="small" type={gisEnabled ? 'primary' : 'default'} icon={<GlobalOutlined />} onClick={toggleGis}>{gisEnabled ? 'GIS 开' : 'GIS'}</Button>
+            <Button size="small" onClick={() => viewRef.current?.setCameraView('top')}>顶视</Button>
+            <Button size="small" onClick={() => viewRef.current?.setCameraView('front')}>前视</Button>
+            <Button size="small" onClick={() => viewRef.current?.setCameraView('side')}>侧视</Button>
+            <Button size="small" type="primary" onClick={() => viewRef.current?.setCameraView('perspective')}>透视</Button>
+            <Button size="small" icon={<CameraOutlined />} onClick={() => viewRef.current?.resetCamera()}>复位视角</Button>
+            <Button size="small" disabled={!selectedId} onClick={() => selectedId && viewRef.current?.frameEntity(selectedId)}>聚焦选中</Button>
             <span className="muted2 twin-toolbar-hint">
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>
@@ -827,7 +841,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
               key={activeSceneId}
               scene={sceneOf(entitiesRef.current)}
               instanceId={TWIN_MODULE_INSTANCE}
-              options={{ lighting, fog, frameOnAssetLoad: true }}
+              options={{ lighting, fog, frameOnAssetLoad: true, onAssetLoaded: handleAssetLoaded }}
               getTelemetry={() => liveRef.current}
               simIntervalMs={2500}
               onSelectEntity={(id) => setSelectedId(id)}

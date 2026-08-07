@@ -28,7 +28,12 @@ export interface TwinRendererOptions {
   autoRotate?: boolean
   /** 外部 GLB 加载完成并替换占位体后，自动将相机对准该模型包围盒（编辑器拖入模型场景使用） */
   frameOnAssetLoad?: boolean
+  /** 外部模型加载完成并完成首次尺寸归一化后回调（编辑器同步实体缩放） */
+  onAssetLoaded?: (id: string, info: { baseScale: number }) => void
 }
+
+/** 拖入模型的最长边限定尺寸（世界单位），首次拖入时按此归一化 */
+const MAX_ASSET_SIZE = 2.5
 
 function createGeometry(type: GeoType, s: number): THREE.BufferGeometry {
   switch (type) {
@@ -147,6 +152,7 @@ export class TwinRenderer {
   private targetGoal: THREE.Vector3 | null = null
   private defaultCam: THREE.Vector3
   private frameOnAssetLoad = false
+  private onAssetLoaded: ((id: string, info: { baseScale: number }) => void) | null = null
   /** 待取景模型队列：等渲染帧跑过（骨骼矩阵就绪）后再计算包围盒 */
   private frameQueue: { obj: THREE.Object3D; ticks: number }[] = []
 
@@ -156,10 +162,11 @@ export class TwinRenderer {
     this.fog = opts.fog ?? sceneData.env.fog ?? false
     this.autoRotate = opts.autoRotate ?? false
     this.frameOnAssetLoad = opts.frameOnAssetLoad ?? false
+    this.onAssetLoaded = opts.onAssetLoaded ?? null
 
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(this.lighting === 'day' ? '#0a1422' : '#05080f')
-    if (this.fog) this.scene.fog = new THREE.FogExp2(this.lighting === 'day' ? '#0a1422' : '#05080f', 0.035)
+    this.scene.background = new THREE.Color(this.lighting === 'day' ? '#1b2a45' : '#01040a')
+    if (this.fog) this.scene.fog = new THREE.FogExp2(this.lighting === 'day' ? '#1b2a45' : '#01040a', 0.035)
 
     const w = mount.clientWidth || 480
     const h = mount.clientHeight || 360
@@ -181,16 +188,16 @@ export class TwinRenderer {
     this.controls.target.set(0, 0.5, 0)
 
     // 光照
-    this.ambientLight = new THREE.AmbientLight(0xffffff, this.lighting === 'day' ? 0.85 : 0.2)
+    this.ambientLight = new THREE.AmbientLight(0xffffff, this.lighting === 'day' ? 1.15 : 0.12)
     this.scene.add(this.ambientLight)
-    this.dirLight = new THREE.DirectionalLight(this.lighting === 'day' ? 0xfff2cc : 0x4466ff, this.lighting === 'day' ? 1.0 : 0.5)
+    this.dirLight = new THREE.DirectionalLight(this.lighting === 'day' ? 0xfff2c2 : 0x2f4fd0, this.lighting === 'day' ? 1.7 : 0.4)
     this.dirLight.position.set(5, 8, 5)
     this.scene.add(this.dirLight)
 
     // 地面 + 网格
     this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(40, 40),
-      new THREE.MeshStandardMaterial({ color: 0x0d1a2b, roughness: 1, metalness: 0.1 })
+      new THREE.MeshStandardMaterial({ color: this.lighting === 'day' ? 0x14263e : 0x060d18, roughness: 1, metalness: 0.1 })
     )
     this.ground.rotation.x = -Math.PI / 2
     this.ground.name = 'ground'
@@ -450,6 +457,22 @@ export class TwinRenderer {
         this.entityMeshes.set(e.id, group)
         this.entityMats.set(e.id, collectMaterials(group))
         this.assetEntities.add(e.id)
+        let fitScale = 1
+        if (e.fitOnLoad) {
+          const box = new THREE.Box3().setFromObject(group)
+          if (!box.isEmpty()) {
+            const size = box.getSize(new THREE.Vector3())
+            const maxDim = Math.max(size.x, size.y, size.z, 0.0001)
+            fitScale = MAX_ASSET_SIZE / maxDim
+            group.scale.multiplyScalar(fitScale)
+            const ent = this.entities.find((x) => x.id === e.id)
+            if (ent) {
+              ent.scale = (ent.scale ?? 1) * fitScale
+              ent.fitOnLoad = false
+            }
+            this.onAssetLoaded?.(e.id, { baseScale: fitScale })
+          }
+        }
         this.applyStateColor(e.id, this.entityStates.get(e.id) ?? e.state)
         group.visible = placeholder.visible !== false
         const sp = this.labelSprites.get(e.id)
@@ -710,13 +733,44 @@ export class TwinRenderer {
     this.camGoal = new THREE.Vector3(p.x + 5, p.y + 4, p.z + 5)
   }
 
+  /** 视角预设：透视 / 顶视 / 前视 / 侧视 */
+  setCameraView(view: 'perspective' | 'top' | 'front' | 'side'): void {
+    const target = new THREE.Vector3(0, 0.5, 0)
+    if (view === 'perspective') {
+      this.camGoal = this.defaultCam.clone()
+      this.targetGoal = target
+      return
+    }
+    const positions: Record<'top' | 'front' | 'side', [number, number, number]> = {
+      top: [0, 14, 0.01],
+      front: [0, 4, 12],
+      side: [12, 4, 0]
+    }
+    const p = positions[view]
+    this.camGoal = new THREE.Vector3(p[0], p[1], p[2])
+    this.targetGoal = target
+  }
+
+  /** 复位相机到默认视角 */
+  resetCamera(): void {
+    this.camGoal = this.defaultCam.clone()
+    this.targetGoal = new THREE.Vector3(0, 0.5, 0)
+  }
+
+  /** 聚焦指定实体（按包围盒取景） */
+  frameEntity(id: string): void {
+    const mesh = this.entityMeshes.get(id)
+    if (mesh) this.frameToObject(mesh)
+  }
+
   setLighting(l: 'day' | 'night'): void {
     this.lighting = l
-    this.scene.background = new THREE.Color(l === 'day' ? '#0a1422' : '#05080f')
-    if (this.fog) this.scene.fog = new THREE.FogExp2(l === 'day' ? '#0a1422' : '#05080f', 0.035)
-    this.ambientLight.intensity = l === 'day' ? 0.85 : 0.2
-    this.dirLight.color.set(l === 'day' ? 0xfff2cc : 0x4466ff)
-    this.dirLight.intensity = l === 'day' ? 1.0 : 0.5
+    this.scene.background = new THREE.Color(l === 'day' ? '#1b2a45' : '#01040a')
+    if (this.fog) this.scene.fog = new THREE.FogExp2(l === 'day' ? '#1b2a45' : '#01040a', 0.035)
+    this.ambientLight.intensity = l === 'day' ? 1.15 : 0.12
+    this.dirLight.color.set(l === 'day' ? 0xfff2c2 : 0x2f4fd0)
+    this.dirLight.intensity = l === 'day' ? 1.7 : 0.4
+    ;(this.ground.material as THREE.MeshStandardMaterial).color.set(l === 'day' ? 0x14263e : 0x060d18)
   }
 
   setFog(b: boolean): void {

@@ -55,6 +55,8 @@ export interface TwinEntity {
   z: number
   rotationY?: number
   scale?: number
+  /** 首次拖入时按限定尺寸自动归一化一次，完成后置 false */
+  fitOnLoad?: boolean
   state: TwinEntityState
   metrics?: TwinEntityMetrics
   /** 绑定实时源：孪生指标字段 → 源字段（进阶接入预留） */

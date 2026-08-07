@@ -42,6 +42,8 @@ export interface TwinSceneViewOptions {
   showLabels?: boolean
   /** 外部 GLB 加载完成并替换占位体后，自动将相机对准该模型（TwinPage 编辑器开启，大屏组件默认关闭） */
   frameOnAssetLoad?: boolean
+  /** 外部模型加载完成并完成首次尺寸归一化后回调（编辑器同步实体缩放） */
+  onAssetLoaded?: (id: string, info: { baseScale: number }) => void
 }
 
 /** TwinSceneView 暴露给父组件的命令式接口（供编辑/联动/控制操作） */
@@ -71,6 +73,12 @@ export interface TwinSceneViewController {
   groundPointAt: (clientX: number, clientY: number) => { x: number; z: number } | null
   setControlsEnabled: (b: boolean) => void
   getCanvas: () => HTMLCanvasElement | null
+  /** 视角预设：透视 / 顶视 / 前视 / 侧视 */
+  setCameraView: (view: 'perspective' | 'top' | 'front' | 'side') => void
+  /** 复位相机到默认视角 */
+  resetCamera: () => void
+  /** 聚焦指定实体（按包围盒取景） */
+  frameEntity: (id: string) => void
   /** 闭环控制：下发指令（写入对应实例的运行时会话） */
   dispatchControl: (entity: TwinEntity, action: ControlAction) => Promise<void>
   /** What-if 决策沙盘推演 */
@@ -113,6 +121,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
   onSelectCbRef.current = onSelectEntity
   const onTelemetryCbRef = useRef(onTelemetry)
   onTelemetryCbRef.current = onTelemetry
+  const onAssetLoadedRef = useRef(options?.onAssetLoaded)
+  onAssetLoadedRef.current = options?.onAssetLoaded
 
   const lighting = options?.lighting
   const fog = options?.fog
@@ -127,7 +137,8 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
       lighting: lighting === 'night' ? 'night' : 'day',
       fog: !!fog,
       autoRotate: !!autoRotate,
-      frameOnAssetLoad: !!options?.frameOnAssetLoad
+      frameOnAssetLoad: !!options?.frameOnAssetLoad,
+      onAssetLoaded: (id, info) => onAssetLoadedRef.current?.(id, info)
     })
     renderer.setLabelVisible(showLabels !== false)
     renderer.setClickHandler((id) => onSelectCbRef.current?.(id))
@@ -221,6 +232,9 @@ export const TwinSceneView = forwardRef<TwinSceneViewController, TwinSceneViewPr
     groundPointAt: (x, y) => rendererRef.current?.groundPointAt(x, y) ?? null,
     setControlsEnabled: (b) => rendererRef.current?.setControlsEnabled(b),
     getCanvas: () => rendererRef.current?.getCanvas() ?? null,
+    setCameraView: (view) => rendererRef.current?.setCameraView(view),
+    resetCamera: () => rendererRef.current?.resetCamera(),
+    frameEntity: (id) => rendererRef.current?.frameEntity(id),
     dispatchControl: async (entity, action) => {
       await controlHubRef.current?.dispatch(entity, action)
     },
