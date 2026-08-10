@@ -13,9 +13,14 @@ export type LiveCallback = (data: LivePoint[], meta: { transport: 'proxy' | 'moc
 
 import { getToken } from '../../auth/store'
 import { forceLogin } from '../../auth/session'
+import axios, { AxiosError } from 'axios'
 
-const PROXY_HTTP = (import.meta.env.VITE_PROXY_URL as string | undefined) || 'http://localhost:5175'
-const PROXY_WS = `${PROXY_HTTP.replace(/^http/, 'ws')}/stream`
+// 默认同源走 Vite 代理；局域网设备访问时无需依赖设备自身的 localhost。
+const PROXY_HTTP = (import.meta.env.VITE_PROXY_URL as string | undefined) || ''
+const PROXY_WS = PROXY_HTTP ? `${PROXY_HTTP.replace(/^http/, 'ws')}/stream` : '/stream'
+
+/** 代理侧统一 axios 实例 */
+const proxyHttp = axios.create({ baseURL: PROXY_HTTP })
 
 function authHeaders(): Record<string, string> {
   const token = getToken()
@@ -110,28 +115,37 @@ export function subscribeLive(sourceId: string, cb: LiveCallback, intervalMs = 2
 
 /** 通过代理执行一次 SQL 查询（真实链路，代理不可用时抛错由调用方降级） */
 export async function querySqlViaProxy(payload: { dsType: string; endpoint: string; sql: string; simulate?: boolean }): Promise<{ columns: string[]; rows: Array<Record<string, unknown> | unknown[]>; elapsedMs: number; simulated?: boolean }> {
-  const res = await fetch(`${PROXY_HTTP}/proxy/sql`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify(payload)
-  })
-  const json = await res.json() as { code: number; message: string; data: { columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean } }
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) handleAuthFailure(json.message || `登录态无效，请重新登录`)
-    throw new Error(json.message || `proxy ${res.status}`)
-  }
+  const json = await proxyHttp
+    .post<{ code: number; message: string; data: { columns: string[]; rows: unknown[][]; elapsedMs: number; simulated?: boolean } }>(
+      '/proxy/sql',
+      payload,
+      { headers: authHeaders() },
+    )
+    .then((res) => res.data)
+    .catch((e: AxiosError<{ code: number; message: string }>) => {
+      const status = e.response?.status
+      if (status === 401 || status === 403) handleAuthFailure(e.response?.data?.message || `登录态无效，请重新登录`)
+      if (e.response) throw new Error(e.response.data?.message || `proxy ${status}`)
+      throw e
+    })
   if (json.code !== 0) throw new Error(json.message || `proxy ${json.code}`)
   return json.data
 }
 
 /** 通过代理订阅 MQTT 主题（一次性拉取代理侧缓存的最近消息） */
 export async function queryMqttViaProxy(topic: string): Promise<{ topic: string; messages: { ts: number; payload: unknown }[] }> {
-  const res = await fetch(`${PROXY_HTTP}/proxy/mqtt?topic=${encodeURIComponent(topic)}`, { headers: authHeaders() })
-  const json = await res.json() as { code: number; message: string; data: { topic: string; messages: { ts: number; payload: unknown }[] } }
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) handleAuthFailure(json.message || `登录态无效，请重新登录`)
-    throw new Error(json.message || `proxy ${res.status}`)
-  }
+  const json = await proxyHttp
+    .get<{ code: number; message: string; data: { topic: string; messages: { ts: number; payload: unknown }[] } }>(
+      '/proxy/mqtt',
+      { params: { topic }, headers: authHeaders() },
+    )
+    .then((res) => res.data)
+    .catch((e: AxiosError<{ code: number; message: string }>) => {
+      const status = e.response?.status
+      if (status === 401 || status === 403) handleAuthFailure(e.response?.data?.message || `登录态无效，请重新登录`)
+      if (e.response) throw new Error(e.response.data?.message || `proxy ${status}`)
+      throw e
+    })
   if (json.code !== 0) throw new Error(json.message || `proxy ${json.code}`)
   return json.data
 }
@@ -139,8 +153,8 @@ export async function queryMqttViaProxy(topic: string): Promise<{ topic: string;
 /** 检查代理是否在线 */
 export async function proxyHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${PROXY_HTTP}/health`, { signal: AbortSignal.timeout(1500) })
-    return res.ok
+    const res = await proxyHttp.get('/health', { timeout: 1500 })
+    return res.status >= 200 && res.status < 300
   } catch {
     return false
   }

@@ -2,16 +2,20 @@
 // 真实 API 客户端 —— 与 mockFetch 返回一致的 ApiResp<T> 信封
 //
 // 设计原则：
-// - 返回结构与 mock 完全一致 { code, data, message }
+// - 统一基于 axios，返回结构与 mock 完全一致 { code, data, message }
 // - 401/403 统一拦截
 // - 失败时 code 为 HTTP 状态码，message 来自后端
 // ============================================================
+import axios, { AxiosError } from 'axios'
 import type { ApiResp } from '../mock/types'
 import { getToken } from '../auth/store'
 import { forceLogin } from '../auth/session'
 import { API_BASE_URL } from './config'
 
 const BASE_URL = API_BASE_URL
+
+/** 统一 axios 实例（业务 API），供 SSE 等场景复用 */
+export const apiClient = axios.create({ baseURL: BASE_URL })
 
 interface RequestOptions {
   query?: Record<string, unknown>
@@ -35,7 +39,7 @@ function buildQuery(query?: Record<string, unknown>): string {
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiResp<T>> {
   const method = opts.method || (opts.body ? 'POST' : 'GET')
-  const url = `${BASE_URL}${path}${buildQuery(opts.query)}`
+  const url = `${path}${buildQuery(opts.query)}`
 
   const isFormData = opts.body instanceof FormData
   const headers: Record<string, string> = { ...(opts.headers || {}) }
@@ -48,42 +52,54 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   }
 
   try {
-    const res = await fetch(url, {
+    const res = await apiClient.request<string>({
+      url,
       method,
       headers,
-      body: isFormData ? (opts.body as FormData) : opts.body ? JSON.stringify(opts.body) : undefined,
+      data: isFormData ? (opts.body as FormData) : opts.body ? JSON.stringify(opts.body) : undefined,
+      // 与 fetch 语义一致：按 Content-Type 判断是否 JSON.parse，文本响应原样返回
+      responseType: 'text',
     })
 
-    const contentType = res.headers.get('content-type') || ''
+    const contentType = String(res.headers['content-type'] || '')
     const isJson = contentType.includes('application/json')
-
-    if (!res.ok) {
-      if (isJson) {
-        const data = await res.json()
-        // 后端全局异常过滤器也返回 { code, data, message }
-        if (data && typeof data.code === 'number') {
-          // 401/403：登录态失效，统一清理并回登录页
-          if (data.code === 401 || data.code === 403) forceLogin()
-          return data as ApiResp<T>
+    if (isJson) {
+      const data = JSON.parse(res.data || 'null')
+      // 后端统一包装 { code, data, message }
+      if (data && typeof data === 'object' && 'code' in data) {
+        // 401/403：登录态失效，统一清理并回登录页
+        if (data.code === 401 || data.code === 403) forceLogin()
+        return data as ApiResp<T>
+      }
+      // 兼容未包装的响应
+      return { code: 0, data, message: 'ok' }
+    }
+    return { code: 0, data: res.data as unknown as T, message: 'ok' }
+  } catch (e) {
+    const err = e as AxiosError<string>
+    const res = err.response
+    if (res) {
+      const contentType = (res.headers?.['content-type'] as string | undefined) || ''
+      let data: unknown
+      if (contentType.includes('application/json')) {
+        try {
+          data = res.data ? JSON.parse(res.data) : null
+        } catch {
+          data = null
         }
       }
+      if (data && typeof (data as ApiResp<T>).code === 'number') {
+        // 401/403：登录态失效，统一清理并回登录页
+        if ((data as ApiResp<T>).code === 401 || (data as ApiResp<T>).code === 403) forceLogin()
+        return data as ApiResp<T>
+      }
       if (res.status === 401 || res.status === 403) forceLogin()
-      return { code: res.status, message: res.statusText, data: null as unknown as T }
+      return {
+        code: res.status,
+        message: res.statusText,
+        data: null as unknown as T,
+      }
     }
-
-    if (!isJson) {
-      const text = await res.text()
-      return { code: 0, data: text as unknown as T, message: 'ok' }
-    }
-
-    const data = await res.json()
-    // 后端统一包装 { code, data, message }
-    if (data && typeof data === 'object' && 'code' in data) {
-      return data as ApiResp<T>
-    }
-    // 兼容未包装的响应
-    return { code: 0, data, message: 'ok' }
-  } catch (e) {
     return {
       code: -1,
       message: `网络错误：${(e as Error).message}`,

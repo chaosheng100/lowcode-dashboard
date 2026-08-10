@@ -16,12 +16,10 @@ export type ControlExecutor = (cmd: ControlInput) => Promise<{ ok: boolean; mess
 
 const defaultExecutor: ControlExecutor = async (cmd) => {
   // —— 真实接入示例（取消注释并接入后端代理）——
-  // const res = await fetch('http://localhost:5175/proxy/control', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(cmd)
+  // const res = await axios.post('/proxy/control', cmd, {
+  //   headers: { 'Content-Type': 'application/json' }
   // })
-  // if (!res.ok) return { ok: false, message: `下发失败：${res.status}` }
+  // if (res.status < 200 || res.status >= 300) return { ok: false, message: `下发失败：${res.status}` }
   // return { ok: true, message: `设备已执行：${CONTROL_LABELS[cmd.action]}` }
   return { ok: true, message: `已下发：${CONTROL_LABELS[cmd.action]}` }
 }

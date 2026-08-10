@@ -276,7 +276,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
 
   useEffect(() => {
     if (readOnly) return
-    const socket = io('http://localhost:3000/twin', {
+    const socket = io('/twin', {
       transports: ['websocket'],
       auth: { token: getToken() || undefined },
     })

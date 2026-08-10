@@ -37,6 +37,12 @@ npm run preview
 
 > 依赖仅 `react` / `react-dom` / `zustand`，开发依赖含 `typescript` 与 `@types/*`，安装快、无重型图表库。
 
+### 局域网访问
+
+- API / SSE / WebSocket 默认走 Vite 同源代理（`/api` → 3000，`/proxy`、`/health`、`/stream` → 5175），局域网设备访问 `http://<本机IP>:5173` 即可正常调接口，无需把地址改成局域网 IP。
+- 需要后端 `3000` 与数据代理 `5175`（`npm run proxy`）均在运行。
+- 生产部署若不用同源代理，请通过 `VITE_API_BASE_URL` / `VITE_PROXY_URL` 指向真实后端地址。
+
 ## 数据代理（BFF）
 
 ```bash

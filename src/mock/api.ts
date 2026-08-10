@@ -5,7 +5,7 @@
 import { mockFetch, type RequestOptions } from './client'
 import { getToken } from '../auth/store'
 import { forceLogin } from '../auth/session'
-import { API_BASE_URL } from '../api/config'
+import { apiClient } from '../api/client'
 import type { ApiResp } from './types'
 import type {
   PageQuery,
@@ -72,8 +72,6 @@ import type { AIDesignSchema, AIDesignIntent, AIDesignReview, AIDesignData } fro
 // 后端 /api/ai/chat、/api/ai/generate 以 SSE 真实流式输出；
 // 此处缓冲增量并在结束后 resolve 为旧的 { code, data:{ reply|code } } 形状，
 // 调用方（AIAssistantPage 等）无需任何改动即可享受流式后端。
-const SSE_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
-
 // 跨请求保持会话（满足「持久化、跨请求保留」需求）：同一页面的多次对话复用同一 sessionId
 let aiChatSessionId: string | undefined
 let aiGenSessionId: string | undefined
@@ -95,62 +93,68 @@ interface SseCallbacks {
 }
 
 async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<SseResult> {
-  const url = `${SSE_BASE_URL}${path.replace(/^\/api/, '')}`
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   const token = getToken()
   if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal: cb?.signal,
-  })
-  if (res.status === 401 || res.status === 403) forceLogin()
-  if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => '')
-    const msg = `SSE 请求失败 (${res.status}): ${text || res.statusText}`
+  try {
+    const res = await apiClient.post(path.replace(/^\/api/, ''), body, {
+      adapter: 'fetch',
+      responseType: 'stream',
+      signal: cb?.signal,
+      headers,
+    })
+    const stream = res.data as ReadableStream<Uint8Array> | undefined
+    if (!stream) {
+      const msg = 'SSE 请求失败：后端未返回响应流'
+      cb?.onError?.(msg)
+      return { error: msg }
+    }
+    const reader = stream.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let donePayload: SseResult['done']
+    let errorMsg: string | undefined
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let idx: number
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, idx)
+        buffer = buffer.slice(idx + 2)
+        const line = raw
+          .split('\n')
+          .map((l) => l.trim())
+          .find((l) => l.startsWith('data:'))
+        if (!line) continue
+        const json = line.slice(5).trim()
+        if (!json) continue
+        try {
+          const p = JSON.parse(json)
+          if (p.type === 'delta') {
+            if (cb?.onDelta && typeof p.text === 'string') cb.onDelta(p.text)
+          } else if (p.type === 'done') donePayload = p
+          else if (p.type === 'error') {
+            errorMsg = p.message
+            cb?.onError?.(p.message)
+          } else if (p.type === 'schema') cb?.onSchema?.(p.schema)
+          else if (p.type === 'intent') cb?.onIntent?.(p.intent)
+          else if (p.type === 'review') cb?.onReview?.(p.review)
+          else if (p.type === 'data') cb?.onData?.(p.data)
+        } catch {
+          /* 忽略无法解析的帧 */
+        }
+      }
+    }
+    return { done: donePayload, error: errorMsg }
+  } catch (e) {
+    const status = (e as { response?: { status?: number } }).response?.status
+    if (status === 401 || status === 403) forceLogin()
+    const msg = `SSE 请求失败: ${(e as Error).message}`
     cb?.onError?.(msg)
     return { error: msg }
   }
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let donePayload: SseResult['done']
-  let errorMsg: string | undefined
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    let idx: number
-    while ((idx = buffer.indexOf('\n\n')) !== -1) {
-      const raw = buffer.slice(0, idx)
-      buffer = buffer.slice(idx + 2)
-      const line = raw
-        .split('\n')
-        .map((l) => l.trim())
-        .find((l) => l.startsWith('data:'))
-      if (!line) continue
-      const json = line.slice(5).trim()
-      if (!json) continue
-      try {
-        const p = JSON.parse(json)
-        if (p.type === 'delta') {
-          if (cb?.onDelta && typeof p.text === 'string') cb.onDelta(p.text)
-        } else if (p.type === 'done') donePayload = p
-        else if (p.type === 'error') {
-          errorMsg = p.message
-          cb?.onError?.(p.message)
-        } else if (p.type === 'schema') cb?.onSchema?.(p.schema)
-        else if (p.type === 'intent') cb?.onIntent?.(p.intent)
-        else if (p.type === 'review') cb?.onReview?.(p.review)
-        else if (p.type === 'data') cb?.onData?.(p.data)
-      } catch {
-        /* 忽略无法解析的帧 */
-      }
-    }
-  }
-  return { done: donePayload, error: errorMsg }
 }
 
 export const api = {
@@ -365,37 +369,36 @@ export const api = {
   uploadTwinModelFile: (id: string, file: File, onProgress?: (percent: number) => void) => {
     const fd = new FormData()
     fd.append('file', file)
-    return new Promise<ApiResp<TwinModelDTO>>((resolve) => {
-      const xhr = new XMLHttpRequest()
-      xhr.open('POST', `${API_BASE_URL}/twinModels/${id}/file`)
-      const token = getToken()
-      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable && onProgress) {
-          onProgress(Math.round((e.loaded / e.total) * 100))
-        }
-      }
-      xhr.onload = () => {
-        try {
-          const json = JSON.parse(xhr.responseText) as ApiResp<TwinModelDTO>
+    const token = getToken()
+    return apiClient
+      .post<TwinModelDTO>(`/twinModels/${id}/file`, fd, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        onUploadProgress: (e) => {
+          if (e.total && onProgress) {
+            onProgress(Math.round((e.loaded / e.total) * 100))
+          }
+        },
+      })
+      .then((res) => {
+        const data = res.data
+        if (data && typeof data === 'object' && 'code' in data) {
+          const json = data as unknown as ApiResp<TwinModelDTO>
           if (json.code === 401 || json.code === 403) forceLogin()
-          resolve(json)
-        } catch {
-          resolve({
-            code: xhr.status || -1,
-            message: xhr.statusText || '上传失败',
-            data: null as unknown as TwinModelDTO,
-          })
+          return json
         }
-      }
-      xhr.onerror = () =>
-        resolve({
-          code: -1,
-          message: '网络错误，上传失败',
+        return { code: 0, data: data as TwinModelDTO, message: 'ok' }
+      })
+      .catch((e: { response?: { status?: number; data?: ApiResp<TwinModelDTO> } }) => {
+        const status = e.response?.status
+        const json = e.response?.data
+        if (status === 401 || status === 403 || json?.code === 401 || json?.code === 403) forceLogin()
+        if (json && typeof json.code === 'number') return json
+        return {
+          code: status ?? -1,
+          message: status ? '上传失败' : '网络错误，上传失败',
           data: null as unknown as TwinModelDTO,
-        })
-      xhr.send(fd)
-    })
+        }
+      })
   },
   deleteTwinModel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/twinModels/${id}`),
   listTwinScenes: (q: PageQuery = {}) => mockFetch<PageResult<TwinSceneDTO>>('GET', '/api/twinScenes', { query: q }),

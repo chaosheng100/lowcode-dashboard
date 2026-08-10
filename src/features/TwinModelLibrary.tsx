@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { App, Button, Input, Popconfirm, Progress, Select, Tooltip } from 'antd'
+import axios from 'axios'
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
@@ -322,10 +323,13 @@ export default function TwinModelLibrary() {
     setCompressingId(m.id)
     setCompressProgress(10)
     try {
-      const res = await fetch(m.assetUrl)
-      if (!res.ok) throw new Error('下载模型文件失败')
+      const res = await axios.get<ArrayBuffer>(m.assetUrl, {
+        responseType: 'arraybuffer',
+        validateStatus: () => true,
+      })
+      if (res.status < 200 || res.status >= 300) throw new Error('下载模型文件失败')
       setCompressProgress(40)
-      const buf = await res.arrayBuffer()
+      const buf = res.data
       const compressed = await compressGlb(buf)
       setCompressProgress(70)
       const file = new File([compressed], `${m.name}-compressed.glb`, { type: 'model/gltf-binary' })

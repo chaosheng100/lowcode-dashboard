@@ -186,7 +186,7 @@ export default function DataSourcePage() {
       {sqlConsole && (
         <Modal title={`SQL 查询控制台 · ${sqlConsole.name}（${VENDOR_LABEL[sqlConsole.vendor || 'other']}）`} onClose={() => setSqlConsole(null)}>
           <div className="muted2" style={{ marginBottom: 8 }}>
-            经数据代理（localhost:5175）执行只读查询；查询失败会返回真实错误，不再静默生成模拟数据。
+            经数据代理执行只读查询；查询失败会返回真实错误，不再静默生成模拟数据。
           </div>
           <Textarea style={{ minHeight: 90 }} value={sql} onChange={(e) => setSql(e.target.value)} />
           <div className="fp-toolbar" style={{ margin: '10px 0' }}>
