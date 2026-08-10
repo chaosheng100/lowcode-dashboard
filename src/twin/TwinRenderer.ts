@@ -13,7 +13,6 @@ import type {
   HighlightLevel,
   GeoType
 } from './twinTypes'
-import { STATE_COLORS } from './twinTypes'
 
 // ============================================================
 // TwinRenderer：数字孪生三维渲染内核（Three.js 封装）
@@ -114,6 +113,7 @@ export class TwinRenderer {
   private pointer = new THREE.Vector2()
 
   private ground!: THREE.Mesh
+  private grid!: THREE.GridHelper
   private ambientLight!: THREE.AmbientLight
   private dirLight!: THREE.DirectionalLight
   private entityMeshes = new Map<string, THREE.Object3D>()
@@ -165,8 +165,8 @@ export class TwinRenderer {
     this.onAssetLoaded = opts.onAssetLoaded ?? null
 
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(this.lighting === 'day' ? '#1b2a45' : '#01040a')
-    if (this.fog) this.scene.fog = new THREE.FogExp2(this.lighting === 'day' ? '#1b2a45' : '#01040a', 0.035)
+    this.scene.background = new THREE.Color(this.lighting === 'day' ? '#9fc3e8' : '#0b1522')
+    if (this.fog) this.scene.fog = new THREE.FogExp2(this.lighting === 'day' ? '#9fc3e8' : '#0b1522', 0.035)
 
     const w = mount.clientWidth || 480
     const h = mount.clientHeight || 360
@@ -188,21 +188,27 @@ export class TwinRenderer {
     this.controls.target.set(0, 0.5, 0)
 
     // 光照
-    this.ambientLight = new THREE.AmbientLight(0xffffff, this.lighting === 'day' ? 1.15 : 0.12)
+    this.ambientLight = new THREE.AmbientLight(0xffffff, this.lighting === 'day' ? 1.25 : 0.55)
     this.scene.add(this.ambientLight)
-    this.dirLight = new THREE.DirectionalLight(this.lighting === 'day' ? 0xfff2c2 : 0x2f4fd0, this.lighting === 'day' ? 1.7 : 0.4)
+    this.dirLight = new THREE.DirectionalLight(this.lighting === 'day' ? 0xfff0c0 : 0x3f5fd8, this.lighting === 'day' ? 2.0 : 1.1)
     this.dirLight.position.set(5, 8, 5)
     this.scene.add(this.dirLight)
 
     // 地面 + 网格
     this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(40, 40),
-      new THREE.MeshStandardMaterial({ color: this.lighting === 'day' ? 0x14263e : 0x060d18, roughness: 1, metalness: 0.1 })
+      new THREE.MeshStandardMaterial({ color: this.lighting === 'day' ? 0x7f8a78 : 0x16202f, roughness: 1, metalness: 0.1 })
     )
     this.ground.rotation.x = -Math.PI / 2
     this.ground.name = 'ground'
     this.scene.add(this.ground)
-    this.scene.add(new THREE.GridHelper(40, 40, 0x1a3050, 0x122038))
+    this.grid = new THREE.GridHelper(
+      40,
+      40,
+      this.lighting === 'day' ? 0x8a9580 : 0x2a3850,
+      this.lighting === 'day' ? 0x6f7a6c : 0x1a2438,
+    )
+    this.scene.add(this.grid)
     this.scene.add(this.annotationLayer)
 
     this.setEntities(sceneData)
@@ -640,23 +646,17 @@ export class TwinRenderer {
     return hits[0] ? { x: hits[0].point.x, z: hits[0].point.z } : null
   }
 
-  private applyStateColor(id: string, state: TwinEntityState): void {
+  private applyStateColor(id: string, _state: TwinEntityState): void {
     const mats = this.entityMats.get(id)
     if (!mats?.length) return
-    const isAsset = this.assetEntities.has(id)
     const userGlow = this.userGlowOf(id)
     for (const m of mats) {
       const std = m as THREE.MeshStandardMaterial
-      if (!isAsset && std && 'color' in std && std.color) std.color.set(STATE_COLORS[state])
+      if (!std || !('color' in std)) continue
+      // 建筑/模型保留自身颜色，不随运行状态自动变色；仅保留用户手动设置的材质发光
       if (userGlow) {
         std.emissive?.set(userGlow.color)
         std.emissiveIntensity = userGlow.intensity
-      } else if (state === 'fault') {
-        std.emissive?.set('#ef4444')
-        std.emissiveIntensity = 0.5
-      } else if (state === 'running') {
-        std.emissive?.set('#0e7490')
-        std.emissiveIntensity = 0.25
       } else {
         std.emissive?.set('#000000')
         std.emissiveIntensity = 0
@@ -765,12 +765,17 @@ export class TwinRenderer {
 
   setLighting(l: 'day' | 'night'): void {
     this.lighting = l
-    this.scene.background = new THREE.Color(l === 'day' ? '#1b2a45' : '#01040a')
-    if (this.fog) this.scene.fog = new THREE.FogExp2(l === 'day' ? '#1b2a45' : '#01040a', 0.035)
-    this.ambientLight.intensity = l === 'day' ? 1.15 : 0.12
-    this.dirLight.color.set(l === 'day' ? 0xfff2c2 : 0x2f4fd0)
-    this.dirLight.intensity = l === 'day' ? 1.7 : 0.4
-    ;(this.ground.material as THREE.MeshStandardMaterial).color.set(l === 'day' ? 0x14263e : 0x060d18)
+    this.scene.background = new THREE.Color(l === 'day' ? '#9fc3e8' : '#0b1522')
+    if (this.fog) this.scene.fog = new THREE.FogExp2(l === 'day' ? '#9fc3e8' : '#0b1522', 0.035)
+    this.ambientLight.intensity = l === 'day' ? 1.25 : 0.55
+    this.dirLight.color.set(l === 'day' ? 0xfff0c0 : 0x3f5fd8)
+    this.dirLight.intensity = l === 'day' ? 2.0 : 1.1
+    ;(this.ground.material as THREE.MeshStandardMaterial).color.set(l === 'day' ? 0x7f8a78 : 0x16202f)
+    const gridMats = this.grid.material as THREE.Material | THREE.Material[]
+    if (Array.isArray(gridMats)) {
+      if (gridMats[0]) (gridMats[0] as THREE.LineBasicMaterial).color.set(l === 'day' ? 0x8a9580 : 0x2a3850)
+      if (gridMats[1]) (gridMats[1] as THREE.LineBasicMaterial).color.set(l === 'day' ? 0x6f7a6c : 0x1a2438)
+    }
   }
 
   setFog(b: boolean): void {
