@@ -4,6 +4,7 @@ import {
   CloseOutlined,
   FullscreenExitOutlined,
   FullscreenOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { setAutosave, onSaved } from '../data/store/persist'
@@ -13,6 +14,7 @@ import Editor from './editor/Editor'
 import Renderer from './runtime/Renderer'
 import { resolveDataSource } from './runtime/DataEngine'
 import { captureThumbnail } from '../data/utils/thumb'
+import AIPanel from './editor/AIPanel'
 
 interface Props {
   mode: 'editor' | 'preview'
@@ -29,6 +31,7 @@ export default function WindowApp({ mode, routeId }: Props) {
   const [refreshing, setRefreshing] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [isFs, setIsFs] = useState(false)
+  const [showAI, setShowAI] = useState(false)
 
   // 选中路由 + 设置模式 + 同步自动保存开关（仅一次）
   useEffect(() => {
@@ -148,9 +151,14 @@ export default function WindowApp({ mode, routeId }: Props) {
         <span className="win-title">{isEditor ? '大屏编辑器' : '大屏预览'} · {routeName}</span>
         <span className="win-sep" />
         {isEditor ? (
-          <Button onClick={() => openPreviewWindow(routeId)}>
-            在新页签预览
-          </Button>
+          <>
+            <Button onClick={() => openPreviewWindow(routeId)}>
+              在新页签预览
+            </Button>
+            <Button icon={<RobotOutlined />} onClick={() => setShowAI(true)}>
+              AI 编排
+            </Button>
+          </>
         ) : (
           <>
             {/* 实时刷新开关 */}
@@ -183,6 +191,7 @@ export default function WindowApp({ mode, routeId }: Props) {
         </Button>
       </div>
       <div className="win-body">{isEditor ? <Editor /> : <Renderer />}</div>
+      {showAI && <AIPanel onClose={() => setShowAI(false)} />}
     </div>
   )
 }
