@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import * as echarts from 'echarts'
+import { useEffect, useMemo, useState } from 'react'
+import type { EChartsCoreOption } from 'echarts'
+import ReactECharts from 'echarts-for-react'
 import type { WidgetViewProps, DataPoint } from '../../data/types'
 import { subscribeLive } from '../../data/live/liveClient'
 
@@ -17,7 +18,7 @@ const AXIS_STYLE = {
   splitLine: { lineStyle: { color: 'rgba(42,51,64,0.6)' } }
 }
 
-function buildOption(type: string, p: WidgetViewProps['component']['props'], data: DataPoint[]): echarts.EChartsCoreOption {
+function buildOption(type: string, p: WidgetViewProps['component']['props'], data: DataPoint[]): EChartsCoreOption {
   const color = p.color || '#4f8cff'
   const title = p.title
     ? { text: p.title, textStyle: { color: '#9aa7b4', fontSize: 13, fontWeight: 'normal' as const }, left: 8, top: 6 }
@@ -93,7 +94,7 @@ function buildOption(type: string, p: WidgetViewProps['component']['props'], dat
     default: {
       // echartCustom：解析用户 option JSON，失败给出占位
       try {
-        return JSON.parse(p.optionJson || '{}') as echarts.EChartsCoreOption
+        return JSON.parse(p.optionJson || '{}') as EChartsCoreOption
       } catch {
         return { title: { text: 'option JSON 解析失败', textStyle: { color: '#ff5d5d', fontSize: 12 } } }
       }
@@ -102,8 +103,6 @@ function buildOption(type: string, p: WidgetViewProps['component']['props'], dat
 }
 
 export default function EChartWidget({ component, filter, onPick }: WidgetViewProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<echarts.ECharts | null>(null)
   const p = component.props
   const [liveData, setLiveData] = useState<DataPoint[] | null>(null)
   const [transport, setTransport] = useState<'proxy' | 'mock' | null>(null)
@@ -128,35 +127,30 @@ export default function EChartWidget({ component, filter, onPick }: WidgetViewPr
     return base
   }, [liveData, p.data, filter, p.filterField])
 
-  // 初始化 + option 更新
-  useEffect(() => {
-    if (!ref.current) return
-    if (!chartRef.current) {
-      chartRef.current = echarts.init(ref.current)
-      // 点击联动：与 SVG 组件同一套全局 filter
-      chartRef.current.on('click', (params) => {
+  const option = useMemo(
+    () => buildOption(component.type, p, data),
+    [component.type, p, data],
+  )
+  const onEvents = useMemo(
+    () => ({
+      click: (params: { name?: unknown }) => {
         if (p.interactive && onPick && typeof params.name === 'string' && params.name) {
           onPick({ field: p.filterField || 'name', value: params.name })
         }
-      })
-    }
-    chartRef.current.setOption(buildOption(component.type, p, data), true)
-  }, [component.type, p, data, onPick])
-
-  // 尺寸自适应：跟随组件宽高（拖拽缩放时实时 resize）
-  useEffect(() => {
-    if (!ref.current) return
-    const ro = new ResizeObserver(() => chartRef.current?.resize())
-    ro.observe(ref.current)
-    return () => ro.disconnect()
-  }, [])
-
-  // 卸载清理
-  useEffect(() => () => { chartRef.current?.dispose(); chartRef.current = null }, [])
+      },
+    }),
+    [p.interactive, p.filterField, onPick],
+  )
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <div ref={ref} style={{ width: '100%', height: '100%' }} />
+      <ReactECharts
+        option={option}
+        style={{ width: '100%', height: '100%' }}
+        onEvents={onEvents}
+        notMerge
+        lazyUpdate
+      />
       {p.liveSourceId && (
         <span style={{
           position: 'absolute', top: 4, right: 6, fontSize: 9, padding: '1px 6px', borderRadius: 8,

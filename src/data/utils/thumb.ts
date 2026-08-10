@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas'
+
 // 缩略图工具：根据种子生成确定性的 CSS 渐变（无需真实截图即可预览大屏风格）
 function hash(str: string): number {
   let h = 2166136261
@@ -38,10 +40,6 @@ export function makeThumb(seed: string): string {
  */
 export async function captureThumbnail(el: HTMLElement, bg = '#0a0e1a'): Promise<string> {
   try {
-    const modName = 'html2canvas'
-    const mod: any = await import(modName)
-    const html2canvas: (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement> =
-      mod.default ?? mod
     const cv = await html2canvas(el, {
       backgroundColor: bg,
       scale: 0.18, // 缩略图缩小到 ~18%，控制 dataURL 体积

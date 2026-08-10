@@ -7,6 +7,7 @@ import { getToken } from '../auth/store'
 import { forceLogin } from '../auth/session'
 import { apiClient } from '../api/client'
 import type { ApiResp } from './types'
+import { createParser } from 'eventsource-parser'
 import type {
   PageQuery,
   PageResult,
@@ -111,25 +112,12 @@ async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<
     }
     const reader = stream.getReader()
     const decoder = new TextDecoder()
-    let buffer = ''
     let donePayload: SseResult['done']
     let errorMsg: string | undefined
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      let idx: number
-      while ((idx = buffer.indexOf('\n\n')) !== -1) {
-        const raw = buffer.slice(0, idx)
-        buffer = buffer.slice(idx + 2)
-        const line = raw
-          .split('\n')
-          .map((l) => l.trim())
-          .find((l) => l.startsWith('data:'))
-        if (!line) continue
-        const json = line.slice(5).trim()
-        if (!json) continue
+    const parser = createParser({
+      onEvent: (event) => {
+        const json = (event.data || '').trim()
+        if (!json) return
         try {
           const p = JSON.parse(json)
           if (p.type === 'delta') {
@@ -145,8 +133,15 @@ async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<
         } catch {
           /* 忽略无法解析的帧 */
         }
-      }
+      },
+    })
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      parser.feed(decoder.decode(value, { stream: true }))
     }
+    parser.feed(decoder.decode())
     return { done: donePayload, error: errorMsg }
   } catch (e) {
     const status = (e as { response?: { status?: number } }).response?.status

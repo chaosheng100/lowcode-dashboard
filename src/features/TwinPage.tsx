@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import { App, Button, ColorPicker, Input as AntInput, InputNumber, Select, Slider } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
@@ -112,6 +120,73 @@ function makeAssetEntity(model: TwinModelDTO, x: number, z: number): TwinEntity 
     state: 'normal',
     metrics: { temperature: 40, health: 80, load: 40 }
   }
+}
+
+function TwinPresetCard({
+  index,
+  preset,
+  active,
+  onSelect,
+}: {
+  index: number
+  preset: (typeof PRESETS)[number]
+  active: boolean
+  onSelect: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `preset-${index}`,
+    data: { presetIndex: index },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      className={'card twin-preset' + (active ? ' sel' : '')}
+      style={
+        transform
+          ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+          : undefined
+      }
+      {...listeners}
+      {...attributes}
+      onClick={onSelect}
+    >
+      <i
+        className={'twin-preset-swatch' + (preset.geoType === 'sphere' ? ' round' : '')}
+        style={{ background: preset.color }}
+      />
+      <div className="twin-preset-name">{preset.name}</div>
+    </div>
+  )
+}
+
+function TwinModelCard({ model }: { model: TwinModelDTO }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `twin-model-${model.id}`,
+    data: {
+      model: { id: model.id, name: model.name, assetUrl: model.assetUrl },
+    },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      className="card twin-model-item"
+      title={model.assetUrl ? '拖拽到画布放置（外部模型）' : '内置模型'}
+      style={
+        transform
+          ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+          : undefined
+      }
+      {...listeners}
+      {...attributes}
+    >
+      {model.thumbnail ? (
+        <img src={model.thumbnail} alt={model.name} width={36} height={36} />
+      ) : (
+        <span className="twin-model-thumb"><AppstoreOutlined /></span>
+      )}
+      <div className="muted2 twin-model-name">{model.name}</div>
+    </div>
+  )
 }
 
 interface TwinPageProps {
@@ -459,26 +534,27 @@ export default function TwinPage(props: TwinPageProps = {}) {
   }, [duration])
 
   // ---- 操作 ----
-  const handleDrop = useCallback((ev: React.DragEvent) => {
-    ev.preventDefault()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  )
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     if (lockInfoRef.current) return
     const view = viewRef.current
-    if (!view) return
+    if (!view || !event.activatorEvent) return
+    const ev = event.activatorEvent as PointerEvent
     const gp = view.groundPointAt(ev.clientX, ev.clientY)
-    const rawModel = ev.dataTransfer.getData('application/x-lowcode-twin-model')
-    if (rawModel) {
-      try {
-        const model = JSON.parse(rawModel) as TwinModelDTO
-        const ent = makeAssetEntity(model, gp?.x ?? 0, gp?.z ?? 0)
-        view.addEntity(ent)
-        setEntities((prev) => [...prev, ent])
-        return
-      } catch {
-        // 拖拽数据异常时回退到内置几何体处理
-      }
+    const data = event.active.data.current as
+      | { presetIndex?: number; model?: { id: string; name: string; assetUrl?: string } }
+      | undefined
+    if (data?.model) {
+      const ent = makeAssetEntity(data.model as TwinModelDTO, gp?.x ?? 0, gp?.z ?? 0)
+      view.addEntity(ent)
+      setEntities((prev) => [...prev, ent])
+      return
     }
-    const idx = parseInt(ev.dataTransfer.getData('text/plain'), 10)
-    if (isNaN(idx) || idx < 0 || idx >= PRESETS.length) return
+    const idx = data?.presetIndex ?? -1
+    if (idx < 0 || idx >= PRESETS.length) return
     const preset = PRESETS[idx]
     const ent = makeEntity(preset, gp?.x ?? 0, gp?.z ?? 0)
     view.addEntity(ent)
@@ -704,7 +780,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const tlContentH = RULER_H + tlRows * ROW_H + 4
 
   return (
-    <div className="feature-page">
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="feature-page">
       {lockInfo && <div className="twin-lock-banner">{lockInfo}</div>}
       <div className="fp-head">
         <div>
@@ -726,16 +803,13 @@ export default function TwinPage(props: TwinPageProps = {}) {
             </div>
             <div className="twin-preset-grid">
               {PRESETS.map((p, i) => (
-                <div
-                  draggable
+                <TwinPresetCard
                   key={i}
-                  className={'card twin-preset' + (activePreset === i ? ' sel' : '')}
-                  onDragStart={(ev) => { ev.dataTransfer.setData('text/plain', String(i)); ev.dataTransfer.effectAllowed = 'copy' }}
-                  onClick={() => setActivePreset(i)}
-                >
-                  <i className={'twin-preset-swatch' + (p.geoType === 'sphere' ? ' round' : '')} style={{ background: p.color }} />
-                  <div className="twin-preset-name">{p.name}</div>
-                </div>
+                  index={i}
+                  preset={p}
+                  active={activePreset === i}
+                  onSelect={() => setActivePreset(i)}
+                />
               ))}
             </div>
             {filteredModels.length > 0 && (
@@ -768,26 +842,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
                   />
                 </div>
                 {filteredModels.map((m) => (
-                  <div
-                    key={m.id}
-                    draggable
-                    className="card twin-model-item"
-                    title={m.assetUrl ? '拖拽到画布放置（外部模型）' : '内置模型'}
-                    onDragStart={(ev) => {
-                      ev.dataTransfer.setData(
-                        'application/x-lowcode-twin-model',
-                        JSON.stringify({ id: m.id, name: m.name, assetUrl: m.assetUrl })
-                      )
-                      ev.dataTransfer.effectAllowed = 'copy'
-                    }}
-                  >
-                    {m.thumbnail ? (
-                      <img src={m.thumbnail} alt={m.name} width={36} height={36} />
-                    ) : (
-                      <span className="twin-model-thumb"><AppstoreOutlined /></span>
-                    )}
-                    <div className="muted2 twin-model-name">{m.name}</div>
-                  </div>
+                  <TwinModelCard key={m.id} model={m} />
                 ))}
               </div>
             )}
@@ -835,7 +890,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>
           </div>
-          <div className="twin-viewport" onDragOver={(ev) => ev.preventDefault()} onDrop={handleDrop} onClick={handleViewportClick}>
+          <div className="twin-viewport" onClick={handleViewportClick}>
             <TwinSceneView
               ref={viewRef}
               key={activeSceneId}
@@ -1211,7 +1266,8 @@ export default function TwinPage(props: TwinPageProps = {}) {
           </svg>
         </div>
       )}
-    </div>
+      </div>
+    </DndContext>
   )
 }
 

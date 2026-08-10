@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import WidgetRenderer from '../widgets/WidgetRenderer'
 import { useFitScale } from './useFitScale'
@@ -223,13 +230,19 @@ export default function Canvas() {
     return () => window.removeEventListener('resize', drawRuler)
   }, [drawRuler])
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    const type = e.dataTransfer.getData('widget-type') as ComponentInstance['type']
-    if (!type || !canvasRef.current) return
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  )
+
+  const onDragEnd = (event: DragEndEvent) => {
+    const type = (event.active.data.current as
+      | { type?: ComponentInstance['type'] }
+      | undefined)?.type
+    if (!type || !canvasRef.current || !event.activatorEvent) return
     const rect = canvasRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / scale - 30
-    const y = (e.clientY - rect.top) / scale - 20
+    const ev = event.activatorEvent as PointerEvent
+    const x = (ev.clientX - rect.left) / scale - 30
+    const y = (ev.clientY - rect.top) / scale - 20
     addComponent(type, {
       x: Math.max(0, Math.min(x, page.width - 40)),
       y: Math.max(0, Math.min(y, page.height - 40))
@@ -237,7 +250,8 @@ export default function Canvas() {
   }
 
   return (
-    <div className="canvas-area" ref={areaRef} onClick={() => select(null)}>
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <div className="canvas-area" ref={areaRef} onClick={() => select(null)}>
       <div className="canvas-scroll">
         <div
           className="canvas-grid"
@@ -262,8 +276,6 @@ export default function Canvas() {
                 background: page.background,
                 transform: `scale(${scale})`
               }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={onDrop}
               onClick={(e) => e.stopPropagation()}
             >
               {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
@@ -278,6 +290,7 @@ export default function Canvas() {
           <div className="ruler-corner br" />
         </div>
       </div>
-    </div>
+      </div>
+    </DndContext>
   )
 }

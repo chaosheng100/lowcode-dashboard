@@ -1,11 +1,31 @@
+import { useDraggable } from '@dnd-kit/core'
 import { widgetRegistry, widgetCategories } from '../../data/registry/widgetRegistry'
 import type { WidgetType, WidgetMeta } from '../../data/types'
 
+function DraggableItem({ type, def }: { type: WidgetType; def: WidgetMeta }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `widget-${type}`,
+    data: { type },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      className="cp-item"
+      style={
+        transform
+          ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+          : undefined
+      }
+      {...listeners}
+      {...attributes}
+    >
+      <span className="ico">{def.icon}</span>
+      <span>{def.name}</span>
+    </div>
+  )
+}
+
 export default function ComponentPanel() {
-  const onDragStart = (e: React.DragEvent, type: WidgetType) => {
-    e.dataTransfer.setData('widget-type', type)
-    e.dataTransfer.effectAllowed = 'copy'
-  }
   return (
     <div className="dlp-inner">
       <div style={{ color: '#9aa7b4', fontSize: 12, marginBottom: 10 }}>拖拽组件到画布 →</div>
@@ -18,10 +38,7 @@ export default function ComponentPanel() {
           <div className="cp-group" key={cat}>
             <h4>{cat}</h4>
             {items.map(([type, def]) => (
-              <div className="cp-item" key={type} draggable onDragStart={(e) => onDragStart(e, type)}>
-                <span className="ico">{def.icon}</span>
-                <span>{def.name}</span>
-              </div>
+              <DraggableItem key={type} type={type} def={def} />
             ))}
           </div>
         )

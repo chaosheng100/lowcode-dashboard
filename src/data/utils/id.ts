@@ -1,6 +1,5 @@
-let counter = 0
+import { nanoid } from 'nanoid'
 
 export function genId(prefix = 'c'): string {
-  counter += 1
-  return `${prefix}_${Date.now().toString(36)}_${counter.toString(36)}`
+  return `${prefix}_${nanoid(10)}`
 }
