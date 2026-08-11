@@ -1,6 +1,7 @@
 import { Button, ColorPicker, Form, Input, InputNumber, Select, Slider, Upload } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { RouteConfig } from '../../data/types'
+import LayerPanel from './LayerPanel'
 
 /**
  * 画布属性面板：当未选中任何组件时展示，用于配置画布尺寸、背景色、
@@ -136,6 +137,8 @@ export default function CanvasPanel() {
           </>
         )}
       </div>
+
+      <LayerPanel />
     </div>
   )
 }

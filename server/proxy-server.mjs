@@ -25,6 +25,7 @@
 //   DS_CRED_<REF>_MQTT_URL MQTT Broker 地址
 // ============================================================
 import express from 'express'
+import cors from 'cors'
 import { createServer } from 'node:http'
 import { WebSocketServer } from 'ws'
 import { promises as fs } from 'node:fs'
@@ -560,17 +561,23 @@ function canSubscribe(user, sourceId) {
 const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '2mb' }))
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin
-  if (!origin || CORS_ORIGINS.includes('*') || CORS_ORIGINS.includes(origin)) {
-    if (origin) res.setHeader('Access-Control-Allow-Origin', origin)
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-    if (req.method === 'OPTIONS') return res.sendStatus(204)
-    return next()
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || CORS_ORIGINS.includes('*') || CORS_ORIGINS.includes(origin)) {
+        callback(null, true)
+      } else {
+        callback(Object.assign(new Error('origin not allowed'), { status: 403 }))
+      }
+    },
+    credentials: true,
+  }),
+)
+app.use((err, _req, res, next) => {
+  if (err?.message === 'origin not allowed') {
+    return res.status(403).json({ code: 403, message: '来源不被允许', data: null })
   }
-  res.status(403).json({ code: 403, message: '来源不被允许', data: null })
+  next(err)
 })
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'lowcode-proxy', version: '2.0.0', auth: AUTH_DISABLED ? 'disabled' : 'backend' }))

@@ -30,6 +30,7 @@ import { useApi } from './useApi'
 import { generateModelThumbnail } from '../twin/modelThumbnail'
 import { convertToGlb, isConvertibleModel } from '../twin/modelConvert'
 import { compressGlb } from '../twin/gltfCompress'
+import ModelPreview3D from '../twin/ModelPreview3D'
 
 const CATEGORIES: TwinCategory[] = ['建筑', '设备', '交通', '自然', '人物', '其他']
 const CATEGORY_COLORS: Record<string, string> = {
@@ -112,6 +113,7 @@ export default function TwinModelLibrary() {
   const [editStatus, setEditStatus] = useState<TwinModelStatus>('active')
 
   const [previewing, setPreviewing] = useState<TwinModelDTO | null>(null)
+  const [samplePreview, setSamplePreview] = useState(false)
 
   const modelList = useMemo(
     () => dedupeModels((models?.list ?? []).filter((m) => !m.builtin)),
@@ -367,6 +369,9 @@ export default function TwinModelLibrary() {
           <Button size="small" type={libView === 'market' ? 'primary' : 'default'} icon={<ShareAltOutlined />} onClick={() => { setLibView('market'); setKw(''); setCategory(undefined) }}>
             模型市场
           </Button>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => setSamplePreview(true)}>
+            OBJ2GLTF 示例
+          </Button>
           <Input
             style={{ width: 220 }}
             placeholder="搜索名称/标签"
@@ -575,7 +580,9 @@ export default function TwinModelLibrary() {
         <Modal title={`模型预览 · ${previewing.name}`} onClose={() => setPreviewing(null)} width={760}>
           <div className="twin-preview-grid">
             <div className="twin-preview-media">
-              {previewing.thumbnail ? (
+              {previewing.assetUrl && /\.(glb|gltf)$/i.test(previewing.assetUrl) ? (
+                <ModelPreview3D url={previewing.assetUrl} height={340} />
+              ) : previewing.thumbnail ? (
                 <img src={previewing.thumbnail} alt={previewing.name} />
               ) : (
                 <span className="twin-model-thumb"><AppstoreOutlined /></span>
@@ -615,6 +622,15 @@ export default function TwinModelLibrary() {
                 </div>
               )}
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {samplePreview && (
+        <Modal title="模型预览 · OBJ2GLTF 示例" onClose={() => setSamplePreview(false)} width={760}>
+          <ModelPreview3D url="/models/sample.glb" height={420} />
+          <div className="muted2" style={{ marginTop: 10 }}>
+            由 scripts/convert-obj.mjs 通过 obj2gltf 转换生成
           </div>
         </Modal>
       )}

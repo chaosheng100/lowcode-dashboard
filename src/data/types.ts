@@ -259,6 +259,7 @@ export interface DesignerState {
   updateComponentProps: (id: string, patch: Partial<WidgetProps>) => void
   updateComponentStyle: (id: string, patch: Partial<ComponentStyle>) => void
   moveComponent: (id: string, x: number, y: number) => void
+  reorderComponent: (id: string, index: number) => void
   updateComponentDataSource: (id: string, binding: ComponentDataBinding | null) => void
 
   // 当前路由页面设置

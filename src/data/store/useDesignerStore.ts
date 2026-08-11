@@ -239,6 +239,20 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       )
     })),
 
+  reorderComponent: (id, index) =>
+    set((s) => ({
+      routes: s.routes.map((r) => {
+        if (r.id !== s.selectedRouteId) return r
+        const list = [...r.components]
+        const from = list.findIndex((c) => c.id === id)
+        if (from < 0) return r
+        const [item] = list.splice(from, 1)
+        const to = Math.max(0, Math.min(index, list.length))
+        list.splice(to, 0, item)
+        return { ...r, components: list }
+      })
+    })),
+
   // —— 当前路由页面设置（缩放 / 背景等）—— 
   setPage: (patch) =>
     set((s) => ({
