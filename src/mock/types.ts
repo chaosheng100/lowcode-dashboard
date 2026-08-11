@@ -155,8 +155,12 @@ export interface AIModelDTO {
   model?: string // pi-ai 目录内的真实模型标识
   type: AIModelType
   baseUrl: string
-  apiKey?: string // 接入密钥（列表接口原样返回，编辑时回填，避免被清空）
+  apiKey?: string | null // 接口不再返回明文，仅内部编辑提交时使用
+  hasApiKey?: boolean
+  apiKeyMasked?: string | null
   status: 'ready' | 'unset' | 'error'
+  group?: string
+  priority?: number
   updatedAt: string
 }
 
@@ -183,16 +187,147 @@ export interface AIBotDTO {
   /** 机器人描述 */
   description?: string
   /** 绑定的 AI 模型 id */
-  modelId: string
+  modelId: string | null
   /** 提示词（系统提示） */
   prompt?: string
   /** 兼容别名：系统提示词 */
   systemPrompt?: string
   /** 启用状态 */
   enabled: boolean
+  /** 归属用户（平台机器人/历史数据为空） */
+  ownerId?: string | null
+  /** 是否进入共享市场 */
+  isPublic?: boolean
+  /** 被安装次数 */
+  installCount?: number
+  /** 发布时间 */
+  publishedAt?: string | null
   /** 就绪状态：ready / error / pending */
   status?: 'ready' | 'error' | 'pending'
   updatedAt: string
+}
+
+export interface AIMarketBotDTO extends AIBotDTO {
+  ownerName?: string
+}
+
+export interface AISessionItem {
+  id: string
+  title?: string
+  botId?: string
+  modelId?: string
+  messageCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AISessionMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system' | 'tool'
+  content: string
+  createdAt: string
+}
+
+export interface AIPromptDTO {
+  id: string
+  code: string
+  name: string
+  scene: 'chat' | 'generate' | 'design'
+  content: string
+  enabled: boolean
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AIUsageItem {
+  id: string
+  sessionId?: string
+  modelId?: string
+  scene: string
+  status: string
+  promptTokens: number
+  completionTokens: number
+  estimatedTokens: number
+  durationMs: number
+  createdAt: string
+}
+
+export interface AIUsageStats {
+  totalCalls: number
+  totalTokens: number
+  totalDurationMs: number
+  todayCalls: number
+  byScene: Array<{
+    scene: string
+    _count: { _all: number }
+    _sum: { estimatedTokens: number | null; durationMs: number | null }
+  }>
+}
+
+export interface AIQuota {
+  dailyLimit: number
+  modelWhitelist: string[]
+}
+
+export interface AIToolArg {
+  key: string
+  type: string
+  required: boolean
+}
+
+export interface AIToolDef {
+  id: string
+  name: string
+  description: string
+  args: AIToolArg[]
+}
+
+export interface KnowledgeDocDTO {
+  id: string
+  title: string
+  content: string
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AISearchDoc {
+  id: string
+  title: string
+  excerpt: string
+}
+
+export interface AgentFlowNode {
+  id: string
+  type: 'echo' | 'chat' | 'generate' | 'review' | 'datasetMeta' | 'componentSearch'
+  label?: string
+  args?: Record<string, unknown>
+}
+
+export interface AgentFlowDTO {
+  id: string
+  name: string
+  description?: string
+  nodes: AgentFlowNode[]
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FlowRunStep {
+  id: string
+  type: string
+  label?: string
+  ok: boolean
+  output: string
+}
+
+export interface FlowRunResult {
+  flowId: string
+  flowName: string
+  steps: FlowRunStep[]
+  output: string
 }
 
 // ---------------- 数字孪生 3D：模型库 + 场景 ----------------

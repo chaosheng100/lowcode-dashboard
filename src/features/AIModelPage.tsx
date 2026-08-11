@@ -83,7 +83,7 @@ export default function AIModelPage() {
         </div>
         <Button
           onClick={() =>
-            setEditing({ name: '', provider: '', type: 'chat', baseUrl: '', apiKey: '', status: 'unset' })
+            setEditing({ name: '', provider: '', type: 'chat', baseUrl: '', apiKey: '', status: 'unset', group: 'default', priority: 0 })
           }
         >
           ＋ 接入模型
@@ -132,10 +132,25 @@ export default function AIModelPage() {
               </div>
               <div className="muted2" style={{ wordBreak: 'break-all' }}>{m.baseUrl}</div>
               <div className="muted2" style={{ marginTop: 4 }}>
-                {m.apiKey ? '🔑 已配置密钥' : '⚠️ 未配置密钥（无法对话）'}
+                {m.hasApiKey || m.apiKeyMasked
+                  ? `🔑 已配置 ${m.apiKeyMasked || ''}`
+                  : '⚠️ 未配置密钥（无法对话）'}
+              </div>
+              <div className="muted2" style={{ marginTop: 4 }}>
+                分组 {m.group || 'default'} · 优先级 {m.priority ?? 0}
               </div>
               <div className="fp-toolbar" style={{ marginTop: 10 }}>
-                <Button size="small" onClick={() => setEditing(m)}>
+                <Button
+                  size="small"
+                  onClick={() =>
+                    setEditing({
+                      ...m,
+                      apiKey: '',
+                      group: m.group || 'default',
+                      priority: m.priority ?? 0,
+                    })
+                  }
+                >
                   编辑
                 </Button>
                 <Button size="small" onClick={() => ping(m.id)} loading={pingingId === m.id}>
@@ -210,12 +225,27 @@ export default function AIModelPage() {
               placeholder={isCustomProvider ? '如 https://api.deepseek.com/v1' : '留空使用供应商默认地址'}
             />
           </Field>
+          <Field label="分组">
+            <Input
+              value={editing.group || 'default'}
+              onChange={(e) => setEditing({ ...editing, group: e.target.value.trim() || 'default' })}
+              placeholder="同一分组内的可用模型互为备用"
+            />
+          </Field>
+          <Field label="优先级">
+            <Input
+              type="number"
+              value={editing.priority ?? 0}
+              onChange={(e) => setEditing({ ...editing, priority: Number(e.target.value) || 0 })}
+              placeholder="数字越小越优先"
+            />
+          </Field>
           <Field label="API Key">
             <Input
               type="password"
               value={editing.apiKey ?? ''}
               onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
-              placeholder="填写后模型方能接入对话"
+              placeholder={editing.hasApiKey ? '已配置密钥，留空保持不变' : '填写后模型方能接入对话'}
             />
           </Field>
           {saveError && (

@@ -16,6 +16,17 @@ import type {
   DatasetDTO,
   DatasetField,
   DatasetRow,
+  AISessionItem,
+  AISessionMessage,
+  AIPromptDTO,
+  AIUsageItem,
+  AIUsageStats,
+  AIQuota,
+  AIToolDef,
+  KnowledgeDocDTO,
+  AISearchDoc,
+  AgentFlowDTO,
+  FlowRunResult,
   AuthUserDTO,
   RbacRoleDTO,
   RbacUserDTO,
@@ -35,6 +46,7 @@ import type {
   DeployRecordDTO,
   AIModelDTO,
   AIBotDTO,
+  AIMarketBotDTO,
   ProviderCatalogItem,
   TwinModelDTO,
   TwinSceneDTO,
@@ -89,6 +101,7 @@ interface SseCallbacks {
   onSchema?: (schema: AIDesignSchema) => void
   onReview?: (review: AIDesignReview) => void
   onData?: (data: AIDesignData) => void
+  onFallback?: (info: { from?: string; to?: string; reason?: string }) => void
   onError?: (msg: string) => void
   signal?: AbortSignal
 }
@@ -130,6 +143,7 @@ async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<
           else if (p.type === 'intent') cb?.onIntent?.(p.intent)
           else if (p.type === 'review') cb?.onReview?.(p.review)
           else if (p.type === 'data') cb?.onData?.(p.data)
+          else if (p.type === 'fallback') cb?.onFallback?.(p.fallback)
         } catch {
           /* 忽略无法解析的帧 */
         }
@@ -270,33 +284,118 @@ export const api = {
   deleteAIModel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiModels/${id}`),
   pingAIModel: (id: string) => mockFetch<{ ok: boolean; status?: string; message?: string }>('POST', `/api/aiModels/${id}/ping`),
   listAIBots: (q: PageQuery = {}) => mockFetch<PageResult<AIBotDTO>>('GET', '/api/aiBots', { query: q }),
+  listAIMarketBots: (q: PageQuery = {}) =>
+    mockFetch<PageResult<AIMarketBotDTO>>('GET', '/api/aiBots/market', { query: q }),
   saveAIBot: (body: Partial<AIBotDTO>) =>
     mockFetch<AIBotDTO>(body.id ? 'PATCH' : 'POST', `/api/aiBots${body.id ? '/' + body.id : ''}`, { body }),
   deleteAIBot: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiBots/${id}`),
+  installAIBot: (id: string) => mockFetch<AIBotDTO>('POST', `/api/aiBots/${id}/install`),
+  publishAIBot: (id: string, isPublic: boolean) =>
+    mockFetch<AIBotDTO>('POST', `/api/aiBots/${id}/publish`, { body: { isPublic } }),
+
+  // —— AI 会话 / Prompt 模板 / 用量 / 配额 ——
+  listAISessions: (q: PageQuery = {}) => mockFetch<PageResult<AISessionItem>>('GET', '/api/aiSessions', { query: q }),
+  createAISession: (body: { title?: string; botId?: string; modelId?: string }) =>
+    mockFetch<AISessionItem>('POST', '/api/aiSessions', { body }),
+  getAISessionMessages: (id: string) =>
+    mockFetch<AISessionMessage[]>('GET', `/api/aiSessions/${id}/messages`),
+  renameAISession: (id: string, title: string) =>
+    mockFetch<{ ok: boolean }>('PATCH', `/api/aiSessions/${id}`, { body: { title } }),
+  deleteAISession: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/aiSessions/${id}`),
+  listAIPrompts: (q: PageQuery = {}) => mockFetch<PageResult<AIPromptDTO>>('GET', '/api/ai/prompts', { query: q }),
+  saveAIPrompt: (body: Partial<AIPromptDTO>) =>
+    mockFetch<AIPromptDTO>(body.code ? 'PATCH' : 'POST', `/api/ai/prompts${body.code ? '/' + body.code : ''}`, { body }),
+  deleteAIPrompt: (code: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/ai/prompts/${code}`),
+  listAIUsage: (q: PageQuery = {}) => mockFetch<PageResult<AIUsageItem>>('GET', '/api/ai/usage', { query: q }),
+  getAIUsageStats: () => mockFetch<AIUsageStats>('GET', '/api/ai/usage/stats'),
+  getAIQuota: () => mockFetch<AIQuota>('GET', '/api/ai/quota'),
+  saveAIQuota: (body: AIQuota) => mockFetch<{ ok: boolean }>('PATCH', '/api/ai/quota', { body }),
+  listAITools: () => mockFetch<AIToolDef[]>('GET', '/api/ai/tools'),
+  runAITool: (toolId: string, args: Record<string, unknown>) =>
+    mockFetch<unknown>('POST', '/api/ai/tools/run', { body: { toolId, args } }),
+  listAIKnowledge: (q: PageQuery = {}) =>
+    mockFetch<PageResult<KnowledgeDocDTO>>('GET', '/api/ai/knowledge', { query: q }),
+  saveAIKnowledge: (body: Partial<KnowledgeDocDTO>) =>
+    mockFetch<KnowledgeDocDTO>(
+      body.id ? 'PATCH' : 'POST',
+      `/api/ai/knowledge${body.id ? '/' + body.id : ''}`,
+      { body },
+    ),
+  deleteAIKnowledge: (id: string) =>
+    mockFetch<{ ok: boolean }>('DELETE', `/api/ai/knowledge/${id}`),
+  searchAIKnowledge: (keyword: string) =>
+    mockFetch<AISearchDoc[]>('GET', '/api/ai/knowledge/search', {
+      query: { keyword },
+    }),
+  listAIFlows: (q: PageQuery = {}) =>
+    mockFetch<PageResult<AgentFlowDTO>>('GET', '/api/ai/flows', { query: q }),
+  saveAIFlow: (body: Partial<AgentFlowDTO>) =>
+    mockFetch<AgentFlowDTO>(
+      body.id ? 'PATCH' : 'POST',
+      `/api/ai/flows${body.id ? '/' + body.id : ''}`,
+      { body },
+    ),
+  deleteAIFlow: (id: string) =>
+    mockFetch<{ ok: boolean }>('DELETE', `/api/ai/flows/${id}`),
+  runAIFlow: (id: string, input: string) =>
+    mockFetch<FlowRunResult>('POST', `/api/ai/flows/${id}/run`, {
+      body: { input },
+    }),
+
   // AI 对话 / 代码生成（SSE 流式后端；onDelta 逐块回调驱动前端流式渲染，调用方契约不变）
   aiChat: async (
     message: string,
-    opts: { onDelta?: (text: string) => void; onError?: (m: string) => void; signal?: AbortSignal } = {},
+    opts: {
+      sessionId?: string
+      onDelta?: (text: string) => void
+      onFallback?: (info: { from?: string; to?: string; reason?: string }) => void
+      onError?: (m: string) => void
+      signal?: AbortSignal
+    } = {},
   ) => {
+    const sessionId = opts.sessionId || aiChatSessionId
     const r = await postSSE(
       '/api/ai/chat',
-      { message, sessionId: aiChatSessionId },
-      { onDelta: opts.onDelta, onError: opts.onError, signal: opts.signal },
+      { message, sessionId },
+      {
+        onDelta: opts.onDelta,
+        onFallback: opts.onFallback,
+        onError: opts.onError,
+        signal: opts.signal,
+      },
     )
     if (r.error) return { code: 500, message: r.error, data: { reply: '', suggestion: '' } }
     if (!r.done) return { code: 500, message: '无响应', data: { reply: '', suggestion: '' } }
     if (r.done.sessionId) aiChatSessionId = r.done.sessionId
-    return { code: 0, message: 'ok', data: { reply: r.done.reply ?? '', suggestion: '' } }
+    return {
+      code: 0,
+      message: 'ok',
+      data: {
+        reply: r.done.reply ?? '',
+        suggestion: '',
+        sessionId: r.done.sessionId ?? null,
+      },
+    }
   },
   aiGenerate: async (
     prompt: string,
     lang: string,
-    opts: { onDelta?: (text: string) => void; onError?: (m: string) => void; signal?: AbortSignal } = {},
+    opts: {
+      onDelta?: (text: string) => void
+      onFallback?: (info: { from?: string; to?: string; reason?: string }) => void
+      onError?: (m: string) => void
+      signal?: AbortSignal
+    } = {},
   ) => {
     const r = await postSSE(
       '/api/ai/generate',
       { prompt, lang, sessionId: aiGenSessionId },
-      { onDelta: opts.onDelta, onError: opts.onError, signal: opts.signal },
+      {
+        onDelta: opts.onDelta,
+        onFallback: opts.onFallback,
+        onError: opts.onError,
+        signal: opts.signal,
+      },
     )
     if (r.error) return { code: 500, message: r.error, data: { code: '' } }
     if (!r.done) return { code: 500, message: '无响应', data: { code: '' } }
@@ -323,6 +422,7 @@ export const api = {
       onSchema?: (schema: AIDesignSchema) => void
       onReview?: (review: AIDesignReview) => void
       onData?: (data: AIDesignData) => void
+      onFallback?: (info: { from?: string; to?: string; reason?: string }) => void
       onError?: (msg: string) => void
       signal?: AbortSignal
     } = {},
@@ -347,6 +447,7 @@ export const api = {
         onSchema: opts.onSchema,
         onReview: opts.onReview,
         onData: opts.onData,
+        onFallback: opts.onFallback,
         onError: opts.onError,
         signal: opts.signal,
       },
