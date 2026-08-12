@@ -12,7 +12,13 @@ import type {
 } from '../../data/types'
 
 /** 大屏设计器内嵌的 AI 编排助手：基于当前画布生成/调整大屏结构 */
-export default function AIPanel({ onClose }: { onClose: () => void }) {
+export default function AIPanel({
+  onClose,
+  embedded = false,
+}: {
+  onClose?: () => void
+  embedded?: boolean
+}) {
   const { message } = App.useApp()
   const route = useDesignerStore((s) =>
     s.routes.find((r) => r.id === s.selectedRouteId),
@@ -123,21 +129,23 @@ export default function AIPanel({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{
-        position: 'fixed',
-        top: 60,
-        right: 16,
-        bottom: 16,
-        width: 380,
-        zIndex: 1200,
+        position: embedded ? 'static' : 'fixed',
+        top: embedded ? undefined : 60,
+        right: embedded ? undefined : 16,
+        bottom: embedded ? undefined : 16,
+        width: embedded ? '100%' : 380,
+        zIndex: embedded ? undefined : 1200,
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        padding: 12,
-        background: '#0b1325',
-        border: '1px solid #1e2a3a',
-        borderRadius: 8,
+        padding: embedded ? 4 : 12,
+        background: embedded ? 'transparent' : '#0b1325',
+        border: embedded ? 'none' : '1px solid #1e2a3a',
+        borderRadius: embedded ? 0 : 8,
         color: '#e8f0ff',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.45)',
+        boxShadow: embedded ? 'none' : '0 8px 30px rgba(0,0,0,0.45)',
+        overflow: 'auto',
+        height: embedded ? '100%' : undefined,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -146,7 +154,7 @@ export default function AIPanel({ onClose }: { onClose: () => void }) {
           AI 编排大屏
         </b>
         <Tooltip title="关闭">
-          <Button size="small" type="text" icon={<CloseOutlined />} onClick={onClose} />
+          <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => onClose?.()} />
         </Tooltip>
       </div>
 
@@ -216,7 +224,7 @@ export default function AIPanel({ onClose }: { onClose: () => void }) {
       )}
 
       <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
-        <Button size="small" onClick={onClose} style={{ flex: 1 }}>
+        <Button size="small" onClick={() => onClose?.()} style={{ flex: 1 }}>
           取消
         </Button>
         {snapshot && (

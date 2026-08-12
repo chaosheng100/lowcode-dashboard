@@ -10,16 +10,48 @@
 //   - route.params     →  screen.config.params （扩展字段）
 //   - route.props      →  screen.config.props  （扩展字段）
 // ============================================================
-import type { RouteConfig } from '../data/types'
+import type { ComponentInstance, PageConfig, RouteConfig } from '../data/types'
 import type { ScreenConfig, ScreenItem } from './screenApi'
 
-const DEFAULT_PAGE = { width: 1920, height: 1080, background: '#0b1e3b' }
+const PAGE_DEFAULTS: PageConfig = {
+  width: 1920,
+  height: 1080,
+  background: '#0b1e3b',
+  backgroundImage: '',
+  backgroundImageFit: 'stretch',
+  backgroundImageOpacity: 1,
+  scale: 0.42,
+  fit: true,
+}
+
+const STYLE_DEFAULTS = { x: 60, y: 60, w: 400, h: 240 }
+
+function normalizePage(value: unknown): PageConfig {
+  const raw = (value && typeof value === 'object' ? value : {}) as Partial<PageConfig>
+  const width = Number.isFinite(raw.width) ? raw.width! : PAGE_DEFAULTS.width
+  const height = Number.isFinite(raw.height) ? raw.height! : PAGE_DEFAULTS.height
+  return { ...PAGE_DEFAULTS, ...raw, width, height }
+}
+
+function normalizeComponents(value: unknown): ComponentInstance[] {
+  const list = Array.isArray(value) ? value : []
+  return list.map((entry, idx) => {
+    const item = (entry && typeof entry === 'object' ? entry : {}) as Partial<ComponentInstance>
+    const style = (item.style && typeof item.style === 'object' ? item.style : {}) as Partial<ComponentInstance['style']>
+    return {
+      ...item,
+      id: item.id || `comp-${idx}`,
+      style: { ...STYLE_DEFAULTS, ...style },
+      props: item.props || {},
+    } as ComponentInstance
+  })
+}
 
 /** 前端 RouteConfig → 后端 ScreenConfig */
 export function routeToConfig(route: Partial<RouteConfig>): ScreenConfig {
   // 直接以 Record 构造，包含 page + components + 所有扩展字段
   const config: Record<string, unknown> = {
-    page: route.page || DEFAULT_PAGE,
+    page: route.page || PAGE_DEFAULTS,
     components: route.components || [],
   }
   if (route.state) config.state = route.state
@@ -35,8 +67,8 @@ export function routeToConfig(route: Partial<RouteConfig>): ScreenConfig {
 /** 后端 Screen → 前端 RouteConfig */
 export function screenToRoute(screen: ScreenItem): RouteConfig {
   const cfg = (screen.config as unknown as Record<string, unknown>) || {}
-  const components = (cfg.components as RouteConfig['components']) || []
-  const page = (cfg.page as RouteConfig['page']) || DEFAULT_PAGE
+  const components = normalizeComponents(cfg.components)
+  const page = normalizePage(cfg.page)
 
   return {
     id: screen.id,

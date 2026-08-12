@@ -1,0 +1,51 @@
+.screen-page { padding: 24px; }
+.screen-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  flex-wrap: wrap; margin-bottom: 16px;
+}
+.screen-head h2 { margin: 0; }
+.screen-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.screen-toolbar .ant-input-affix-wrapper { width: 260px; }
+.screen-summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
+.screen-summary-item {
+  border: 1px solid rgba(42, 66, 108, 0.35); border-radius: 8px;
+  padding: 10px 14px; background: rgba(11, 19, 37, 0.6);
+}
+.screen-summary-item strong {
+  display: block; font-size: 22px; color: #00d4ff; line-height: 1.2;
+}
+.screen-summary-item span { font-size: 12px; color: #7889a3; }
+.screen-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
+}
+.screen-card { overflow: hidden; }
+.screen-card-thumb {
+  height: 120px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0d1a33, #10243b);
+  background-size: cover; background-position: center;
+  border-bottom: 1px solid rgba(42, 66, 108, 0.2);
+}
+.screen-thumb-placeholder { color: #9aabc4; font-size: 13px; letter-spacing: 2px; }
+.screen-card-badge { position: absolute; top: 10px; right: 10px; }
+.screen-card-meta { color: #9aa7b4; font-size: 12px; margin: 6px 0 10px; }
+.screen-card-desc {
+  color: #7889a3; font-size: 12px; min-height: 36px; margin-bottom: 10px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.screen-card-stats { display: flex; gap: 14px; font-size: 12px; color: #9aa7b4; margin-bottom: 12px; }
+.screen-card-stats strong { color: #e8f0ff; }
+.screen-footer { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+@media (max-width: 768px) {
+  .screen-page { padding: 14px; }
+  .screen-head { align-items: stretch; }
+  .screen-toolbar .ant-input-affix-wrapper { width: 100%; }
+  .screen-toolbar > * { flex: 1 1 auto; }
+  .screen-summary { grid-template-columns: repeat(2, 1fr); }
+  .screen-grid { grid-template-columns: 1fr; }
+  .screen-footer { justify-content: center; }
+}

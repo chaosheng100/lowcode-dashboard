@@ -15,6 +15,110 @@ const CARD = {
 
 type GenType = 'html' | 'react' | 'echarts'
 
+/** 从 AI 生成的代码里提取 ECharts option JSON（支持 HTML/JS/围栏代码块） */
+function extractEChartsOption(code: string): string | null {
+  const clean = code
+    .trim()
+    .replace(/^```[a-zA-Z]*\s*\n?/, '')
+    .replace(/\n?```\s*$/, '')
+  const script = clean.match(/<script[^>]*>([\s\S]*?)<\/script>/i)
+  const js = (script ? script[1] : clean).trim()
+
+  const tryObject = (raw: string): string | null => {
+    try {
+      const value = new Function(`"use strict"; return (${raw})`)()
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return JSON.stringify(value)
+      }
+    } catch {
+      /* try next candidate */
+    }
+    return null
+  }
+
+  const extractBalanced = (source: string, re: RegExp): string | null => {
+    const match = re.exec(source)
+    if (!match) return null
+    const start = source.indexOf('{', match.index + match[0].length)
+    if (start === -1) return null
+    let depth = 0
+    let inStr = false
+    let quote = ''
+    for (let i = start; i < source.length; i++) {
+      const ch = source[i]
+      if (inStr) {
+        if (ch === quote && source[i - 1] !== '\\') inStr = false
+        continue
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        inStr = true
+        quote = ch
+        continue
+      }
+      if (ch === '{') depth++
+      else if (ch === '}') {
+        depth--
+        if (depth === 0) return source.slice(start, i + 1)
+      }
+    }
+    return null
+  }
+
+  // 整段就是 option 对象
+  if (/^\s*\{[\s\S]*\}\s*$/.test(js)) {
+    const whole = tryObject(js)
+    if (whole) return whole
+  }
+
+  // option = {...} 或 chart.setOption({...})
+  for (const re of [/option\s*=\s*/, /setOption\s*\(\s*/]) {
+    const raw = extractBalanced(js, re)
+    if (raw) {
+      const out = tryObject(raw)
+      if (out) return out
+    }
+  }
+
+  // option = JSON.parse('...')
+  const jsonParse = js.match(/option\s*=\s*JSON\.parse\(\s*(['"])([\s\S]*?)\1\s*\)/)
+  if (jsonParse) {
+    try {
+      const value = JSON.parse(jsonParse[2])
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return JSON.stringify(value)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
+}
+
+/** 预览 iframe 已渲染出 ECharts 时，直接从 chart 实例取完整 option */
+function extractOptionFromFrame(frame: HTMLIFrameElement | null): string | null {
+  try {
+    const win = frame?.contentWindow
+    if (!win) return null
+    const anyWin = win as unknown as Record<string, unknown>
+    const echarts = anyWin.echarts as
+      | { getInstanceByDom?: (el: HTMLElement | null) => { getOption?: () => unknown } | undefined }
+      | undefined
+    const el = win.document.getElementById('chart')
+    const inst =
+      typeof echarts?.getInstanceByDom === 'function' ? echarts.getInstanceByDom(el) : undefined
+    const option =
+      anyWin.option ??
+      inst?.getOption?.() ??
+      (anyWin.chart as { getOption?: () => unknown } | undefined)?.getOption?.()
+    if (option && typeof option === 'object' && !Array.isArray(option)) {
+      return JSON.stringify(option)
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
 const GEN_OPTIONS: { value: GenType; label: string; hint: string }[] = [
   { value: 'html', label: 'HTML', hint: '独立 HTML 页面/组件' },
   { value: 'react', label: 'React', hint: 'TSX 组件文件' },
@@ -77,7 +181,7 @@ export default function AIAssistantPage() {
   const loadSessions = useCallback(() => {
     api
       .listAISessions({ pageSize: 50 })
-      .then((r) => r.code === 0 && setSessions(r.data.list))
+      .then((r) => r.code === 0 && setSessions(r.data.list.filter((s) => s.botId !== 'ai-design')))
       .catch(() => {})
   }, [])
   useEffect(loadSessions, [loadSessions])
@@ -148,6 +252,7 @@ export default function AIAssistantPage() {
   const [compLoading, setCompLoading] = useState(false)
   const [compError, setCompError] = useState('')
   const compAccRef = useRef('')
+  const previewFrameRef = useRef<HTMLIFrameElement>(null)
 
   const handleGenerate = async () => {
     const p = compPrompt.trim()
@@ -201,14 +306,26 @@ export default function AIAssistantPage() {
 
   const previewSrcDoc = (): string => {
     if (!compCode) return ''
+    const cleanCode = compCode
+      .trim()
+      .replace(/^```[a-zA-Z]*\s*\n?/, '')
+      .replace(/\n?```\s*$/, '')
+    const safeInline = (code: string) => code.replace(/<\/script/gi, '<\\/script')
     const csp =
-      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: https:; font-src data: https:">'
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' https:; style-src \'unsafe-inline\'; img-src data: https:; font-src data: https:; connect-src https: data:">'
+    const wrapHtml = (code: string) =>
+      /^\s*<(?:!doctype|html)/i.test(code)
+        ? code
+        : `<!doctype html><html><head><meta charset="utf-8">${csp}</head><body>${code}</body></html>`
     if (compType === 'html') {
-      if (/^\s*<(?:!doctype|html)/i.test(compCode)) return compCode
-      return `<!doctype html><html><head><meta charset="utf-8">${csp}</head><body>${compCode}</body></html>`
+      return wrapHtml(cleanCode)
     }
     if (compType === 'echarts') {
-      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#0b1325"><div id="chart" style="width:100vw;height:100vh"></div><script>\n${compCode}\ntry { echarts.init(document.getElementById('chart')).setOption(option || window.option || {}); } catch (e) { document.body.innerHTML = '<pre style="color:#f87171;padding:12px">' + e.message + '</pre>' }\n<\/script></body></html>`
+      if (/^\s*</.test(cleanCode)) {
+        if (/^\s*<(?:!doctype|html)/i.test(cleanCode)) return cleanCode
+        return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body>${cleanCode}</body></html>`
+      }
+      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#0b1325"><div id="chart" style="width:100vw;height:100vh"></div><script>\ntry {\n${safeInline(cleanCode)}\nif (typeof echarts === 'undefined') throw new Error('ECharts CDN 未加载');\nif (!document.querySelector('#chart canvas')) {\nvar __chart = echarts.init(document.getElementById('chart'));\n__chart.setOption((typeof option !== 'undefined' ? option : window.option) || {});\n}\n} catch (e) { document.body.innerHTML = '<pre style="color:#f87171;padding:12px">' + (e && e.message ? e.message : String(e)) + '</pre>' }\n<\/script></body></html>`
     }
     return ''
   }
@@ -247,18 +364,38 @@ export default function AIAssistantPage() {
       message.warning('请先生成组件代码')
       return
     }
-    const type = `ai_${Date.now().toString(36)}`
-    const r = await api.saveWidget({
+    const suffix = Date.now().toString(36)
+    const type = compType === 'echarts' ? `ai_echarts_${suffix}` : `ai_${suffix}`
+    const base = {
       type,
       name: snippetName(),
-      icon: 'CodeOutlined',
-      category: 'AI 生成',
       version: '1.0.0',
-      kind: compType === 'echarts' ? 'echarts' : undefined,
-      optionJson: compType === 'echarts' ? (compOptionJson || compCode) : undefined,
-      dataSchema: compType === 'echarts' ? { generated: true } : undefined,
-      desc: compPrompt.trim() || 'AI 生成组件',
-    })
+      desc: compPrompt.trim() || (compType === 'echarts' ? 'AI 生成的 ECharts 组件' : 'AI 生成组件'),
+    }
+    let r: Awaited<ReturnType<typeof api.saveWidget>>
+    if (compType === 'echarts') {
+      const raw = extractEChartsOption(compCode) || extractOptionFromFrame(previewFrameRef.current)
+      if (!raw) {
+        message.error('未识别到 ECharts option，无法生成组件 Schema')
+        return
+      }
+      const optionJson = JSON.stringify(JSON.parse(raw), null, 2)
+      r = await api.saveWidget({
+        ...base,
+        kind: 'echarts',
+        icon: 'BarChartOutlined',
+        category: 'ECharts',
+        optionJson,
+        dataSchema: { generated: true },
+        schema: { type: 'echartCustom', optionJson },
+      })
+    } else {
+      r = await api.saveWidget({
+        ...base,
+        icon: 'CodeOutlined',
+        category: 'AI 生成',
+      })
+    }
     if (r.code === 0) message.success(`已登记到组件中心（${type}）`)
     else message.error(r.message)
   }
@@ -488,6 +625,7 @@ export default function AIAssistantPage() {
                   )}
                   {(compType === 'html' || (compType === 'echarts' && !compOptionJson)) && (
                     <iframe
+                      ref={previewFrameRef}
                       title="AI 组件预览"
                       srcDoc={previewSrcDoc()}
                       sandbox="allow-scripts allow-same-origin"

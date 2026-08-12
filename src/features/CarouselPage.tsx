@@ -3,9 +3,11 @@ import { App, Alert, Button, Dropdown, InputNumber, Select, Spin, Switch } from 
 import { api } from "../mock"
 import type { ApiResp, CarouselDTO } from "../mock/types"
 import type { RouteConfig } from "../data/types"
-import { useDesignerStore } from "../data/store/useDesignerStore"
 import { RouteRenderer } from "../designer/runtime/Renderer"
 import { useApi } from "./useApi"
+import { screenApi } from "../api/screenApi"
+import { screenToRoute } from "../api/screenAdapter"
+import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from "../api/screenRoutes"
 import { Input, Stat } from "./common"
 
 type View =
@@ -26,9 +28,8 @@ function getError<T>(response: ApiResp<T>): string | null {
 export default function CarouselPage() {
   const { modal } = App.useApp()
   const carousels = useApi(() => api.listCarousels({ pageSize: 100 }), [])
-  const routes = useDesignerStore((state) => state.routes)
-  const updateRoute = useDesignerStore((state) => state.updateRoute)
-  const dashboardList = useMemo(() => routes.filter((route) => route.kind === "dashboard"), [routes])
+  const { data: screenData } = useApi(() => screenApi.list(), [])
+  const dashboardList = useMemo(() => (screenData ?? []).map(screenToRoute), [screenData])
   const [view, setView] = useState<View>({ mode: "list" })
   const [keyword, setKeyword] = useState("")
   const [status, setStatus] = useState<StatusFilter>("all")
@@ -47,7 +48,7 @@ export default function CarouselPage() {
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [carousels.data, keyword, status])
 
-  const syncCarouselRefs = () => {
+  const syncCarouselRefs = async () => {
     const allCarousels = carousels.data?.list ?? []
     const refMap = new Map<string, string[]>()
     for (const carousel of allCarousels) {
@@ -60,7 +61,9 @@ export default function CarouselPage() {
       const carouselIds = refMap.get(route.id) ?? []
       const current = Array.isArray(route.state.carouselIds) ? route.state.carouselIds : []
       if (JSON.stringify([...carouselIds].sort()) !== JSON.stringify([...current].sort())) {
-        updateRoute(route.id, { state: { ...route.state, carouselIds } })
+        const currentRoute = await loadScreenRoute(route.id)
+        if (!currentRoute) continue
+        await saveScreenRoute(patchScreenRoute(currentRoute, { state: { ...currentRoute.state, carouselIds } }))
       }
     }
   }
@@ -75,7 +78,7 @@ export default function CarouselPage() {
     const error = getError(response)
     if (error) throw new Error(error)
     refresh()
-    syncCarouselRefs()
+    await syncCarouselRefs()
     setView({ mode: "list" })
   }
 
@@ -89,7 +92,7 @@ export default function CarouselPage() {
     setActionId(null)
     const error = getError(response)
     if (error) setNotice(error)
-    else { refresh(); syncCarouselRefs() }
+    else { refresh(); await syncCarouselRefs() }
   }
 
   const duplicate = async (item: CarouselDTO) => {
@@ -117,7 +120,7 @@ export default function CarouselPage() {
         const error = getError(response)
         if (error) { setNotice(error); return }
         refresh()
-        syncCarouselRefs()
+        await syncCarouselRefs()
       }
     })
   }

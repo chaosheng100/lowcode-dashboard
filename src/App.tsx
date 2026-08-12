@@ -1,14 +1,13 @@
 import { initPersist } from './data/store/persist'
 import { openEditorWindow, openPreviewWindow } from './designer/window'
 import ProjectView from './ProjectView'
-import WindowApp from './designer/WindowApp'
 import RemoteWindowApp from './api/RemoteWindowApp'
 import ScreenListPage from './api/ScreenListPage'
 import LoginPage from './auth/LoginPage'
 import RegisterPage from './auth/RegisterPage'
 import { useAuthStore } from './auth/store'
 import { startTokenRefresh } from './auth/tokenRefresh'
-import { useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 
 // 启动即恢复登录态（localStorage → store），在组件渲染前完成，避免登录页闪烁
 useAuthStore.getState().hydrate()
@@ -32,7 +31,6 @@ export default function App() {
   const p = new URLSearchParams(location.search)
   const mode = p.get('mode')
   const routeId = p.get('routeId')
-  const remote = p.get('remote') === 'true'
   const screenList = p.get('screens') === 'list'
 
   // 大屏列表（后端版）入口：后端接口已要求令牌，需保持登录态
@@ -43,14 +41,13 @@ export default function App() {
 
   // 独立页签入口
   if ((mode === 'editor' || mode === 'preview') && routeId) {
-    if (remote) {
-      // 后端持久化模式：后端接口已要求令牌，需保持登录态
-      if (!token) return <LoginPage />
-      return <RemoteWindowApp mode={mode as 'editor' | 'preview'} screenId={routeId} />
-    }
-    // 本地模式（localStorage）需要登录态
+    // 统一走后端持久化：后端接口已要求令牌，需保持登录态
     if (!token) return <LoginPage />
-    return <WindowApp mode={mode as 'editor' | 'preview'} routeId={routeId} />
+    // 旧版本地大屏路由已迁移到后端，旧路径直接回到大屏管理
+    if (routeId.replace(/^\/+/, '').startsWith('screen/')) {
+      return <Navigate to="/dashboard" replace />
+    }
+    return <RemoteWindowApp mode={mode as 'editor' | 'preview'} screenId={routeId.replace(/^\/+/, '')} />
   }
 
   // 认证路由（独立于主应用）

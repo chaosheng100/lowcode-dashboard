@@ -51,17 +51,21 @@ function cloneProps(props: WidgetProps): WidgetProps {
 
 export function createStandardAssetComponent(asset: ComponentAssetDefinition): ComponentInstance {
   const definition = widgetRegistry[asset.type]
+  const props: WidgetProps = {
+    ...cloneProps(definition.defaultProps),
+    catalogKey: asset.key,
+    catalogName: asset.name,
+    catalogSourceId: `catalog:${asset.key}`,
+    businessType: asset.businessType,
+  }
+  if (asset.type === 'echartCustom' && asset.optionJson) {
+    props.optionJson = asset.optionJson
+  }
   return {
     id: genId(asset.type),
     type: asset.type,
     style: { ...definition.defaultStyle },
-    props: {
-      ...cloneProps(definition.defaultProps),
-      catalogKey: asset.key,
-      catalogName: asset.name,
-      catalogSourceId: `catalog:${asset.key}`,
-      businessType: asset.businessType
-    }
+    props,
   }
 }
 

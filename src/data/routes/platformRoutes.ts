@@ -1,7 +1,6 @@
 // 平台路由结构（来自产品原型截图识别）
 // 一级 11 个 / 二级 25 个，用 path 作为稳定 id，便于父子引用
 import { genId } from '../utils/id'
-import { makeThumb } from '../utils/thumb'
 import type { RouteConfig, ComponentInstance, DashboardProject } from '../types'
 
 interface RouteTreeNode {
@@ -124,63 +123,6 @@ function makeRoute(overrides: Partial<RouteConfig> = {}): RouteConfig {
 // 常用入口（默认给一个示例文本组件，避免画布空白）
 const commonEntries = new Set<string>(['/dashboard', '/data/dataset', '/components/library', '/system/analysis'])
 
-// 大屏种子：作为「大屏管理」模块的可编辑大屏，与基础数据路由分离
-const dashboardSeeds: Array<{ name: string; path: string; title: string }> = [
-  { name: '运营总览大屏', path: '/screen/overview', title: '运营总览' },
-  { name: '销售分析大屏', path: '/screen/sales', title: '销售分析' },
-  { name: '物流监控大屏', path: '/screen/logistics', title: '物流监控' },
-  { name: '能源管理大屏', path: '/screen/energy', title: '能源管理' },
-  { name: '财务驾驶舱', path: '/screen/finance', title: '财务驾驶舱' },
-  { name: '安全生产大屏', path: '/screen/safety', title: '安全生产' }
-]
-
-/** 构造大屏种子组件列表；运营总览额外嵌入数字孪生组件以演示「3D+2D 双轨融合」。 */
-function buildScreenComponents(path: string, _idx = 0): ComponentInstance[] {
-  const base: ComponentInstance[] = [
-    {
-      id: genId('text'),
-      type: 'text',
-      style: { x: 60, y: 60, w: 900, h: 70 },
-      props: { content: dashboardSeeds.find((d) => d.path === path)?.title ?? '大屏', fontSize: 34, color: '#e6edf3', bold: true }
-    },
-    {
-      id: genId('barChart'),
-      type: 'barChart',
-      style: { x: 60, y: 200, w: 560, h: 320 },
-      props: {
-        title: '区域分布',
-        data: [
-          { name: '华东', value: 320 },
-          { name: '华北', value: 210 },
-          { name: '华南', value: 260 },
-          { name: '西部', value: 150 }
-        ]
-      }
-    },
-    {
-      id: genId('metric'),
-      type: 'metric',
-      style: { x: 680, y: 200, w: 320, h: 150 },
-      props: { label: '核心指标', data: [{ name: '总量', value: 940 }], unit: '万' }
-    }
-  ]
-  if (path === '/screen/overview') {
-    base.push({
-      id: genId('digitalTwin'),
-      type: 'digitalTwin',
-      style: { x: 1040, y: 200, w: 520, h: 360 },
-      props: { title: '工厂数字孪生', lighting: 'day', fog: false, showLabels: true, showHud: true, showControl: true, showSim: true, autoRotate: false, interactive: true, filterField: 'entityId', sourceKind: 'simulated' }
-    })
-    base.push({
-      id: genId('twinAlarm'),
-      type: 'twinAlarm',
-      style: { x: 1040, y: 580, w: 520, h: 260 },
-      props: { title: '孪生告警清单', filterField: 'entityId', maxItems: 30 }
-    })
-  }
-  return base
-}
-
 export function buildPlatformProject(): DashboardProject {
   const routes: RouteConfig[] = []
   const base = Date.UTC(2026, 2, 1) // 2026-03-01
@@ -221,29 +163,6 @@ export function buildPlatformProject(): DashboardProject {
     }
   }
   walk(platformTree, null)
-
-  // 追加大屏路由（dashboard 类型），供「大屏管理 → 大屏编辑器」独立编辑
-  dashboardSeeds.forEach((d, idx) => {
-    const components = buildScreenComponents(d.path, idx)
-    const createdAt = new Date(base + (i + idx) * 5 * 3600_000).toISOString()
-    const updatedAt = new Date(base + (i + idx) * 5 * 3600_000 + (1 + idx) * 3600_000).toISOString()
-    routes.push(
-      makeRoute({
-        id: d.path,
-        name: d.name,
-        path: d.path,
-        parentId: null,
-        kind: 'dashboard',
-        createdAt,
-        updatedAt,
-        thumbnail: makeThumb(d.path),
-        params: { screen: d.path },
-        props: { title: d.title },
-        state: {},
-        components
-      })
-    )
-  })
 
   return { version: '1.0', routes }
 }

@@ -169,7 +169,7 @@ async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<
 export const api = {
   // 大屏管理
   listDashboards: (q: PageQuery = {}) => mockFetch<PageResult<DashboardDTO>>('GET', '/api/dashboards', { query: q }),
-  getDashboard: (id: string) => mockFetch<DashboardDTO | null>('GET', `/api/dashboards/${id}`),
+  getDashboard: (id: string) => mockFetch<DashboardDTO | null>('GET', `/api/dashboards/${encodeURIComponent(id)}`),
 
   // 数据源
   listDataSources: (q: PageQuery = {}) => mockFetch<PageResult<DataSourceDTO>>('GET', '/api/datasources', { query: q }),

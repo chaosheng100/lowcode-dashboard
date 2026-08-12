@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { featurePages } from '../features/registry'
-import DashboardManagement from '../management/DashboardManagement'
+import ScreenListPage from '../api/ScreenListPage'
 import RouteOperationPanel from '../data/routes/RouteOperationPanel'
 import KeepAliveOutlet from './KeepAliveOutlet'
 import type { RouteConfig } from '../data/types'
@@ -37,8 +37,8 @@ interface Props {
 }
 
 export default function AppRouter({
-  onOpenDesigner,
-  onOpenPreview,
+  onOpenDesigner: _onOpenDesigner,
+  onOpenPreview: _onOpenPreview,
   onToggleSidebar,
   maxKeepAlive = 10,
   keepAlive = true,
@@ -99,8 +99,6 @@ export default function AppRouter({
         <RouteContent
           pathname={pathname}
           routesRef={routesRef}
-          onOpenDesigner={onOpenDesigner}
-          onOpenPreview={onOpenPreview}
           onToggleSidebar={onToggleSidebar}
         />
       )}
@@ -112,24 +110,17 @@ export default function AppRouter({
 function RouteContent({
   pathname,
   routesRef,
-  onOpenDesigner,
-  onOpenPreview,
   onToggleSidebar,
 }: {
   pathname: string
   routesRef: React.MutableRefObject<RouteConfig[]>
-  onOpenDesigner: (id: string) => void
-  onOpenPreview?: (id: string) => void
   onToggleSidebar?: () => void
 }) {
   // 大屏管理
   if (pathname === DASHBOARD_PATH) {
     return (
       <main className="operation-area">
-        <DashboardManagement
-          onOpen={(id) => onOpenDesigner(id)}
-          onOpenPreview={onOpenPreview ? (id) => onOpenPreview(id) : undefined}
-        />
+        <ScreenListPage />
       </main>
     )
   }

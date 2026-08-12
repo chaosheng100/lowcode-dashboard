@@ -8,7 +8,9 @@ import type {
   WidgetVersionDTO,
   WidgetLifecycleStatus
 } from '../mock/types'
-import { useDesignerStore } from '../data/store/useDesignerStore'
+import { screenApi } from '../api/screenApi'
+import { screenToRoute } from '../api/screenAdapter'
+import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from '../api/screenRoutes'
 import {
   deployEchartAsset,
   deployStandardAsset,
@@ -98,11 +100,15 @@ function previewComponent(asset: LibraryAsset): ComponentInstance {
     }
   }
   const definition = widgetRegistry[asset.type]
+  const previewProps =
+    asset.type === 'echartCustom' && asset.optionJson
+      ? { ...definition.defaultProps, optionJson: asset.optionJson }
+      : definition.defaultProps
   return {
     id: `preview_${asset.type}`,
     type: asset.type,
     style: definition.defaultStyle,
-    props: definition.defaultProps
+    props: previewProps
   }
 }
 
@@ -120,24 +126,28 @@ export default function ComponentLibrary() {
   const { data: stats } = useApi(() => api.getWidgetStats(), [])
   const { data: twinData, reload: reloadTwins } = useApi(() => api.listTwinScenes({ pageSize: 100 }), [])
   const { data: iotData } = useApi(() => api.listIoTDevices({ pageSize: 100 }), [])
-  const routes = useDesignerStore((state) => state.routes)
-  const updateRoute = useDesignerStore((state) => state.updateRoute)
-  const dashboards = useMemo(() => routes.filter((route) => route.kind === 'dashboard'), [routes])
-  const assets = useMemo<LibraryAsset[]>(() => {
-    const echartsAssets: LibraryAsset[] = (data?.list ?? [])
-      .filter((w) => w.kind === 'echarts' || w.optionJson)
-      .map((w) => ({
-        key: `widget:${w.id ?? w.type}`,
-        name: w.name,
-        category: w.category || 'ECharts',
-        description: w.desc || w.name,
-        type: 'echartCustom',
-        businessType: 'general',
-        optionJson: w.optionJson || '',
-        widgetId: w.id ?? w.type,
-      }))
-    return [...standardComponentAssets, ...twinComponentAssets, ...iotComponentAssets, ...echartsAssets]
-  }, [data])
+  const { data: screenData } = useApi(() => screenApi.list(), [])
+  const dashboards = useMemo(() => (screenData ?? []).map(screenToRoute), [screenData])
+  const registeredAssets = useMemo<LibraryAsset[]>(
+    () =>
+      (data?.list ?? [])
+        .filter((w) => (w.category === 'ECharts' || w.kind === 'echarts') && !!w.optionJson)
+        .map((w) => ({
+          key: `registered:${w.type}`,
+          name: w.name,
+          category: 'ECharts',
+          description: w.desc || 'AI 生成的 ECharts 组件',
+          type: 'echartCustom' as const,
+          businessType: 'general' as const,
+          optionJson: w.optionJson,
+          widgetId: w.id ?? w.type,
+        })),
+    [data],
+  )
+  const assets = useMemo<LibraryAsset[]>(
+    () => [...standardComponentAssets, ...registeredAssets, ...twinComponentAssets, ...iotComponentAssets],
+    [registeredAssets],
+  )
   const categories = useMemo(() => ['全部', ...Array.from(new Set(assets.map((asset) => asset.category)))], [assets])
   const [category, setCategory] = useState('全部')
   const [deploying, setDeploying] = useState<LibraryAsset | null>(null)
@@ -240,47 +250,52 @@ export default function ComponentLibrary() {
 
   const deploy = async () => {
     if (!deploying || !dashboardId) return
-    const route = routes.find((item) => item.id === dashboardId && item.kind === 'dashboard')
+    const target = dashboards.find((item) => item.id === dashboardId)
+    const route = await loadScreenRoute(dashboardId)
     if (!route) return setNotice({ message: '目标大屏不存在，请重新选择' })
     setBusy(true)
-    if (deploying.category === '物联组态' && deploying.kind) {
-      const device = devices.find((item) => item.id === deviceId)
-      if (!device) {
-        setBusy(false)
-        return setNotice({ message: '请选择可用的物联设备' })
-      }
-      const syncedAt = new Date().toISOString()
-      const kinds: IoTWidgetKind[] = [deploying.kind as IoTWidgetKind]
-      updateRoute(route.id, syncIoTDeviceToDashboard(route, device, syncedAt, kinds))
-      setBusy(false)
-    } else if (deploying.businessType === 'twin' && deploying.kind) {
-      const scene = scenes.find((item) => item.id === sceneId)
-      if (!scene) {
-        setBusy(false)
-        return setNotice({ message: '请选择可用的数字孪生场景' })
-      }
-      const syncedAt = new Date().toISOString()
-      const response = await api.saveTwinScene({ id: scene.id, dashboardId, lastSyncAt: syncedAt })
-      if (response.code !== 0) {
-        setBusy(false)
-        return setNotice({ message: response.message })
-      }
-      if (scene.dashboardId && scene.dashboardId !== dashboardId) {
-        const previousRoute = routes.find((item) => item.id === scene.dashboardId)
-        if (previousRoute) updateRoute(previousRoute.id, unlinkTwinFromDashboard(previousRoute, scene.id))
-      }
-      updateRoute(route.id, syncTwinWidgetsToDashboard(route, response.data, syncedAt, [deploying.kind as TwinWidgetKind]))
-      reloadTwins()
-    } else {
-      if (deploying.optionJson) {
-        updateRoute(route.id, deployEchartAsset(route, deploying))
+    try {
+      if (deploying.category === '物联组态' && deploying.kind) {
+        const device = devices.find((item) => item.id === deviceId)
+        if (!device) {
+          setNotice({ message: '请选择可用的物联设备' })
+          return
+        }
+        const syncedAt = new Date().toISOString()
+        const kinds: IoTWidgetKind[] = [deploying.kind as IoTWidgetKind]
+        await saveScreenRoute(patchScreenRoute(route, syncIoTDeviceToDashboard(route, device, syncedAt, kinds)))
+      } else if (deploying.businessType === 'twin' && deploying.kind) {
+        const scene = scenes.find((item) => item.id === sceneId)
+        if (!scene) {
+          setNotice({ message: '请选择可用的数字孪生场景' })
+          return
+        }
+        const syncedAt = new Date().toISOString()
+        const response = await api.saveTwinScene({ id: scene.id, dashboardId, lastSyncAt: syncedAt })
+        if (response.code !== 0) {
+          setNotice({ message: response.message })
+          return
+        }
+        if (scene.dashboardId && scene.dashboardId !== dashboardId) {
+          const previousRoute = await loadScreenRoute(scene.dashboardId)
+          if (previousRoute) {
+            await saveScreenRoute(patchScreenRoute(previousRoute, unlinkTwinFromDashboard(previousRoute, scene.id)))
+          }
+        }
+        await saveScreenRoute(patchScreenRoute(route, syncTwinWidgetsToDashboard(route, response.data, syncedAt, [deploying.kind as TwinWidgetKind])))
+        reloadTwins()
       } else {
-        updateRoute(route.id, deployStandardAsset(route, deploying))
+        if (deploying.optionJson) {
+          await saveScreenRoute(patchScreenRoute(route, deployEchartAsset(route, deploying)))
+        } else {
+          await saveScreenRoute(patchScreenRoute(route, deployStandardAsset(route, deploying)))
+        }
       }
+      setDeploying(null)
+      setNotice({ message: `「${deploying.name}」已投放到「${target?.name ?? route.name}」`, routeId: route.id })
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
-    setDeploying(null)
-    setNotice({ message: `「${deploying.name}」已投放到「${route.name}」`, routeId: route.id })
   }
 
   return (

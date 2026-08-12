@@ -16,10 +16,10 @@ import {
   Tag,
 } from 'antd'
 import { ReloadOutlined, SendOutlined } from '@ant-design/icons'
-import { useDesignerStore } from '../data/store/useDesignerStore'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import { screenApi } from '../api/screenApi'
+import { screenToRoute } from '../api/screenAdapter'
 import { buildStandaloneHtml, type StandalonePayload } from './standaloneBuilder'
 import type { DeployEnvDTO, DeployPackageDTO, DeployRecordDTO, DataSourceDTO, GlobalVarDTO } from '../mock/types'
 import type { GitSyncConfig, GitSyncRecord } from '../api/screenApi'
@@ -40,11 +40,10 @@ const REC_COLOR: Record<string, string> = { building: 'gold', success: 'green', 
 const REC_LABEL: Record<string, string> = { building: '构建中', success: '成功', failed: '失败' }
 
 export default function DeployPage() {
-  const routes = useDesignerStore((s) => s.routes)
-  const exportProject = useDesignerStore((s) => s.exportProject)
   const { message } = App.useApp()
 
-  const dashboards = useMemo(() => routes.filter((r) => r.kind === 'dashboard'), [routes])
+  const { data: screenData } = useApi(() => screenApi.list(), [])
+  const dashboards = useMemo(() => (screenData ?? []).map(screenToRoute), [screenData])
 
   const { data: envData, reload: reloadEnv } = useApi(() => api.listDeployEnvs(), [])
   const { data: pkgData, reload: reloadPkg } = useApi(() => api.listDeployPackages(), [])
@@ -68,7 +67,7 @@ export default function DeployPage() {
     bindings: Record<string, string>,
     title: string
   ): StandalonePayload => {
-    const screens = routes.filter((r) => r.kind === 'dashboard' && screenIds.includes(r.id))
+    const screens = dashboards.filter((s) => screenIds.includes(s.id))
     const gvMap: Record<string, string> = {}
     if (includeGlobalVars) for (const v of globalVars) if (v.kind === 'variable') gvMap[v.name] = v.value
     const dsMap: Record<string, { kind: string; endpoint: string }> = {}
@@ -153,7 +152,7 @@ export default function DeployPage() {
     const p = pkg || pkgs.find((x) => x.id === exportPkg)
     if (!p) { message.warning('请先选择部署包'); return }
     const env = envs.find((e) => e.id === p.envId)
-    const screens = routes.filter((r) => r.kind === 'dashboard' && p.screenIds.includes(r.id))
+    const screens = dashboards.filter((s) => p.screenIds.includes(s.id))
     const lines = [
       '#!/bin/bash',
       `# 独立部署构建脚本 · 包：${p.name}@${p.version}`,
@@ -374,7 +373,7 @@ export default function DeployPage() {
       <div className="fp-sub">选择部署包（决定导出内容与环境绑定）</div>
       <Select value={exportPkg} onChange={setExportPkg} style={{ width: '100%' }} options={pkgs.map((p) => ({ value: p.id, label: `${p.name}@${p.version}` }))} placeholder="选择部署包" />
       <Space wrap>
-        <Button onClick={() => { download('dashboard-project.json', JSON.stringify(exportProject(), null, 2)); message.success('已导出项目 JSON') }}>导出项目 JSON</Button>
+        <Button onClick={() => { download('dashboard-project.json', JSON.stringify({ version: '1.0', routes: dashboards }, null, 2)); message.success('已导出项目 JSON') }}>导出项目 JSON</Button>
         <Button onClick={() => {
           const p = pkgs.find((x) => x.id === exportPkg)
           const cfg = p ? { package: p.name, env: p.envName, bindings: p.datasourceBindings } : { bindings: Object.fromEntries(dataSources.map((d) => [d.id, d.endpoint])) }

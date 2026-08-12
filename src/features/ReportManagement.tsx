@@ -4,8 +4,10 @@ import { PlusOutlined, SearchOutlined } from "@ant-design/icons"
 import { api } from "../mock"
 import type { ReportDTO, ReportStatus } from "../mock/types"
 import { useApi } from "./useApi"
+import { screenApi } from "../api/screenApi"
+import { screenToRoute } from "../api/screenAdapter"
+import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from "../api/screenRoutes"
 import ReportDesignPage from "./ReportDesignPage"
-import { useDesignerStore } from "../data/store/useDesignerStore"
 import { openPreviewWindow } from "../designer/window"
 import { syncReportToDashboard, unlinkReportFromDashboard } from "./reportWidgetCatalog"
 import { Field, Modal } from "./common"
@@ -42,9 +44,8 @@ type StatusFilter = "all" | ReportStatus | "failed"
 export default function ReportManagement() {
   const { data, loading, error, reload } = useApi(() => api.listReports({ pageSize: 100 }), [])
   const { modal } = App.useApp()
-  const routes = useDesignerStore((s) => s.routes)
-  const updateRoute = useDesignerStore((s) => s.updateRoute)
-  const dashboards = useMemo(() => routes.filter((r) => r.kind === "dashboard"), [routes])
+  const { data: screenData } = useApi(() => screenApi.list(), [])
+  const dashboards = useMemo(() => (screenData ?? []).map(screenToRoute), [screenData])
   const [view, setView] = useState<View>({ mode: "list" })
   const [keyword, setKeyword] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
@@ -114,25 +115,28 @@ export default function ReportManagement() {
       okButtonProps: { danger: true },
       cancelText: "取消",
       onOk: async () => {
-        if (report.dashboardId) {
-          const route = routes.find((r) => r.id === report.dashboardId)
-          if (route) updateRoute(route.id, unlinkReportFromDashboard(route, report.id))
-        }
         const response = await api.deleteReport(report.id)
-        if (response.code === 0) { setNotice("报表已删除"); reload() }
+        if (response.code === 0) {
+          if (report.dashboardId) {
+            const route = await loadScreenRoute(report.dashboardId)
+            if (route) await saveScreenRoute(patchScreenRoute(route, unlinkReportFromDashboard(route, report.id)))
+          }
+          setNotice("报表已删除")
+          reload()
+        }
       },
     })
   }
 
   const syncReport = async (report: ReportDTO, targetId: string) => {
     if (!targetId) return setNotice("请先选择要联动的大屏")
-    const route = routes.find((r) => r.id === targetId && r.kind === "dashboard")
+    const route = await loadScreenRoute(targetId)
     if (!route) return setNotice("目标大屏不存在，请重新绑定")
     setBusyId(report.id)
     const syncedAt = new Date().toISOString()
     const response = await api.saveReport({ id: report.id, dashboardId: targetId, lastSyncAt: syncedAt })
     if (response.code === 0) {
-      updateRoute(route.id, syncReportToDashboard(route, response.data, syncedAt))
+      await saveScreenRoute(patchScreenRoute(route, syncReportToDashboard(route, response.data, syncedAt)))
       setNotice(`「${report.name}」已同步到「${route.name}」`)
       setLinking(null)
       reload()
@@ -143,8 +147,8 @@ export default function ReportManagement() {
   const unlinkReport = async (report: ReportDTO) => {
     if (!report.dashboardId) return
     setBusyId(report.id)
-    const route = routes.find((r) => r.id === report.dashboardId)
-    if (route) updateRoute(route.id, unlinkReportFromDashboard(route, report.id))
+    const route = await loadScreenRoute(report.dashboardId)
+    if (route) await saveScreenRoute(patchScreenRoute(route, unlinkReportFromDashboard(route, report.id)))
     await api.saveReport({ id: report.id, dashboardId: "" as any, lastSyncAt: "" })
     setBusyId("")
     setNotice("已解除大屏绑定")

@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { genId } from '../utils/id'
-import { makeThumb } from '../utils/thumb'
 import { widgetRegistry } from '../registry/widgetRegistry'
 import { buildPlatformProject, DEFAULT_ROUTE_ID } from '../routes/platformRoutes'
 import { createDemoScene } from '../../twin/sceneFactory'
@@ -106,63 +105,23 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   upsertRoute: (route) =>
     set((s) => ({ routes: s.routes.map((r) => (r.id === route.id ? route : r)) })),
 
-  // —— 新建大屏（dashboard 类型），独立进入大屏编辑器 —— 
-  createDashboard: (name) => {
-    const count = get().routes.filter((r) => r.kind === 'dashboard').length
-    const title = name || `新建大屏${count + 1}`
-    const path = `/screen/new_${Date.now().toString(36)}`
-    const route = makeRoute({
-      id: path,
-      name: title,
-      path,
-      parentId: null,
-      kind: 'dashboard',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      thumbnail: makeThumb(path),
-      components: [
-        {
-          id: genId('text'),
-          type: 'text',
-          style: { x: 60, y: 60, w: 760, h: 64 },
-          props: { content: title, fontSize: 28, color: '#e6edf3', bold: true }
-        }
-      ]
-    })
-    set((s) => ({ routes: [...s.routes, route], selectedRouteId: route.id, selectedId: null, filter: null }))
-    return route.id
-  },
-
-  // —— 删除大屏（dashboard 类型）—— 
-  deleteDashboard: (id) => {
-    set((s) => {
-      const remaining = s.routes.filter((r) => r.id !== id)
-      // 删除当前选中的大屏时清空选中，避免 AppRouter 的 store→URL 同步把列表页自动导航到其它大屏
-      const nextSel = s.selectedRouteId === id ? null : s.selectedRouteId
-      return { routes: remaining, selectedRouteId: nextSel ?? undefined, selectedId: null, filter: null }
-    })
-  },
-
-  // —— 重命名大屏（dashboard 类型），并刷新 updatedAt —— 
-  renameDashboard: (id, name) =>
-    set((s) => ({
-      routes: s.routes.map((r) =>
-        r.id === id ? { ...r, name, updatedAt: new Date().toISOString() } : r
-      )
-    })),
-
   // —— 组件操作（作用于当前选中路由）—— 
-  addComponent: (type, stylePatch = {}, propsPatch = {}) => {
+  addComponent: (type, stylePatch = {}, propsPatch, preset) => {
     const s = get()
     const route = s.routes.find((r) => r.id === s.selectedRouteId)
     if (!route) return undefined
     const def = widgetRegistry[type]
-    if (!def) return undefined
+    if (!def && !preset) return undefined
+    const defaultStyle = def?.defaultStyle || { x: 60, y: 60, w: 400, h: 240 }
     const comp: ComponentInstance = {
       id: genId(type),
-      type,
-      style: { ...def.defaultStyle, ...stylePatch },
-      props: { ...(clone(def.defaultProps) as WidgetProps), ...propsPatch }
+      type: preset?.type ?? type,
+      style: { ...defaultStyle, ...stylePatch },
+      props: clone({
+        ...(def?.defaultProps ?? {}),
+        ...(propsPatch || {}),
+        ...(preset?.props || {}),
+      }) as WidgetProps
     }
     set((st) => ({
       routes: st.routes.map((r) =>

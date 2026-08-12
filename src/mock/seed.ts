@@ -386,8 +386,8 @@ export const workflows: WorkflowDTO[] = [
   { id: 'wf_2', name: '日报生成流', trigger: 'Cron:0 8 * * *', nodes: ['抽取', '聚合', '导出'], status: 'draft' }
 ]
 export const carousels: CarouselDTO[] = [
-  { id: 'cl_1', name: '首页轮播方案', slides: ['/screen/overview', '/screen/sales', '/screen/finance'], intervalSec: 8, enabled: true, updatedAt: '2026-07-25' },
-  { id: 'cl_2', name: '大屏巡播', slides: ['/screen/safety', '/screen/energy', '/screen/logistics'], intervalSec: 12, enabled: false, updatedAt: '2026-07-21' }
+  { id: 'cl_1', name: '首页轮播方案', slides: ['seed-screen-sales', 'seed-screen-ops', 'seed-screen-review'], intervalSec: 8, enabled: true, updatedAt: '2026-07-25' },
+  { id: 'cl_2', name: '大屏巡播', slides: ['seed-screen-review', 'seed-screen-sales', 'seed-screen-ops'], intervalSec: 12, enabled: false, updatedAt: '2026-07-21' }
 ]
 export const plugins: PluginDTO[] = [
   { id: 'pl_1', name: '3D 地球', author: '官方', version: '1.4.0', installed: true, desc: '自带纹理的三维地球组件', rating: 4.8 },

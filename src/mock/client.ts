@@ -18,7 +18,7 @@ export interface RequestOptions {
 }
 
 export async function mockFetch<T>(method: string, path: string, opts: RequestOptions = {}): Promise<ApiResp<T>> {
-  const cleanPath = path.replace(/^\/api/, '')
+  const cleanPath = path.replace(/^\/api/, '').replace(/\/{2,}/g, '/')
   return request<T>(cleanPath, {
     method: method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
     query: opts.query,

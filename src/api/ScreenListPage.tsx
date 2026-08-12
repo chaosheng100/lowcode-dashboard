@@ -4,7 +4,7 @@
 //  - 点击「编辑」→ 打开编辑器窗口（后端持久化模式）
 //  - 点击「新建」→ 创建大屏
 // ============================================================
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   App,
@@ -15,10 +15,12 @@ import {
   Input,
   InputNumber,
   Modal,
+  Pagination,
   Popconfirm,
   Radio,
   Select,
   Space,
+  Spin,
   Switch,
   Table,
   Tag,
@@ -32,10 +34,13 @@ import {
   DownOutlined,
   EditOutlined,
   EyeOutlined,
+  FormOutlined,
   PlusOutlined,
   ReloadOutlined,
   RocketOutlined,
   SearchOutlined,
+  SortAscendingOutlined,
+  SortDescendingOutlined,
 } from '@ant-design/icons'
 import { screenApi } from './screenApi'
 import type {
@@ -46,6 +51,7 @@ import type {
   ScreenApproval,
   ScreenItem,
 } from './screenApi'
+import './ScreenListPage.css'
 
 function fmt(iso: string): string {
   const d = new Date(iso)
@@ -76,6 +82,13 @@ export default function ScreenListPage() {
   const [kw, setKw] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
+  const [renameTarget, setRenameTarget] = useState<ScreenItem | null>(null)
+  const [renameName, setRenameName] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ScreenItem['status'] | 'all'>('all')
+  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'name'>('updatedAt')
+  const [sortDesc, setSortDesc] = useState(true)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(12)
 
   // 审批策略（default 范围）
   const [policy, setPolicy] = useState<ApprovalPolicy | null>(null)
@@ -127,9 +140,39 @@ export default function ScreenListPage() {
     loadPolicy()
   }, [])
 
-  const filtered = screens.filter((s) =>
-    s.name.toLowerCase().includes(kw.toLowerCase()),
-  )
+  const filtered = useMemo(() => {
+    const q = kw.trim().toLowerCase()
+    const list = screens.filter((s) => {
+      if (q && !s.name.toLowerCase().includes(q)) return false
+      if (statusFilter !== 'all' && s.status !== statusFilter) return false
+      return true
+    })
+    list.sort((a, b) => {
+      if (sortBy === 'name') {
+        return sortDesc
+          ? b.name.localeCompare(a.name, 'zh-CN')
+          : a.name.localeCompare(b.name, 'zh-CN')
+      }
+      const av = new Date(a[sortBy]).getTime()
+      const bv = new Date(b[sortBy]).getTime()
+      return sortDesc ? bv - av : av - bv
+    })
+    return list
+  }, [screens, kw, statusFilter, sortBy, sortDesc])
+
+  const stats = useMemo(() => {
+    const total = screens.length
+    const published = screens.filter((s) => s.status === 'PUBLISHED').length
+    const draft = screens.filter((s) => s.status === 'DRAFT').length
+    const pending = screens.filter((s) => s.status === 'PENDING_REVIEW').length
+    return { total, published, draft, pending }
+  }, [screens])
+
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  useEffect(() => {
+    setPage(1)
+  }, [kw, statusFilter, sortBy, sortDesc])
 
   // 打开「新建」弹窗（用 Modal 代替 window.prompt，避免在沙箱/预览环境被禁用）
   const openCreate = () => {
@@ -143,18 +186,40 @@ export default function ScreenListPage() {
       message.warning('请输入大屏名称')
       return
     }
-    // 在「创建」点击的手势内先开一个窗口（避免被浏览器弹窗拦截器拦截），创建完成后再跳转编辑器
-    const win = window.open('', '_blank', 'width=1400,height=900')
+    // 在「创建」点击的手势内先开一个页签（避免被浏览器弹窗拦截器拦截），创建完成后再跳转编辑器
+    const win = window.open('', '_blank')
     setCreateOpen(false)
     const res = await screenApi.create('default', name)
     if (res.code === 0 && res.data) {
       setScreens((prev) => [res.data!, ...prev])
       const url = buildRemoteUrl('editor', res.data.id)
       if (win) win.location.href = url
-      else window.open(url, '_blank', 'width=1400,height=900') // 兜底
+      else window.open(url, '_blank') // 兜底
     } else {
       if (win) win.close()
       message.error(`创建失败：${res.message}`)
+    }
+  }
+
+  const openRename = (s: ScreenItem) => {
+    setRenameTarget(s)
+    setRenameName(s.name)
+  }
+
+  const confirmRename = async () => {
+    if (!renameTarget) return
+    const name = renameName.trim()
+    if (!name) {
+      message.warning('请输入大屏名称')
+      return
+    }
+    const res = await screenApi.update(renameTarget.id, { name })
+    if (res.code === 0 && res.data) {
+      setScreens((prev) => prev.map((s) => (s.id === res.data!.id ? res.data! : s)))
+      setRenameTarget(null)
+      message.success('已重命名')
+    } else {
+      message.error(`重命名失败：${res.message}`)
     }
   }
 
@@ -335,79 +400,165 @@ export default function ScreenListPage() {
     `${location.origin}${location.pathname}#/?mode=${mode}&routeId=${encodeURIComponent(id)}&remote=true`
 
   const openEditor = (id: string) => {
-    window.open(buildRemoteUrl('editor', id), '_blank', 'width=1400,height=900')
+    window.open(buildRemoteUrl('editor', id), '_blank')
   }
   const openPreview = (id: string) => {
-    window.open(buildRemoteUrl('preview', id), '_blank', 'width=1400,height=900')
+    window.open(buildRemoteUrl('preview', id), '_blank')
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>大屏管理（后端）</h2>
-        <Space>
+    <div className="screen-page">
+      <div className="screen-head">
+        <h2>大屏管理</h2>
+        <div className="screen-toolbar">
           <Input
             placeholder="搜索大屏名称"
             prefix={<SearchOutlined style={{ opacity: 0.5 }} />}
             value={kw}
             onChange={(e) => setKw(e.target.value)}
-            style={{ width: 280 }}
             allowClear
           />
+          <Select
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v)}
+            style={{ width: 120 }}
+            options={[
+              { value: 'all', label: '全部状态' },
+              { value: 'DRAFT', label: '草稿' },
+              { value: 'PENDING_REVIEW', label: '待审核' },
+              { value: 'APPROVED', label: '已通过' },
+              { value: 'PUBLISHED', label: '已发布' },
+              { value: 'ARCHIVED', label: '已归档' },
+            ]}
+          />
+          <Select
+            value={sortBy}
+            onChange={(v) => setSortBy(v)}
+            style={{ width: 130 }}
+            options={[
+              { value: 'updatedAt', label: '按更新时间' },
+              { value: 'createdAt', label: '按创建时间' },
+              { value: 'name', label: '按名称' },
+            ]}
+          />
+          <Button
+            icon={sortDesc ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
+            onClick={() => setSortDesc((v) => !v)}
+          >
+            {sortDesc ? '倒序' : '升序'}
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
           <Button icon={<AuditOutlined />} onClick={openPolicy}>审批策略</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建大屏
           </Button>
-        </Space>
+        </div>
       </div>
 
-      {!loading && filtered.length === 0 ? (
-        <Empty description="暂无大屏，点击「新建大屏」创建" />
-      ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {filtered.map((s) => (
-            <Card key={s.id} hoverable
-              style={{ borderColor: s.status === 'PUBLISHED' ? '#52c41a' : '#d9d9d9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <strong style={{ fontSize: 16 }}>{s.name}</strong>
-                <Tag color={STATUS_META[s.status].color}>{STATUS_META[s.status].label}</Tag>
-              </div>
-              <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
-                更新于 {fmt(s.updatedAt)}
-                {s.publishedVersion && ` · v${s.publishedVersion}`}
-              </div>
-              <div style={{ fontSize: 12, color: '#666', minHeight: 48, marginBottom: 12 }}>
-                {s.description || '暂无描述'}
-              </div>
-              <Space size="small">
-                <Button size="small" icon={<EditOutlined />} onClick={() => openEditor(s.id)}>
-                  编辑
-                </Button>
-                <Button size="small" icon={<EyeOutlined />} onClick={() => openPreview(s.id)}>
-                  预览
-                </Button>
-                <Dropdown menu={buildActionMenu(s)}>
-                  <Button size="small">
-                    {s.status === 'PUBLISHED' ? '管理' : '发布'} <DownOutlined />
-                  </Button>
-                </Dropdown>
-                <Popconfirm title="确定删除？" onConfirm={() => handleDelete(s.id)}>
-                  <Button size="small" danger icon={<DeleteOutlined />}>
-                    删除
-                  </Button>
-                </Popconfirm>
-              </Space>
-            </Card>
-          ))}
+      <div className="screen-summary">
+        <div className="screen-summary-item">
+          <strong>{stats.total}</strong>
+          <span>全部大屏</span>
         </div>
-      )}
+        <div className="screen-summary-item">
+          <strong>{stats.published}</strong>
+          <span>已发布</span>
+        </div>
+        <div className="screen-summary-item">
+          <strong>{stats.pending}</strong>
+          <span>待审核</span>
+        </div>
+        <div className="screen-summary-item">
+          <strong>{stats.draft}</strong>
+          <span>草稿</span>
+        </div>
+      </div>
+
+      <Spin spinning={loading}>
+        {!loading && filtered.length === 0 ? (
+          <Empty description="暂无大屏，点击「新建大屏」创建" />
+        ) : (
+          <div className="screen-grid">
+            {paged.map((s) => {
+              const cfg = (s.config as unknown as Record<string, unknown>) || {}
+              const thumb = typeof cfg.thumbnail === 'string' && cfg.thumbnail ? cfg.thumbnail : undefined
+              const compCount = Array.isArray(cfg.components) ? cfg.components.length : 0
+              return (
+                <Card
+                  key={s.id}
+                  hoverable
+                  className="screen-card"
+                  style={{ borderColor: s.status === 'PUBLISHED' ? '#52c41a' : '#d9d9d9' }}
+                >
+                  <div
+                    className="screen-card-thumb"
+                    style={thumb ? { backgroundImage: `url("${thumb}")` } : undefined}
+                  >
+                    {!thumb && <span className="screen-thumb-placeholder">大屏画布</span>}
+                    <Tag className="screen-card-badge" color={STATUS_META[s.status].color}>
+                      {STATUS_META[s.status].label}
+                    </Tag>
+                  </div>
+                  <div style={{ padding: 12 }}>
+                    <strong
+                      style={{ fontSize: 16, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={s.name}
+                    >
+                      {s.name}
+                    </strong>
+                    <div className="screen-card-meta">
+                      更新于 {fmt(s.updatedAt)}
+                      {s.publishedVersion ? ` · v${s.publishedVersion}` : ''}
+                    </div>
+                    <div className="screen-card-desc">{s.description || '暂无描述'}</div>
+                    <div className="screen-card-stats">
+                      <span><strong>{compCount}</strong> 组件</span>
+                      <span><strong>{s.currentVersion}</strong> 当前版本</span>
+                    </div>
+                    <Space size="small" wrap>
+                      <Button size="small" icon={<EditOutlined />} onClick={() => openEditor(s.id)}>
+                        编辑
+                      </Button>
+                      <Button size="small" icon={<FormOutlined />} onClick={() => openRename(s)}>
+                        重命名
+                      </Button>
+                      <Button size="small" icon={<EyeOutlined />} onClick={() => openPreview(s.id)}>
+                        预览
+                      </Button>
+                      <Dropdown menu={buildActionMenu(s)}>
+                        <Button size="small">
+                          {s.status === 'PUBLISHED' ? '管理' : '发布'} <DownOutlined />
+                        </Button>
+                      </Dropdown>
+                      <Popconfirm title="确定删除？" onConfirm={() => handleDelete(s.id)}>
+                        <Button size="small" danger icon={<DeleteOutlined />}>
+                          删除
+                        </Button>
+                      </Popconfirm>
+                    </Space>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+        {filtered.length > 0 && (
+          <div className="screen-footer">
+            <Pagination
+              current={page}
+              pageSize={pageSize}
+              total={filtered.length}
+              showSizeChanger
+              pageSizeOptions={[12, 24, 48]}
+              onChange={setPage}
+              onShowSizeChange={(_p, size) => {
+                setPageSize(size)
+                setPage(1)
+              }}
+            />
+          </div>
+        )}
+      </Spin>
 
       <Modal
         title="新建大屏"
@@ -423,6 +574,25 @@ export default function ScreenListPage() {
           onChange={(e) => setNewName(e.target.value)}
           placeholder="请输入大屏名称"
           onPressEnter={confirmCreate}
+          autoFocus
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
+
+      <Modal
+        title="重命名大屏"
+        open={!!renameTarget}
+        onOk={confirmRename}
+        onCancel={() => setRenameTarget(null)}
+        okText="确定"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Input
+          value={renameName}
+          onChange={(e) => setRenameName(e.target.value)}
+          placeholder="请输入大屏名称"
+          onPressEnter={confirmRename}
           autoFocus
           style={{ marginTop: 8 }}
         />

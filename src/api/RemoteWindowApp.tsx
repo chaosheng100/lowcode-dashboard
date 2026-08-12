@@ -36,6 +36,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
   const [refreshing, setRefreshing] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [isFs, setIsFs] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
   // 加载大屏
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
       const res = await screenApi.detail(screenId)
       if (cancelled) return
       if (res.code === 0 && res.data) {
+        setLoadError('')
         const routeData = screenToRoute(res.data)
         const store = useDesignerStore.getState()
         // 先清理，再注入
@@ -53,7 +55,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
         store.selectRoute(screenId)
         store.setMode(mode === 'editor' ? 'project' : 'preview')
       } else {
-        message.error(`加载失败：${res.message}`)
+        setLoadError(res.message || '大屏不存在或已被删除')
       }
       setLoading(false)
     }
@@ -211,7 +213,19 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <Spin tip="加载大屏中..." />
+        <Spin description="加载大屏中..." />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 12 }}>
+        <h3 style={{ margin: 0, color: '#f87171' }}>大屏加载失败</h3>
+        <p style={{ margin: 0, color: '#9aa7b4' }}>{loadError}</p>
+        <Button type="primary" onClick={() => { location.hash = '#/dashboard' }}>
+          返回大屏管理
+        </Button>
       </div>
     )
   }

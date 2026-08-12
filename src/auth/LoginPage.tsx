@@ -33,6 +33,7 @@ export default function LoginPage() {
   return (
     <div style={wrap}>
       <form onSubmit={submit} style={card}>
+        <img src="/logo.png" alt="低代码大屏平台" style={logo} />
         <h2 style={{ margin: '0 0 4px', color: '#e6edf3' }}>低代码大屏平台</h2>
         <p style={{ margin: '0 0 18px', color: '#9aa7b4', fontSize: 13 }}>登录以继续使用</p>
         <label style={label}>邮箱</label>
@@ -67,6 +68,16 @@ const card: React.CSSProperties = {
   padding: 28,
   background: '#111a27',
   border: '1px solid #1e2a3a',
+  borderRadius: 12,
+}
+const logo: React.CSSProperties = {
+  width: 64,
+  height: 64,
+  objectFit: 'contain',
+  display: 'block',
+  margin: '0 auto 12px',
+  padding: 6,
+  background: 'rgba(255,255,255,0.06)',
   borderRadius: 12,
 }
 const label: React.CSSProperties = { display: 'block', marginTop: 12, marginBottom: 6, color: '#cfe0ff', fontSize: 13 }

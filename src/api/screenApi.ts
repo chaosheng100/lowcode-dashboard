@@ -119,6 +119,8 @@ export interface PageResult<T> {
   pageSize: number
 }
 
+const cleanId = (id: string) => encodeURIComponent(id.replace(/^\/+|\/+$/g, ''))
+
 export const screenApi = {
   /** 创建大屏 */
   create(projectId: string, name: string, description?: string) {
@@ -132,47 +134,52 @@ export const screenApi = {
 
   /** 获取大屏详情 */
   detail(id: string) {
-    return http.get<ScreenItem>(`/screens/${id}`)
+    return http.get<ScreenItem>(`/screens/${cleanId(id)}`)
+  },
+
+  /** 更新大屏元信息：名称/描述 */
+  update(id: string, body: { name?: string; description?: string }) {
+    return http.patch<ScreenItem>(`/screens/${cleanId(id)}`, body)
   },
 
   /** 保存草稿 */
   save(id: string, config: ScreenConfig) {
-    return http.put<ScreenItem>(`/screens/${id}/save`, { config })
+    return http.put<ScreenItem>(`/screens/${cleanId(id)}/save`, { config })
   },
 
   /** 发布 */
   publish(id: string) {
-    return http.post<ScreenItem>(`/screens/${id}/publish`)
+    return http.post<ScreenItem>(`/screens/${cleanId(id)}/publish`)
   },
 
   /** 提交审核 */
   submitReview(id: string, note?: string) {
-    return http.post<ScreenItem>(`/screens/${id}/submit-review`, note ? { note } : undefined)
+    return http.post<ScreenItem>(`/screens/${cleanId(id)}/submit-review`, note ? { note } : undefined)
   },
 
   /** 审核：通过或驳回 */
   review(id: string, approved: boolean, comment?: string) {
-    return http.post<ScreenItem>(`/screens/${id}/review`, { approved, comment })
+    return http.post<ScreenItem>(`/screens/${cleanId(id)}/review`, { approved, comment })
   },
 
   /** 审批记录 */
   approvals(id: string) {
-    return http.get<ScreenApproval[]>(`/screens/${id}/approvals`)
+    return http.get<ScreenApproval[]>(`/screens/${cleanId(id)}/approvals`)
   },
 
   /** 多环境部署 */
   deploy(id: string, environmentId: string, version?: number) {
-    return http.post<DeployRecord>(`/screens/${id}/deploy`, { environmentId, version })
+    return http.post<DeployRecord>(`/screens/${cleanId(id)}/deploy`, { environmentId, version })
   },
 
   /** 大屏部署记录 */
   deployRecords(id: string) {
-    return http.get<DeployRecord[]>(`/screens/${id}/deploy-records`)
+    return http.get<DeployRecord[]>(`/screens/${cleanId(id)}/deploy-records`)
   },
 
   /** 生成嵌入令牌 */
   createEmbedToken(screenId: string, options?: { expiresInSec?: number; allowedOrigins?: string[]; baseUrl?: string }) {
-    return http.post<EmbedTokenResult>('/embed/tokens', { screenId, ...options })
+    return http.post<EmbedTokenResult>('/embed/tokens', { screenId: cleanId(screenId), ...options })
   },
 
   /** 审批策略 */
@@ -202,10 +209,10 @@ export const screenApi = {
     return http.post<GitSyncConfig>('/git-sync/configs', body)
   },
   deleteGitSyncConfig(id: string) {
-    return http.del<{ ok: boolean }>(`/git-sync/configs/${id}`)
+    return http.del<{ ok: boolean }>(`/git-sync/configs/${cleanId(id)}`)
   },
   testGitSyncConfig(id: string) {
-    return http.post<{ ok: boolean; branch: string; remoteUrl: string; output: string }>(`/git-sync/configs/${id}/test`)
+    return http.post<{ ok: boolean; branch: string; remoteUrl: string; output: string }>(`/git-sync/configs/${cleanId(id)}/test`)
   },
   gitSyncRecords() {
     return http.get<PageResult<GitSyncRecord>>('/git-sync/records')
@@ -216,21 +223,21 @@ export const screenApi = {
 
   /** 回滚到指定版本 */
   rollback(id: string, version: number) {
-    return http.post<ScreenItem>(`/screens/${id}/rollback`, { version })
+    return http.post<ScreenItem>(`/screens/${cleanId(id)}/rollback`, { version })
   },
 
   /** 版本列表 */
   versions(id: string) {
-    return http.get<ScreenVersion[]>(`/screens/${id}/versions`)
+    return http.get<ScreenVersion[]>(`/screens/${cleanId(id)}/versions`)
   },
 
   /** 删除 */
   remove(id: string) {
-    return http.del<void>(`/screens/${id}`)
+    return http.del<void>(`/screens/${cleanId(id)}`)
   },
 
   /** 运行时：获取已发布版本 */
   published(id: string) {
-    return http.get<ScreenItem & { cached: boolean }>(`/runtime/screens/${id}`)
+    return http.get<ScreenItem & { cached: boolean }>(`/runtime/screens/${cleanId(id)}`)
   },
 }

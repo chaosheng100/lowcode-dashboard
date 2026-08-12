@@ -14,6 +14,9 @@ import { api } from '../mock'
 import type { TwinSceneDTO } from '../mock/types'
 import { Tag, Field, Modal } from './common'
 import { useApi } from './useApi'
+import { screenApi } from '../api/screenApi'
+import { screenToRoute } from '../api/screenAdapter'
+import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from '../api/screenRoutes'
 import { useAuthStore } from '../auth/store'
 import TwinPage from './TwinPage'
 import { useDesignerStore } from '../data/store/useDesignerStore'
@@ -107,9 +110,8 @@ function TwinSceneHost({ item, save, readOnly }: {
 /** 数字孪生：场景列表 + 进入编辑器（3D 场景编辑器）+ 预览 + 投放到大屏 */
 export default function TwinManagement() {
   const upsertTwinScene = useDesignerStore((s) => s.upsertTwinScene)
-  const routes = useDesignerStore((s) => s.routes)
-  const updateRoute = useDesignerStore((s) => s.updateRoute)
-  const dashboards = useMemo(() => routes.filter((r) => r.kind === 'dashboard'), [routes])
+  const { data: screenData } = useApi(() => screenApi.list(), [])
+  const dashboards = useMemo(() => (screenData ?? []).map(screenToRoute), [screenData])
   const location = useLocation()
   const view = new URLSearchParams(location.search || '').get('view') || ''
 
@@ -136,7 +138,7 @@ export default function TwinManagement() {
 
   const deploy = async () => {
     if (!deploying || !dashboardId) return
-    const route = routes.find((r) => r.id === dashboardId && r.kind === 'dashboard')
+    const route = await loadScreenRoute(dashboardId)
     if (!route) return
     setBusy(true)
     try {
@@ -145,14 +147,13 @@ export default function TwinManagement() {
       if (resp.code !== 0) return
       // 如果之前关联了其他大屏，先从旧大屏解绑
       if (deploying.dashboardId && deploying.dashboardId !== dashboardId) {
-        const prevRoute = routes.find((r) => r.id === deploying.dashboardId)
-        if (prevRoute) updateRoute(prevRoute.id, unlinkTwinFromDashboard(prevRoute, deploying.id))
+        const prevRoute = await loadScreenRoute(deploying.dashboardId)
+        if (prevRoute) {
+          await saveScreenRoute(patchScreenRoute(prevRoute, unlinkTwinFromDashboard(prevRoute, deploying.id)))
+        }
       }
       // 同步 3D 场景组件到大屏，并清理该场景历史投放的旧组件
-      updateRoute(
-        route.id,
-        syncTwinWidgetsToDashboard(route, resp.data, syncedAt, ['scene'])
-      )
+      await saveScreenRoute(patchScreenRoute(route, syncTwinWidgetsToDashboard(route, resp.data, syncedAt, ['scene'])))
       // 同步 store 镜像
       upsertTwinScene(dtoToScene(resp.data))
     } finally {

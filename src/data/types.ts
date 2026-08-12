@@ -246,15 +246,14 @@ export interface DesignerState {
   updateRoute: (id: string, patch: Partial<RouteConfig>) => void
   /** 跨窗口同步：用整条远端路由替换（预览端应用，不触发广播） */
   upsertRoute: (route: RouteConfig) => void
-  /** 新建一个大屏路由（dashboard 类型），返回其 id */
-  createDashboard: (name?: string) => string
-  /** 删除一个大屏路由（dashboard 类型） */
-  deleteDashboard: (id: string) => void
-  /** 重命名一个大屏路由（dashboard 类型），并刷新 updatedAt */
-  renameDashboard: (id: string, name: string) => void
 
   // 组件操作（作用于当前选中路由）
-  addComponent: (type: WidgetType, stylePatch?: Partial<ComponentStyle>, propsPatch?: Partial<WidgetProps>) => string | undefined
+  addComponent: (
+    type: WidgetType,
+    stylePatch?: Partial<ComponentStyle>,
+    propsPatch?: Partial<WidgetProps>,
+    preset?: { type: WidgetType; props?: WidgetProps },
+  ) => string | undefined
   removeComponent: (id: string) => void
   updateComponentProps: (id: string, patch: Partial<WidgetProps>) => void
   updateComponentStyle: (id: string, patch: Partial<ComponentStyle>) => void

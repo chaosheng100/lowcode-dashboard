@@ -39,7 +39,7 @@ function buildQuery(query?: Record<string, unknown>): string {
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiResp<T>> {
   const method = opts.method || (opts.body ? 'POST' : 'GET')
-  const url = `${path}${buildQuery(opts.query)}`
+  const url = `${path.replace(/\/{2,}/g, '/')}${buildQuery(opts.query)}`
 
   const isFormData = opts.body instanceof FormData
   const headers: Record<string, string> = { ...(opts.headers || {}) }
@@ -113,5 +113,6 @@ export const http = {
   get: <T>(path: string, query?: Record<string, unknown>) => request<T>(path, { method: 'GET', query }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }

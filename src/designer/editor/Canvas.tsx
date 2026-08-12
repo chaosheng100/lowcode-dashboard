@@ -1,11 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import WidgetRenderer from '../widgets/WidgetRenderer'
 import { useFitScale } from './useFitScale'
@@ -22,6 +15,7 @@ function ComponentFrame({ component, scale }: { component: ComponentInstance; sc
   const select = useDesignerStore((s) => s.select)
   const moveComponent = useDesignerStore((s) => s.moveComponent)
   const updateComponentStyle = useDesignerStore((s) => s.updateComponentStyle)
+  const style = component.style || {}
 
   const onPointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).classList.contains('resize-handle')) return
@@ -29,8 +23,8 @@ function ComponentFrame({ component, scale }: { component: ComponentInstance; sc
     select(component.id)
     const startX = e.clientX
     const startY = e.clientY
-    const ox = component.style.x
-    const oy = component.style.y
+    const ox = style.x ?? 0
+    const oy = style.y ?? 0
     const move = (ev: PointerEvent) => {
       const dx = (ev.clientX - startX) / scale
       const dy = (ev.clientY - startY) / scale
@@ -48,8 +42,8 @@ function ComponentFrame({ component, scale }: { component: ComponentInstance; sc
     e.stopPropagation()
     const startX = e.clientX
     const startY = e.clientY
-    const ow = component.style.w
-    const oh = component.style.h
+    const ow = style.w ?? 400
+    const oh = style.h ?? 240
     const move = (ev: PointerEvent) => {
       const dw = (ev.clientX - startX) / scale
       const dh = (ev.clientY - startY) / scale
@@ -71,10 +65,10 @@ function ComponentFrame({ component, scale }: { component: ComponentInstance; sc
     <div
       className={'comp-frame' + (selected ? ' selected' : '')}
       style={{
-        left: component.style.x,
-        top: component.style.y,
-        width: component.style.w,
-        height: component.style.h
+        left: style.x ?? 0,
+        top: style.y ?? 0,
+        width: style.w ?? 400,
+        height: style.h ?? 240
       }}
       onPointerDown={onPointerDown}
     >
@@ -90,7 +84,9 @@ export default function Canvas() {
   )! as RouteConfig
   const components = route.components
   const page = route.page
-  const addComponent = useDesignerStore((s) => s.addComponent)
+  const pageW = Number.isFinite(page.width) ? page.width : 1920
+  const pageH = Number.isFinite(page.height) ? page.height : 1080
+  const pageForFit = { ...page, width: pageW, height: pageH }
   const select = useDesignerStore((s) => s.select)
   const areaRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -125,15 +121,16 @@ export default function Canvas() {
 
   // 自适应：fit=true 时按容器尺寸自动缩放；否则使用手动 scale
   // 传入标尺带尺寸，使 fit 出的画布（含标尺框）完整落在 canvas-area 内，不再溢出
-  const fitScale = useFitScale(areaRef, page, ruler.x, ruler.y)
-  const scale = page.fit ? fitScale : page.scale
+  const fitScale = useFitScale(areaRef, pageForFit, ruler.x, ruler.y)
+  const fit = page.fit !== false
+  const scale = fit ? fitScale : (Number.isFinite(page.scale) ? page.scale : 0.42)
 
   // 视口在屏幕上的实际像素尺寸（已乘缩放）。
   // 注意：此处刻意保留浮点，不取整——它必须与真实画布显示宽度
   // （page.width * scale，由 .canvas 的 transform 渲染）完全一致，
   // 否则标尺刻度会与画布物理像素产生亚像素漂移、对不齐。
-  const vw = page.width * scale
-  const vh = page.height * scale
+  const vw = pageW * scale
+  const vh = pageH * scale
 
   // 在画布视口的上、左两条专用标尺带上绘制刻度（数值对应页面坐标系）
   const drawRuler = useCallback(() => {
@@ -174,8 +171,8 @@ export default function Canvas() {
         width: vw,
         height: ruler.y,
         start: 0,
-        end: page.width,
-        majorStep: uniformStep(page.width),
+        end: pageW,
+        majorStep: uniformStep(pageW),
       })
     })
     // 下标尺带：水平刻度，数值为页面 X 坐标（基线在带子顶部，刻度向下）
@@ -188,8 +185,8 @@ export default function Canvas() {
         width: vw,
         height: ruler.y,
         start: 0,
-        end: page.width,
-        majorStep: uniformStep(page.width),
+        end: pageW,
+        majorStep: uniformStep(pageW),
       })
     })
     // 左标尺带：垂直刻度，数值为页面 Y 坐标（基线在带子右侧，刻度向左）
@@ -202,8 +199,8 @@ export default function Canvas() {
         width: ruler.x,
         height: vh,
         start: 0,
-        end: page.height,
-        majorStep: uniformStep(page.height),
+        end: pageH,
+        majorStep: uniformStep(pageH),
       })
     })
     // 右标尺带：垂直刻度，数值为页面 Y 坐标（基线在带子左侧，刻度向右）
@@ -216,11 +213,11 @@ export default function Canvas() {
         width: ruler.x,
         height: vh,
         start: 0,
-        end: page.height,
-        majorStep: uniformStep(page.height),
+        end: pageH,
+        majorStep: uniformStep(pageH),
       })
     })
-  }, [vw, vh, page.width, page.height, ruler.x, ruler.y])
+  }, [vw, vh, pageW, pageH, ruler.x, ruler.y])
 
   // 布局/缩放变化后重绘
   useLayoutEffect(() => { drawRuler() }, [drawRuler])
@@ -230,33 +227,8 @@ export default function Canvas() {
     return () => window.removeEventListener('resize', drawRuler)
   }, [drawRuler])
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  )
-
-  const onDragEnd = (event: DragEndEvent) => {
-    const dragData = event.active.data.current as
-      | { type?: ComponentInstance['type']; optionJson?: string }
-      | undefined
-    const type = dragData?.type
-    if (!type || !canvasRef.current || !event.activatorEvent) return
-    const rect = canvasRef.current.getBoundingClientRect()
-    const ev = event.activatorEvent as PointerEvent
-    const x = (ev.clientX - rect.left) / scale - 30
-    const y = (ev.clientY - rect.top) / scale - 20
-    addComponent(
-      type,
-      {
-        x: Math.max(0, Math.min(x, page.width - 40)),
-        y: Math.max(0, Math.min(y, page.height - 40))
-      },
-      dragData?.optionJson ? { optionJson: dragData.optionJson } : undefined
-    )
-  }
-
   return (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-      <div className="canvas-area" ref={areaRef} onClick={() => select(null)}>
+    <div className="canvas-area" ref={areaRef} onClick={() => select(null)}>
       <div className="canvas-scroll">
         <div
           className="canvas-grid"
@@ -276,8 +248,8 @@ export default function Canvas() {
               ref={canvasRef}
               className="canvas"
               style={{
-                width: page.width,
-                height: page.height,
+                width: pageW,
+                height: pageH,
                 background: page.background,
                 transform: `scale(${scale})`
               }}
@@ -295,7 +267,6 @@ export default function Canvas() {
           <div className="ruler-corner br" />
         </div>
       </div>
-      </div>
-    </DndContext>
+    </div>
   )
 }

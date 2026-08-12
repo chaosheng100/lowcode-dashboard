@@ -638,6 +638,12 @@ export interface WidgetDefDTO {
   optionJson?: string
   /** 数据字段契约，用于投放后绑定数据集/实时源 */
   dataSchema?: Record<string, unknown>
+  /** 组件 Schema：渲染器类型 + 默认 props */
+  schema?: {
+    type?: string
+    optionJson?: string
+    defaultProps?: Record<string, unknown>
+  }
   /** 后端组件生命周期状态（可选，老定义兼容） */
   status?: WidgetLifecycleStatus
 }

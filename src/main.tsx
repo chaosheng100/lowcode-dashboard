@@ -5,6 +5,7 @@ import zhCN from 'antd/locale/zh_CN'
 import { HashRouter } from 'react-router-dom'
 import App from './App'
 import './styles/global.css'
+import './management/DashboardManagement.css'
 
 const { darkAlgorithm } = theme
 

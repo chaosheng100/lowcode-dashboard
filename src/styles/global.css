@@ -370,6 +370,8 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
   background: var(--accent-grad);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
+.ra-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ra-logo { width: 24px; height: 24px; object-fit: contain; border-radius: 6px; flex: none; }
 .ra-head-actions { display: flex; gap: 4px; }
 .icon-btn { padding: 4px 9px; line-height: 1; }
 .ra-head .icon-btn { display: none; }
@@ -377,6 +379,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 212, 255, 0.45) rgba(255,
 
 .route-area.collapsed .ra-title { display: none; }
 .route-area.collapsed .ra-head { justify-content: center; padding: 0; }
+.route-area.collapsed .ra-brand { justify-content: center; }
 .route-area.collapsed .route-tree { padding: 6px 4px; }
 .route-area.collapsed .route-node {
   justify-content: center; gap: 0; padding: 8px 0; margin-bottom: 3px;
