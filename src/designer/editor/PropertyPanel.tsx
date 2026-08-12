@@ -15,7 +15,7 @@ const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echart
 /** 支持数据绑定的组件类型 */
 const dataTypes: WidgetType[] = [
   'lineChart', 'barChart', 'pieChart', 'metric', 'table',
-  'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar'
+  'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar', 'echartCustom'
 ]
 
 export default function PropertyPanel() {

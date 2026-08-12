@@ -152,7 +152,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     })),
 
   // —— 组件操作（作用于当前选中路由）—— 
-  addComponent: (type, stylePatch = {}) => {
+  addComponent: (type, stylePatch = {}, propsPatch = {}) => {
     const s = get()
     const route = s.routes.find((r) => r.id === s.selectedRouteId)
     if (!route) return undefined
@@ -162,7 +162,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       id: genId(type),
       type,
       style: { ...def.defaultStyle, ...stylePatch },
-      props: clone(def.defaultProps) as WidgetProps
+      props: { ...(clone(def.defaultProps) as WidgetProps), ...propsPatch }
     }
     set((st) => ({
       routes: st.routes.map((r) =>

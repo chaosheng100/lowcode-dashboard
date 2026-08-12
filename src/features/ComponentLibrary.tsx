@@ -10,6 +10,7 @@ import type {
 } from '../mock/types'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import {
+  deployEchartAsset,
   deployStandardAsset,
   standardComponentAssets,
   type ComponentAssetDefinition
@@ -87,6 +88,15 @@ function previewComponent(asset: LibraryAsset): ComponentInstance {
     comp.props.preview = true
     return comp
   }
+  if (asset.optionJson) {
+    const definition = widgetRegistry.echartCustom
+    return {
+      id: `preview_${asset.key}`,
+      type: 'echartCustom',
+      style: definition.defaultStyle,
+      props: { ...definition.defaultProps, optionJson: asset.optionJson }
+    }
+  }
   const definition = widgetRegistry[asset.type]
   return {
     id: `preview_${asset.type}`,
@@ -113,7 +123,21 @@ export default function ComponentLibrary() {
   const routes = useDesignerStore((state) => state.routes)
   const updateRoute = useDesignerStore((state) => state.updateRoute)
   const dashboards = useMemo(() => routes.filter((route) => route.kind === 'dashboard'), [routes])
-  const assets = useMemo<LibraryAsset[]>(() => [...standardComponentAssets, ...twinComponentAssets, ...iotComponentAssets], [])
+  const assets = useMemo<LibraryAsset[]>(() => {
+    const echartsAssets: LibraryAsset[] = (data?.list ?? [])
+      .filter((w) => w.kind === 'echarts' || w.optionJson)
+      .map((w) => ({
+        key: `widget:${w.id ?? w.type}`,
+        name: w.name,
+        category: w.category || 'ECharts',
+        description: w.desc || w.name,
+        type: 'echartCustom',
+        businessType: 'general',
+        optionJson: w.optionJson || '',
+        widgetId: w.id ?? w.type,
+      }))
+    return [...standardComponentAssets, ...twinComponentAssets, ...iotComponentAssets, ...echartsAssets]
+  }, [data])
   const categories = useMemo(() => ['全部', ...Array.from(new Set(assets.map((asset) => asset.category)))], [assets])
   const [category, setCategory] = useState('全部')
   const [deploying, setDeploying] = useState<LibraryAsset | null>(null)
@@ -248,7 +272,11 @@ export default function ComponentLibrary() {
       updateRoute(route.id, syncTwinWidgetsToDashboard(route, response.data, syncedAt, [deploying.kind as TwinWidgetKind]))
       reloadTwins()
     } else {
-      updateRoute(route.id, deployStandardAsset(route, deploying))
+      if (deploying.optionJson) {
+        updateRoute(route.id, deployEchartAsset(route, deploying))
+      } else {
+        updateRoute(route.id, deployStandardAsset(route, deploying))
+      }
     }
     setBusy(false)
     setDeploying(null)

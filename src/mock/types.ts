@@ -497,6 +497,12 @@ export interface WidgetDefDTO {
   category: string
   version: string
   desc: string
+  /** 组件资产类型：'echarts' 表示 AI 生成的可投放 ECharts 图表 */
+  kind?: 'echarts' | string
+  /** ECharts option JSON（echarts 资产专用） */
+  optionJson?: string
+  /** 数据字段契约，用于投放后绑定数据集/实时源 */
+  dataSchema?: Record<string, unknown>
   /** 后端组件生命周期状态（可选，老定义兼容） */
   status?: WidgetLifecycleStatus
 }

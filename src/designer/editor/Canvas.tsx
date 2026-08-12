@@ -235,18 +235,23 @@ export default function Canvas() {
   )
 
   const onDragEnd = (event: DragEndEvent) => {
-    const type = (event.active.data.current as
-      | { type?: ComponentInstance['type'] }
-      | undefined)?.type
+    const dragData = event.active.data.current as
+      | { type?: ComponentInstance['type']; optionJson?: string }
+      | undefined
+    const type = dragData?.type
     if (!type || !canvasRef.current || !event.activatorEvent) return
     const rect = canvasRef.current.getBoundingClientRect()
     const ev = event.activatorEvent as PointerEvent
     const x = (ev.clientX - rect.left) / scale - 30
     const y = (ev.clientY - rect.top) / scale - 20
-    addComponent(type, {
-      x: Math.max(0, Math.min(x, page.width - 40)),
-      y: Math.max(0, Math.min(y, page.height - 40))
-    })
+    addComponent(
+      type,
+      {
+        x: Math.max(0, Math.min(x, page.width - 40)),
+        y: Math.max(0, Math.min(y, page.height - 40))
+      },
+      dragData?.optionJson ? { optionJson: dragData.optionJson } : undefined
+    )
   }
 
   return (

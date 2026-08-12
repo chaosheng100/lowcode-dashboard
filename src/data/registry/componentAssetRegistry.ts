@@ -9,6 +9,10 @@ export interface ComponentAssetDefinition {
   description: string
   type: WidgetType
   businessType: 'general' | 'twin'
+  /** AI 生成的 ECharts option JSON（echarts 资产专用） */
+  optionJson?: string
+  /** 组件中心资产 id */
+  widgetId?: string
 }
 
 const DESCRIPTIONS: Record<WidgetType, string> = {
@@ -93,5 +97,43 @@ export function deployStandardAsset(
   return {
     components: mergeManagedComponents(route.components, [createStandardAssetComponent(asset)]),
     updatedAt
+  }
+}
+
+/** 创建 AI 生成的 ECharts 自定义图表组件实例 */
+export function createEchartCustomComponent(
+  optionJson: string,
+  meta?: { key?: string; name?: string }
+): ComponentInstance {
+  const definition = widgetRegistry.echartCustom
+  return {
+    id: genId('echartCustom'),
+    type: 'echartCustom',
+    style: { ...definition.defaultStyle },
+    props: {
+      ...cloneProps(definition.defaultProps),
+      optionJson,
+      catalogKey: meta?.key,
+      catalogName: meta?.name,
+      catalogSourceId: meta?.key ? `catalog:${meta.key}` : undefined,
+      businessType: 'general'
+    }
+  }
+}
+
+/** 投放 AI 生成的 ECharts 图表到大屏，重复投放按资产键更新 */
+export function deployEchartAsset(
+  route: RouteConfig,
+  asset: ComponentAssetDefinition,
+  updatedAt = new Date().toISOString()
+): Partial<RouteConfig> {
+  return {
+    components: mergeManagedComponents(route.components, [
+      createEchartCustomComponent(asset.optionJson ?? '', {
+        key: asset.key,
+        name: asset.name,
+      }),
+    ]),
+    updatedAt,
   }
 }

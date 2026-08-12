@@ -254,7 +254,7 @@ export interface DesignerState {
   renameDashboard: (id: string, name: string) => void
 
   // 组件操作（作用于当前选中路由）
-  addComponent: (type: WidgetType, stylePatch?: Partial<ComponentStyle>) => string | undefined
+  addComponent: (type: WidgetType, stylePatch?: Partial<ComponentStyle>, propsPatch?: Partial<WidgetProps>) => string | undefined
   removeComponent: (id: string) => void
   updateComponentProps: (id: string, patch: Partial<WidgetProps>) => void
   updateComponentStyle: (id: string, patch: Partial<ComponentStyle>) => void

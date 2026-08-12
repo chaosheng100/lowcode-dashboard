@@ -94,7 +94,27 @@ function buildOption(type: string, p: WidgetViewProps['component']['props'], dat
     default: {
       // echartCustom：解析用户 option JSON，失败给出占位
       try {
-        return JSON.parse(p.optionJson || '{}') as EChartsCoreOption
+        const base = JSON.parse(p.optionJson || '{}') as EChartsCoreOption
+        if (data.length && Array.isArray((base as any).series)) {
+          const series = (base as any).series.map((s: any) => {
+            const type = s?.type
+            if (type === 'pie' || type === 'funnel') {
+              return { ...s, data: data.map((d) => ({ name: d.name, value: d.value })) }
+            }
+            if (type === 'bar' || type === 'line' || type === 'scatter') {
+              return { ...s, data: data.map((d) => d.value) }
+            }
+            return s
+          })
+          const axisList = Array.isArray((base as any).xAxis) ? (base as any).xAxis : [(base as any).xAxis]
+          const xAxis = axisList.map((axis: any) =>
+            axis && axis.type === 'category'
+              ? { ...axis, data: data.map((d) => d.name) }
+              : axis
+          )
+          return { ...base, series, xAxis: Array.isArray((base as any).xAxis) ? xAxis : xAxis[0] }
+        }
+        return base
       } catch {
         return { title: { text: 'option JSON 解析失败', textStyle: { color: '#ff5d5d', fontSize: 12 } } }
       }

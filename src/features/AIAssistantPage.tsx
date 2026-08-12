@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { App, Button, Collapse, Empty, Input, Space, Spin, Tag } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import ReactECharts from 'echarts-for-react'
 import { api } from '../mock/api'
 import type { AIBotDTO, CodeLang } from '../mock/types'
+import { extractEchartsOption } from './aiEcharts'
 
 const CARD = {
   background: '#0d1322',
@@ -71,6 +73,7 @@ export default function AIAssistantPage() {
   const [compType, setCompType] = useState<GenType>('html')
   const [compName, setCompName] = useState('')
   const [compCode, setCompCode] = useState('')
+  const [compOptionJson, setCompOptionJson] = useState('')
   const [compLoading, setCompLoading] = useState(false)
   const [compError, setCompError] = useState('')
   const compAccRef = useRef('')
@@ -84,6 +87,7 @@ export default function AIAssistantPage() {
     setCompLoading(true)
     setCompError('')
     setCompCode('')
+    setCompOptionJson('')
     compAccRef.current = ''
     try {
       const r = await api.aiGenerate(p, compType, {
@@ -94,6 +98,11 @@ export default function AIAssistantPage() {
         onError: (m) => setCompError(m),
       })
       if (r.code === 0 && r.data.code) setCompCode(r.data.code)
+      const finalCode = r.data.code || compAccRef.current
+      if (finalCode && compType === 'echarts') {
+        const option = extractEchartsOption(finalCode)
+        setCompOptionJson(option ? JSON.stringify(option, null, 2) : '')
+      }
       else if (!compError) message.warning('AI 未返回有效代码')
     } catch {
       setCompError('生成失败')
@@ -165,6 +174,9 @@ export default function AIAssistantPage() {
       icon: 'CodeOutlined',
       category: 'AI 生成',
       version: '1.0.0',
+      kind: compType === 'echarts' ? 'echarts' : undefined,
+      optionJson: compType === 'echarts' ? (compOptionJson || compCode) : undefined,
+      dataSchema: compType === 'echarts' ? { generated: true } : undefined,
       desc: compPrompt.trim() || 'AI 生成组件',
     })
     if (r.code === 0) message.success(`已登记到组件中心（${type}）`)
@@ -289,7 +301,24 @@ export default function AIAssistantPage() {
                       </Button>
                     </Space>
                   </div>
-                  {(compType === 'html' || compType === 'echarts') && (
+                  {compType === 'echarts' && compOptionJson && (
+                    <div
+                      style={{
+                        height: 260,
+                        border: '1px solid #1b2740',
+                        borderRadius: 8,
+                        background: '#0a101d',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <ReactECharts
+                        option={JSON.parse(compOptionJson) as Record<string, unknown>}
+                        style={{ height: 260, width: '100%' }}
+                        notMerge
+                      />
+                    </div>
+                  )}
+                  {(compType === 'html' || (compType === 'echarts' && !compOptionJson)) && (
                     <iframe
                       title="AI 组件预览"
                       srcDoc={previewSrcDoc()}
