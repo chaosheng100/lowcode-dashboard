@@ -4,7 +4,7 @@ import { useApi } from './useApi'
 import { api } from '../mock'
 import type { AnalyticsDTO } from '../mock'
 import EChartBox from './EChartBox'
-import { Stat } from './common'
+import { MetricRow, Stat , PageHeader } from './common'
 
 /** 明细列：数值列次要色，错误率 >1% 标红（沿用旧 .muted/.abnormal 语义） */
 const columns: TableProps<AnalyticsDTO>['columns'] = [
@@ -25,18 +25,13 @@ export default function AnalysisPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">大屏分析</h2>
-          <p className="fp-sub">对画布运行态做监控与性能 / 异常分析</p>
-        </div>
-      </div>
-      <div className="flex" style={{ marginBottom: 14 }}>
+      <PageHeader title="大屏分析" subtitle="对画布运行态做监控与性能 / 异常分析" />
+      <MetricRow>
         <Stat label="总访问量(PV)" value={totalPv.toLocaleString()} accent="#0a84ff" />
         <Stat label="平均性能 P95" value={avgPerf + 'ms'} accent="#0a84ff" />
         <Stat label="平均错误率" value={avgErr + '%'} accent="#ff3b30" />
         <Stat label="监控大屏数" value={list.length} accent="#34c759" />
-      </div>
+      </MetricRow>
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="muted2" style={{ marginBottom: 8 }}>各大大屏访问量</div>
         <EChartBox height={240} option={{

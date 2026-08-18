@@ -3,7 +3,7 @@ import { Alert, Button, Checkbox, Table, type TableProps } from 'antd'
 import { api } from '../mock'
 import type { SyncTaskDTO } from '../mock/types'
 import { useApi } from './useApi'
-import { Field, Input, Modal, Tag } from './common'
+import { Field, Input, Modal, Tag , PageHeader } from './common'
 
 /** 数据同步任务：列表 + 新建/编辑/删除 + 执行（显示 lastRows / lastStatus） */
 export default function SyncTaskPage() {
@@ -74,10 +74,9 @@ export default function SyncTaskPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">数据同步任务</h2><p className="fp-sub">跨源数据同步编排与即时执行</p></div>
-        <Button type="primary" onClick={() => setEditing({ name: '', source: '', target: '', enabled: true })}>＋ 新建同步</Button>
-      </div>
+      <PageHeader title="数据同步任务" subtitle="跨源数据同步编排与即时执行">
+<Button type="primary" onClick={() => setEditing({ name: '', source: '', target: '', enabled: true })}>＋ 新建同步</Button>
+</PageHeader>
 
       {notice && <Alert type="info" showIcon closable message={notice} onClose={() => setNotice(null)} style={{ marginBottom: 12 }} />}
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}

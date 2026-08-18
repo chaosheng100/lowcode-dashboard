@@ -4,6 +4,7 @@ import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import { api } from '../mock'
 import { useApi } from './useApi'
 import type { AgentFlowDTO, AgentFlowNode, FlowRunResult } from '../mock/types'
+import { PageHeader } from './common'
 
 const NODE_TYPES = ['echo', 'chat', 'generate', 'review', 'datasetMeta', 'componentSearch']
 const NODE_LABEL: Record<string, string> = {
@@ -122,13 +123,9 @@ export default function FlowPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">Agent 工作流</h2>
-          <p className="fp-sub">节点式编排：透传 / AI 对话 / 代码生成 / 结构校验 / 数据集元信息 / 组件搜索</p>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openNew}>新建流程</Button>
-      </div>
+      <PageHeader title="Agent 工作流" subtitle="节点式编排：透传 / AI 对话 / 代码生成 / 结构校验 / 数据集元信息 / 组件搜索">
+<Button type="primary" icon={<PlusOutlined />} onClick={openNew}>新建流程</Button>
+</PageHeader>
       <Table<AgentFlowDTO>
         rowKey="id"
         size="small"

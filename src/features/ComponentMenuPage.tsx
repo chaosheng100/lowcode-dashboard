@@ -1,7 +1,7 @@
 import { Card, Col, Row } from 'antd'
 import { api } from '../mock'
 import { useApi } from './useApi'
-import { Tag } from './common'
+import { PageHeader, Tag } from './common'
 
 const MENU: { group: string; items: string[] }[] = [
   { group: '基础组件', items: ['文本', '图片', '指标卡', '表格', '容器'] },
@@ -16,12 +16,14 @@ export default function ComponentMenuPage() {
   const { data } = useApi(() => api.listWidgets({ pageSize: 50 }), [])
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">组件菜单</h2>
-          <p className="fp-sub">组件分组与导航 · 已纳管 {data?.list.length ?? 0} 个标准组件</p>
-        </div>
-      </div>
+      <PageHeader
+        title="组件菜单"
+        subtitle={
+          <>
+            组件分组与导航 · 已纳管 {data?.list.length ?? 0} 个标准组件
+          </>
+        }
+      />
       <Row gutter={[12, 12]}>
         {MENU.map((m) => (
           <Col span={8} key={m.group}>

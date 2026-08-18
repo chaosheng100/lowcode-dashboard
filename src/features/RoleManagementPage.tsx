@@ -4,6 +4,7 @@ import { api } from '../mock/api'
 import type { RbacRoleDTO } from '../mock/types'
 import { useApi } from './useApi'
 import { useAuthStore } from '../auth/store'
+import { PageHeader } from './common'
 
 const ALL_PERMS = [
   { group: '用户', perms: ['user:view', 'user:manage'] },
@@ -109,13 +110,9 @@ export default function RoleManagementPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">角色管理</h2>
-          <p className="fp-sub">基于 RBAC 的权限分配（权限码格式 resource:action）</p>
-        </div>
-        <span className="fp-count">共 {rolesState.data?.length ?? 0} 个角色</span>
-      </div>
+      <PageHeader title="角色管理" subtitle="基于 RBAC 的权限分配（权限码格式 resource:action）">
+<span className="fp-count">共 {rolesState.data?.length ?? 0} 个角色</span>
+</PageHeader>
 
       {rolesState.error && (
         <Alert

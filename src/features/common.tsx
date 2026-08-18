@@ -1,6 +1,95 @@
-import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, CSSProperties } from 'react'
 import { Children, isValidElement } from 'react'
 import { Card, Empty as AntEmpty, Form, Input as AntInput, Modal as AntModal, Select as AntSelect, Statistic, Tag as AntTag } from 'antd'
+
+/** 页面级页头：主标题 + 副标题 + 右侧操作区（统一 .fp-head/.fp-title/.fp-sub 结构） */
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+  children,
+  lead,
+  className,
+}: {
+  title: ReactNode
+  subtitle?: ReactNode
+  actions?: ReactNode
+  children?: ReactNode
+  lead?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={className ? `fp-head ${className}` : 'fp-head'}>
+      <div>
+        {lead && <div className="fp-lead">{lead}</div>}
+        <h2 className="fp-title">{title}</h2>
+        {subtitle && <p className="fp-sub">{subtitle}</p>}
+      </div>
+      {actions && <div className="fp-head-actions">{actions}</div>}
+      {children}
+    </div>
+  )
+}
+
+/** 指标卡（统一苹果风白色圆角统计卡，替代 Stat / report-summary / screen-summary-item / 内联 Card 的多套写法） */
+export function MetricRow({ children, gap = 12, style, 'aria-label': ariaLabel }: { children: ReactNode; gap?: number; style?: CSSProperties; 'aria-label'?: string }) {
+  return (
+    <div className="metric-row" aria-label={ariaLabel} style={{ gap, ...style }}>
+      {children}
+    </div>
+  )
+}
+
+export function MetricCard({
+  label,
+  value,
+  accent = 'var(--txt)',
+  onClick,
+  children,
+}: {
+  label: ReactNode
+  value: ReactNode
+  accent?: string
+  onClick?: () => void
+  children?: ReactNode
+}) {
+  return (
+    <div className="metric-card" onClick={onClick}>
+      <div className="metric-value" style={{ color: accent }}>{value}</div>
+      <div className="metric-label">{label}</div>
+      {children}
+    </div>
+  )
+}
+
+/** 能力卡片网格容器（复用 .feat-grid 布局） */
+export function FeatureGrid({ children }: { children: ReactNode }) {
+  return <div className="feat-grid">{children}</div>
+}
+
+/** 能力/资源卡片：媒体位 + 名称 + 副标题 + 描述 */
+export function FeatureCard({
+  media,
+  name,
+  category,
+  desc,
+  onClick,
+}: {
+  media?: ReactNode
+  name: ReactNode
+  category?: ReactNode
+  desc?: ReactNode
+  onClick?: () => void
+}) {
+  return (
+    <div className="feat-card" onClick={onClick}>
+      {media}
+      <div className="feat-name">{name}</div>
+      {category && <div className="feat-cat">{category}</div>}
+      {desc && <div className="feat-desc">{desc}</div>}
+    </div>
+  )
+}
 
 /** 卡片分区（antd Card 骨架 + 复用 .sec 壳保留渐变竖条/hover 装饰） */
 export function Section({ title, desc, right, children }: { title: string; desc?: string; right?: ReactNode; children: ReactNode }) {
@@ -43,12 +132,7 @@ export function Tag({ color = '#0a84ff', children }: { color?: string; children:
 
 /** 统计卡（保留 .stat 壳装饰，大数字在上 label 在下） */
 export function Stat({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  return (
-    <div className="stat">
-      <Statistic value={value} valueStyle={{ color: accent, fontSize: 24, fontWeight: 700 }} />
-      <div className="stat-label">{label}</div>
-    </div>
-  )
+  return <MetricCard label={label} value={<Statistic value={value} valueStyle={{ color: accent, fontSize: 22, fontWeight: 700 }} />} accent={accent} />
 }
 
 export function Empty({ children }: { children: ReactNode }) {

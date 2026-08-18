@@ -3,6 +3,7 @@ import { App, Button, Input, Modal, Popconfirm, Select, Space, Switch, Table, Ta
 import { api } from '../mock'
 import { useApi } from './useApi'
 import type { AIPromptDTO } from '../mock/types'
+import { PageHeader } from './common'
 
 const SCENE_LABEL: Record<string, string> = {
   chat: '对话',
@@ -66,13 +67,9 @@ export default function PromptTemplatePage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">Prompt 模板</h2>
-          <p className="fp-sub">管理对话 / 组件生成 / 大屏设计三类系统提示词，启用后 SSE 入口自动生效</p>
-        </div>
-        <Button type="primary" onClick={openNew}>＋ 新建模板</Button>
-      </div>
+      <PageHeader title="Prompt 模板" subtitle="管理对话 / 组件生成 / 大屏设计三类系统提示词，启用后 SSE 入口自动生效">
+<Button type="primary" onClick={openNew}>＋ 新建模板</Button>
+</PageHeader>
       <Table<AIPromptDTO>
         rowKey="id"
         size="small"

@@ -5,6 +5,7 @@ import { api } from '../mock/api'
 import type { PageResult, RbacRoleDTO, RbacUserDTO } from '../mock/types'
 import { useApi, useDebounced } from './useApi'
 import { useAuthStore } from '../auth/store'
+import { PageHeader } from './common'
 
 const STATUS_TEXT: Record<string, string> = { active: '启用', disabled: '停用' }
 
@@ -97,13 +98,9 @@ export default function UserManagement() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">用户管理</h2>
-          <p className="fp-sub">平台账号与角色绑定（RBAC 管控入口）</p>
-        </div>
-        <span className="fp-count">共 {total} 个用户</span>
-      </div>
+      <PageHeader title="用户管理" subtitle="平台账号与角色绑定（RBAC 管控入口）">
+<span className="fp-count">共 {total} 个用户</span>
+</PageHeader>
 
       <div className="fp-toolbar">
         <Input

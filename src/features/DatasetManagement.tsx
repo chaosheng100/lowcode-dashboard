@@ -4,7 +4,7 @@ import { SearchOutlined } from '@ant-design/icons'
 import { api } from '../mock'
 import type { DatasetDTO, DatasetField, DatasetRow, PageResult } from '../mock'
 import { useApi, useDebounced } from './useApi'
-import { Empty, Modal, Field, Select, Textarea } from './common'
+import { Empty, Modal, Field, Select, Textarea , PageHeader } from './common'
 
 // ---------------- 字段语义工具（自动推断） ----------------
 
@@ -395,13 +395,9 @@ export default function DatasetManagement() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">数据集管理</h2>
-          <p className="fp-sub">基于数据源构建可复用数据集，字段语义元信息供 AI 自动匹配组件数据</p>
-        </div>
-        <span className="fp-count">共 {total} 个数据集</span>
-      </div>
+      <PageHeader title="数据集管理" subtitle="基于数据源构建可复用数据集，字段语义元信息供 AI 自动匹配组件数据">
+<span className="fp-count">共 {total} 个数据集</span>
+</PageHeader>
 
       <div className="fp-toolbar">
         <Input

@@ -1,6 +1,7 @@
 import { Alert, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
+import { FeatureCard, FeatureGrid, PageHeader } from './common'
 import { getRouteCapability } from '../data/capabilities'
 
 /**
@@ -13,30 +14,29 @@ export default function RuntimeConfig() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">运行配置 · 主题</h2>
-          <p className="fp-sub">
-            画布配色与全局观感来源 · {cap ? `画布能力：${cap.capability}` : ''}
-          </p>
-        </div>
-        <span className="fp-count">共 {data?.length ?? 0} 套主题</span>
-      </div>
+      <PageHeader
+        title="运行配置 · 主题"
+        subtitle={`画布配色与全局观感来源 · ${cap ? `画布能力：${cap.capability}` : ''}`}
+        actions={<span className="fp-count">共 {data?.length ?? 0} 套主题</span>}
+      />
       {loading && <div style={{ textAlign: 'center', padding: '40px 0' }}><Spin /></div>}
       {error && <Alert type="error" showIcon message={error} />}
       {!loading && !error && (
-        <div className="feat-grid">
+        <FeatureGrid>
           {data!.map((t) => (
-            <div className="feat-card" key={t.id}>
-              <div className="feat-swatch" style={{ background: t.background, borderColor: t.accent }}>
-                <span className="feat-dot" style={{ background: t.accent }} />
-              </div>
-              <div className="feat-name">{t.name}</div>
-              <div className="feat-cat">主色 {t.accent}</div>
-              <div className="feat-desc">{t.desc}</div>
-            </div>
+            <FeatureCard
+              key={t.id}
+              media={
+                <div className="feat-swatch" style={{ background: t.background, borderColor: t.accent }}>
+                  <span className="feat-dot" style={{ background: t.accent }} />
+                </div>
+              }
+              name={t.name}
+              category={`主色 ${t.accent}`}
+              desc={t.desc}
+            />
           ))}
-        </div>
+        </FeatureGrid>
       )}
       <p className="fp-sub" style={{ marginTop: 14 }}>
         提示：进入任一「大屏」→ 大屏编辑器 → 左侧「资源」→「主题」，即可将上述主题应用到画布。

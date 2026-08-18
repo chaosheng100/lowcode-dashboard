@@ -3,7 +3,7 @@ import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import type { MessageChannelDTO, ChannelKind } from '../mock/types'
-import { Modal, Field, Input, Select, Tag } from './common'
+import { Modal, Field, Input, Select, Tag , PageHeader } from './common'
 
 const KIND_LABEL: Record<ChannelKind, string> = {
   wechat: '企业微信', dingtalk: '钉钉', email: '邮件', 'sms-aliyun': '阿里云短信', 'sms-tencent': '腾讯云短信'
@@ -21,13 +21,9 @@ export default function MessagePushPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">消息推送</h2>
-          <p className="fp-sub">企业微信 / 钉钉 / 邮件 / 阿里云短信 / 腾讯云短信 —— 联动告警与大屏实时推送</p>
-        </div>
-        <Button onClick={() => setEditing({ name: '', kind: 'wechat', endpoint: '', enabled: true })}>＋ 新建通道</Button>
-      </div>
+      <PageHeader title="消息推送" subtitle="企业微信 / 钉钉 / 邮件 / 阿里云短信 / 腾讯云短信 —— 联动告警与大屏实时推送">
+<Button onClick={() => setEditing({ name: '', kind: 'wechat', endpoint: '', enabled: true })}>＋ 新建通道</Button>
+</PageHeader>
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (

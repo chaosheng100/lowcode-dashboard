@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Empty, Tag } from './common'
+import { Empty, Tag , PageHeader } from './common'
 
 /** 我的插件：已安装插件管理（封装为画布可复用组件） */
 export default function PluginMinePage() {
@@ -16,10 +16,9 @@ export default function PluginMinePage() {
   const mine = (data?.list ?? []).filter((p) => p.installed)
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">我的插件</h2><p className="fp-sub">自有 / 已安装插件，封装为画布可复用组件</p></div>
-        <span className="fp-count">已安装 {mine.length} 个</span>
-      </div>
+      <PageHeader title="我的插件" subtitle="自有 / 已安装插件，封装为画布可复用组件">
+<span className="fp-count">已安装 {mine.length} 个</span>
+</PageHeader>
       {loading && <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}
       {!loading && !error && (

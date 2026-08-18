@@ -8,7 +8,7 @@ import { useApi } from "./useApi"
 import { screenApi } from "../api/screenApi"
 import { screenToRoute } from "../api/screenAdapter"
 import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from "../api/screenRoutes"
-import { Input, Stat } from "./common"
+import { Input, MetricRow, Stat } from "./common"
 
 type View =
   | { mode: "list" }
@@ -147,11 +147,11 @@ export default function CarouselPage() {
         <div><h1 className="fp-title">轮播管理</h1><p className="fp-sub">编排大屏播放顺序、切换频率与运行状态</p></div>
         <Button type="primary" onClick={() => setView({ mode: "edit", item: EMPTY_CAROUSEL })}>＋ 新建方案</Button>
       </header>
-      <section aria-label="轮播方案概览" style={{ display: "flex", gap: 12 }}>
+      <MetricRow>
         <Stat label="全部方案" value={carousels.data?.total ?? 0} accent="#0a84ff" />
         <Stat label="运行中" value={enabledCount} accent="#34c759" />
         <Stat label="已停用" value={Math.max(0, (carousels.data?.total ?? 0) - enabledCount)} accent="#86868b" />
-      </section>
+      </MetricRow>
       <div className="carousel-toolbar">
         <Input style={{ width: 320 }} placeholder="按名称搜索…" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
         <Select

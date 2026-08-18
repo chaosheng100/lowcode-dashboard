@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Spin, Table } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Modal, Field, Input, Select, Textarea, Tag } from './common'
+import { Modal, Field, Input, Select, Textarea, Tag , PageHeader } from './common'
 import type { GlobalVarDTO, VarKind } from '../mock/types'
 
 const KIND_LABEL: Record<VarKind, string> = { variable: '变量', function: '函数', formatter: '数据格式化' }
@@ -17,13 +17,9 @@ export default function GlobalVarPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">全局变量</h2>
-          <p className="fp-sub">全局函数 / 变量 / 数据格式化共享，画布组件跨组件绑定与联动</p>
-        </div>
-        <Button onClick={() => setEditing({ name: '', kind: 'variable', value: '', scope: 'global' })}>＋ 新建</Button>
-      </div>
+      <PageHeader title="全局变量" subtitle="全局函数 / 变量 / 数据格式化共享，画布组件跨组件绑定与联动">
+<Button onClick={() => setEditing({ name: '', kind: 'variable', value: '', scope: 'global' })}>＋ 新建</Button>
+</PageHeader>
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (

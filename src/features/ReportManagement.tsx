@@ -10,7 +10,7 @@ import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from "../api/scree
 import ReportDesignPage from "./ReportDesignPage"
 import { openPreviewWindow } from "../designer/window"
 import { syncReportToDashboard, unlinkReportFromDashboard } from "./reportWidgetCatalog"
-import { Field, Modal } from "./common"
+import { Field, MetricCard, MetricRow, Modal } from "./common"
 
 // 后端通用目录服务返回的记录可能缺字段（例如 r-1 测试数据缺 delivery/format/name），
 // 这里做防御性归一化，避免列表/编辑/预览渲染时因 undefined 崩溃。
@@ -304,13 +304,13 @@ export default function ReportManagement() {
         </div>
       </header>
 
-      <section className="report-summary" aria-label="报表概览">
-        <div><strong>{reports.length}</strong><span>全部报表</span></div>
-        <div><strong>{enabledCount}</strong><span>已启用</span></div>
-        <div><strong>{scheduledCount}</strong><span>定时调度</span></div>
-        <div><strong>{failedCount}</strong><span>执行失败</span></div>
-        <div><strong>{linkedCount}</strong><span>已绑定大屏</span></div>
-      </section>
+      <MetricRow aria-label="报表概览">
+        <MetricCard label="全部报表" value={reports.length} />
+        <MetricCard label="已启用" value={enabledCount} accent="#34c759" />
+        <MetricCard label="定时调度" value={scheduledCount} accent="#0a84ff" />
+        <MetricCard label="执行失败" value={failedCount} accent="#ff3b30" />
+        <MetricCard label="已绑定大屏" value={linkedCount} accent="var(--sub)" />
+      </MetricRow>
 
       {notice && <Alert style={{ margin: "12px 12px 0" }} showIcon closable message={notice} onClose={() => setNotice("")} />}
 

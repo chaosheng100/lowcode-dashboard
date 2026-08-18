@@ -4,7 +4,7 @@ import { SearchOutlined } from '@ant-design/icons'
 import { api } from '../mock'
 import type { AlertRuleDTO, AuditLogDTO, SystemMetricsDTO } from '../mock/types'
 import { useApi, useDebounced } from './useApi'
-import { Field, Input as CInput, Modal, Stat, Tag } from './common'
+import { Field, Input as CInput, MetricRow, Modal, Stat, Tag , PageHeader } from './common'
 
 function fmtUptime(sec: number): string {
   if (!sec || sec < 0) return '—'
@@ -68,25 +68,18 @@ export default function SystemMonitorPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">系统监控</h2><p className="fp-sub">运行指标实时轮询（5s）+ 审计日志 + 告警规则</p></div>
-        <Button onClick={() => { reloadMetrics(); reloadLogs(); reloadAlerts() }}>刷新</Button>
-      </div>
+      <PageHeader title="系统监控" subtitle="运行指标实时轮询（5s）+ 审计日志 + 告警规则">
+<Button onClick={() => { reloadMetrics(); reloadLogs(); reloadAlerts() }}>刷新</Button>
+</PageHeader>
 
       {/* 指标卡片 */}
-      <div className="metrics-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
-        <Card className="sec" styles={{ body: { padding: 14 } }}>
-          <Stat label="运行时长" value={fmtUptime(metrics?.uptimeSec ?? 0)} accent="#0a84ff" />
-        </Card>
-        <Card className="sec" styles={{ body: { padding: 14 } }}>
-          <Stat label="内存占用" value={metrics?.memory != null ? String(metrics.memory) : '—'} accent="#34c759" />
-        </Card>
+      <MetricRow>
+        <Stat label="运行时长" value={fmtUptime(metrics?.uptimeSec ?? 0)} accent="#0a84ff" />
+        <Stat label="内存占用" value={metrics?.memory != null ? String(metrics.memory) : '—'} accent="#34c759" />
         {Object.entries(counts).map(([k, v]) => (
-          <Card key={k} className="sec" styles={{ body: { padding: 14 } }}>
-            <Stat label={k} value={v} accent="#0a84ff" />
-          </Card>
+          <Stat key={k} label={k} value={v} accent="#0a84ff" />
         ))}
-      </div>
+      </MetricRow>
 
       {/* 审计日志 */}
       <Card className="sec" title={<span className="sec-title">审计日志</span>} style={{ marginBottom: 16 }}>

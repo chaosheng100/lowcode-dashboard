@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { App, Button, Input, Select } from 'antd'
 import { api } from '../mock'
 import { useApi } from './useApi'
+import { PageHeader } from './common'
 
 export default function ToolsPage() {
   const { message } = App.useApp()
@@ -37,12 +38,7 @@ export default function ToolsPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">Agent 工具</h2>
-          <p className="fp-sub">数据集元信息 / 组件搜索 / 代码片段搜索 / 资产搜索，供 Agent 与人工调试调用</p>
-        </div>
-      </div>
+      <PageHeader title="Agent 工具" subtitle="数据集元信息 / 组件搜索 / 代码片段搜索 / 资产搜索，供 Agent 与人工调试调用" />
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         {tools.map((t) => (
           <div

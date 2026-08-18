@@ -1,20 +1,16 @@
 import { Alert, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Tag } from './common'
+import { Tag , PageHeader } from './common'
 
 /** 数据填报：零代码采集业务数据，回灌为画布可绑定的数据集 */
 export default function DataEntryPage() {
   const { data, loading, error } = useApi(() => api.listDataEntries({ pageSize: 50 }), [])
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">数据填报</h2>
-          <p className="fp-sub">零代码表单采集，沉淀为画布可绑定的数据集</p>
-        </div>
-        <span className="fp-count">共 {data?.list.length ?? 0} 张填报表</span>
-      </div>
+      <PageHeader title="数据填报" subtitle="零代码表单采集，沉淀为画布可绑定的数据集">
+<span className="fp-count">共 {data?.list.length ?? 0} 张填报表</span>
+</PageHeader>
       {loading && <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}
       {!loading && !error && (

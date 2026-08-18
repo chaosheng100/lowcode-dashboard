@@ -3,6 +3,7 @@ import { App, Button, InputNumber, Space, Table, Tag } from 'antd'
 import { api } from '../mock'
 import { useApi } from './useApi'
 import type { AIQuota, AIUsageItem, AIUsageStats } from '../mock/types'
+import { PageHeader } from './common'
 
 export default function AgentUsagePage() {
   const { message } = App.useApp()
@@ -34,12 +35,8 @@ export default function AgentUsagePage() {
   const list = data?.list ?? []
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">Agent 用量与配额</h2>
-          <p className="fp-sub">统计 AI 调用次数、Token 与耗时，配置每日调用上限</p>
-        </div>
-        <Space>
+      <PageHeader title="Agent 用量与配额" subtitle="统计 AI 调用次数、Token 与耗时，配置每日调用上限">
+<Space>
           <span style={{ fontSize: 13, color: '#86868b' }}>每日上限</span>
           <InputNumber
             min={0}
@@ -48,7 +45,7 @@ export default function AgentUsagePage() {
           />
           <Button type="primary" onClick={saveQuota}>保存配额</Button>
         </Space>
-      </div>
+</PageHeader>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         {[

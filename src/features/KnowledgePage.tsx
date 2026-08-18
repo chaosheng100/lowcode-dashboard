@@ -3,6 +3,7 @@ import { App, Button, Input, Modal, Popconfirm, Space, Table } from 'antd'
 import { api } from '../mock'
 import { useApi } from './useApi'
 import type { KnowledgeDocDTO } from '../mock/types'
+import { PageHeader } from './common'
 
 export default function KnowledgePage() {
   const { message } = App.useApp()
@@ -59,12 +60,8 @@ export default function KnowledgePage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">AI 知识库</h2>
-          <p className="fp-sub">维护可被 Agent 检索注入的文档，支持关键词搜索</p>
-        </div>
-        <Space>
+      <PageHeader title="AI 知识库" subtitle="维护可被 Agent 检索注入的文档，支持关键词搜索">
+<Space>
           <Input.Search
             allowClear
             placeholder="搜索标题/内容"
@@ -75,7 +72,7 @@ export default function KnowledgePage() {
           />
           <Button type="primary" onClick={openNew}>＋ 新建文档</Button>
         </Space>
-      </div>
+</PageHeader>
       <Table<KnowledgeDocDTO>
         rowKey="id"
         size="small"

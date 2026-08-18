@@ -3,7 +3,7 @@ import { Alert, Button, Table, type TableProps } from 'antd'
 import { api } from '../mock'
 import type { NotificationDTO, NotificationLevel } from '../mock/types'
 import { useApi } from './useApi'
-import { Field, Input, Modal, Select, Tag } from './common'
+import { Field, Input, Modal, Select, Tag , PageHeader } from './common'
 
 const LEVEL_COLOR: Record<NotificationLevel, string> = {
   info: '#0a84ff',
@@ -82,13 +82,12 @@ export default function NotificationPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">通知中心</h2><p className="fp-sub">平台消息与告警通知（level 徽标 / 已读置灰）</p></div>
-        <div className="fp-toolbar" style={{ marginBottom: 0 }}>
+      <PageHeader title="通知中心" subtitle="平台消息与告警通知（level 徽标 / 已读置灰）">
+<div className="fp-toolbar" style={{ marginBottom: 0 }}>
           <Button onClick={() => setCompose({ title: '', content: '', level: 'info' })}>发送测试通知</Button>
           <Button onClick={readAll} loading={busy === '__all__'} disabled={busy === '__all__'}>全部已读</Button>
         </div>
-      </div>
+</PageHeader>
 
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
       {loading && <div className="muted2" style={{ padding: 16 }}>加载中…</div>}

@@ -3,7 +3,7 @@ import { Alert, Button, Checkbox, Table, type TableProps } from 'antd'
 import { api } from '../mock'
 import type { SchedulerJobDTO } from '../mock/types'
 import { useApi } from './useApi'
-import { Field, Input, Modal, Tag } from './common'
+import { Field, Input, Modal, Tag , PageHeader } from './common'
 
 /** 调度任务管理：列表 + 新建/编辑/删除 + 立即执行 */
 export default function SchedulerPage() {
@@ -69,10 +69,9 @@ export default function SchedulerPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">调度任务</h2><p className="fp-sub">定时任务编排与即时触发（Cron 驱动）</p></div>
-        <Button type="primary" onClick={() => setEditing({ name: '', cron: '0 0 * * *', enabled: true })}>＋ 新建任务</Button>
-      </div>
+      <PageHeader title="调度任务" subtitle="定时任务编排与即时触发（Cron 驱动）">
+<Button type="primary" onClick={() => setEditing({ name: '', cron: '0 0 * * *', enabled: true })}>＋ 新建任务</Button>
+</PageHeader>
 
       {notice && <Alert type="info" showIcon closable message={notice} onClose={() => setNotice(null)} style={{ marginBottom: 12 }} />}
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}

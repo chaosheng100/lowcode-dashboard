@@ -25,7 +25,7 @@ import {
   type TwinModelStatus,
   type TwinModelVersion
 } from '../mock'
-import { Field, Modal, Tag } from './common'
+import { Field, Modal, PageHeader, Tag } from './common'
 import { useApi } from './useApi'
 import { generateModelThumbnail } from '../twin/modelThumbnail'
 import { convertToGlb, isConvertibleModel } from '../twin/modelConvert'
@@ -352,16 +352,17 @@ export default function TwinModelLibrary() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
+      <PageHeader
+        title="孪生模型库"
+        subtitle="模型资产集中管理 · 上传 / 命名 / 分类 / 标签 / 预览 / 删除"
+        lead={
           <div className="twin-lib-nav">
             <Button type="link" size="small" icon={<ArrowLeftOutlined />} onClick={() => navigate('/extension/twin')}>
               返回场景管理
             </Button>
           </div>
-          <h2 className="fp-title">孪生模型库</h2>
-          <p className="fp-sub">模型资产集中管理 · 上传 / 命名 / 分类 / 标签 / 预览 / 删除</p>
-        </div>
+        }
+      >
         <div className="fp-actions">
           <Button size="small" type={libView === 'mine' ? 'primary' : 'default'} onClick={() => { setLibView('mine'); setKw(''); setCategory(undefined) }}>
             我的模型库
@@ -395,7 +396,7 @@ export default function TwinModelLibrary() {
           )}
         </div>
         <span className="fp-count">共 {filtered.length} 个模型 · {libView === 'market' ? '共享资产' : '我的资产'}</span>
-      </div>
+      </PageHeader>
 
       {loading ? (
         <div className="empty-tip">加载中...</div>

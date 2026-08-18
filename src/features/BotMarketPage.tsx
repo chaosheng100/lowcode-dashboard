@@ -14,6 +14,7 @@ import {
 } from 'antd'
 import { api } from '../mock/api'
 import type { AIBotDTO, AIMarketBotDTO, AIModelDTO } from '../mock/types'
+import { PageHeader } from './common'
 
 type BotForm = {
   id?: string
@@ -226,15 +227,9 @@ export default function BotMarketPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">机器人共享市场</h2>
-          <p className="fp-sub">
-            创建可复用的智能机器人，发布到市场供团队安装；也可从市场一键安装共享机器人。
-          </p>
-        </div>
-        <Button onClick={() => setEditing({ ...EMPTY_FORM })}>+ 新建机器人</Button>
-      </div>
+      <PageHeader title="机器人共享市场" subtitle="创建可复用的智能机器人，发布到市场供团队安装；也可从市场一键安装共享机器人。">
+<Button onClick={() => setEditing({ ...EMPTY_FORM })}>+ 新建机器人</Button>
+</PageHeader>
       <Tabs
         activeKey={tab}
         onChange={(key) => setTab(key as 'mine' | 'market')}

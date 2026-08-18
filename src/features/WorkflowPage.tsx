@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import type { WorkflowDTO } from '../mock'
-import { Tag } from './common'
+import { Tag , PageHeader } from './common'
 
 /** 流程列：节点用 Tag 平铺，状态保留 .status-dot 装饰点 */
 const columns: TableProps<WorkflowDTO>['columns'] = [
@@ -28,13 +28,9 @@ export default function WorkflowPage() {
   const { data, loading, error } = useApi(() => api.listWorkflows({ pageSize: 50 }), [])
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">数据工作流</h2>
-          <p className="fp-sub">Flow 流程编排：触发 → 加工节点 → 大屏数据集</p>
-        </div>
-        <span className="fp-count">共 {data?.list.length ?? 0} 条流程</span>
-      </div>
+      <PageHeader title="数据工作流" subtitle="Flow 流程编排：触发 → 加工节点 → 大屏数据集">
+<span className="fp-count">共 {data?.list.length ?? 0} 条流程</span>
+</PageHeader>
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}
       {!error && (
         <Table<WorkflowDTO>

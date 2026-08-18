@@ -3,7 +3,7 @@ import { Alert, Button, InputNumber, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
 import EChartBox from './EChartBox'
-import { Modal, Field, Input, Select, Tag } from './common'
+import { Modal, Field, Input, Select, Tag , PageHeader } from './common'
 import type { MapResourceDTO, MapProvider } from '../mock/types'
 
 const PROVIDER_LABEL: Record<MapProvider, string> = {
@@ -22,13 +22,9 @@ export default function MapResourcePage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">地图资源</h2>
-          <p className="fp-sub">EChart / 高德 / 百度 / 腾讯 / 任意三方地图底图，画布地理可视化来源</p>
-        </div>
-        <Button onClick={() => setEditing({ name: '', provider: 'echart', center: [104, 35], zoom: 1 })}>＋ 新建地图</Button>
-      </div>
+      <PageHeader title="地图资源" subtitle="EChart / 高德 / 百度 / 腾讯 / 任意三方地图底图，画布地理可视化来源">
+<Button onClick={() => setEditing({ name: '', provider: 'echart', center: [104, 35], zoom: 1 })}>＋ 新建地图</Button>
+</PageHeader>
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (

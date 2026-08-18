@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, App, Button, Popconfirm, Select, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Field, Input, Modal, Tag, Textarea } from './common'
+import { Field, Input, Modal, Tag, Textarea , PageHeader } from './common'
 import type { CodeSnippetDTO, CodeLang } from '../mock/types'
 
 const LANG_LABEL: Record<CodeLang, string> = { vue: 'Vue', html: 'HTML', ts: 'TypeScript', js: 'JavaScript', sql: 'SQL' }
@@ -55,13 +55,9 @@ export default function CodeRepoPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">代码仓库</h2>
-          <p className="fp-sub">源码组件 / Vue / HTML / SQL 片段管理，支持二次开发与一键封装为组件</p>
-        </div>
-        <span className="fp-count">共 {data?.list.length ?? 0} 个片段</span>
-      </div>
+      <PageHeader title="代码仓库" subtitle="源码组件 / Vue / HTML / SQL 片段管理，支持二次开发与一键封装为组件">
+<span className="fp-count">共 {data?.list.length ?? 0} 个片段</span>
+</PageHeader>
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (

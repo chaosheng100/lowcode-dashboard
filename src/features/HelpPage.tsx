@@ -1,5 +1,5 @@
 import { Card, Col, Collapse, Row } from 'antd'
-import { Section } from './common'
+import { Section , PageHeader } from './common'
 
 const FAQ = [
   { q: '如何新建一个大屏？', a: '进入「大屏管理」→ 新建大屏，或在画布中点「＋」从组件面板拖入组件，保存即生成大屏路由。' },
@@ -19,9 +19,7 @@ const STEPS = [
 export default function HelpPage() {
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">帮助中心</h2><p className="fp-sub">平台使用指南、最佳实践与常见问题</p></div>
-      </div>
+      <PageHeader title="帮助中心" subtitle="平台使用指南、最佳实践与常见问题" />
       <Section title="快速上手" desc="三步搭建你的第一个数据大屏">
         <Row gutter={12}>
           {STEPS.map((s) => (

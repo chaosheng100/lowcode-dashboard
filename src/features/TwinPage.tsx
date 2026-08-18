@@ -32,7 +32,7 @@ import {
 } from '@ant-design/icons'
 import { useApi } from './useApi'
 import { api, type TwinCategory, type TwinModelDTO } from '../mock'
-import { Input, Tag } from './common'
+import { Input, PageHeader, Tag } from './common'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { getToken, useAuthStore } from '../auth/store'
@@ -783,15 +783,15 @@ export default function TwinPage(props: TwinPageProps = {}) {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="feature-page">
       {lockInfo && <div className="twin-lock-banner">{lockInfo}</div>}
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">数字孪生 3D 编辑器{readOnly ? '（预览）' : ''}</h2>
-          <p className="fp-sub">
+      <PageHeader
+        title={<>数字孪生 3D 编辑器{readOnly ? '（预览）' : ''}</>}
+        subtitle={
+          <>
             {readOnly ? '场景预览 · ' : '拖拽搭建 · 关键帧轨迹 · '}日照/夜景/雾效 · {entities.length} 个场景对象 · {totalKeyframes} 个关键帧{readOnly ? '' : ' · 仿真/控制/告警已接入'}
-          </p>
-        </div>
-        <span className="fp-count">模型库 {models?.total ?? (models?.list?.length ?? 0)} 种</span>
-      </div>
+          </>
+        }
+        actions={<span className="fp-count">模型库 {models?.total ?? (models?.list?.length ?? 0)} 种</span>}
+      />
 
       <div className={readOnly ? 'twin-editor twin-preview' : 'twin-editor'}>
         {/* 左：模型库（预览模式隐藏） */}

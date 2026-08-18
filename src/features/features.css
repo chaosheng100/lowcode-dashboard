@@ -2,9 +2,10 @@
  * 功能页样式 —— 科技清新风：数据表格 / 统计卡 / Section / Tag / Modal / Input / Tab
  * ============================================================ */
 .feature-page {
-  flex: 1; min-height: 0; overflow: auto; padding: 14px 16px;
+  flex: 1; min-height: 0; overflow: auto;
   background: var(--bg);
   display: flex; flex-direction: column;
+  padding: 20px 24px;
 }
 
 /* 鈥斺€?椤靛ご 鈥斺€?*/
@@ -135,6 +136,42 @@
 }
 
 /* 鈥斺€?缁熻鍗?鈥斺€?*/
+/* 通用指标卡（苹果风白色圆角统计卡） */
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.metric-card {
+  background: var(--panel-solid);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+  cursor: default;
+  transition: all var(--t-fast);
+}
+.metric-card:hover { border-color: var(--line-strong); }
+.metric-value { font-size: 22px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.metric-label { font-size: 12px; color: var(--sub); margin-top: 4px; }
+/* 页头操作区（PageHeader 右侧 actions） */
+.fp-head-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* 列表页通用工具栏（白色圆角卡，统一各管理/列表页过滤条外观） */
+.list-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 16px;
+}
+.list-toolbar > * { flex: none; }
+.list-toolbar .ant-input-affix-wrapper { width: min(260px, 100%); }
+
+/* 兼容旧 .stat 壳写法（若仍有引用） */
 .stat {
   flex: 1; min-width: 120px;
   background: var(--panel-grad); border: 1px solid var(--line); border-radius: var(--r-lg);
@@ -201,9 +238,13 @@
 }
 
 /* ============================================================
- * 鎶ヨ〃绠＄悊
+ * 报表管理（Apple 风格）
  * ============================================================ */
-.report-page { gap: 14px; }
+.report-page {
+  display: flex; flex-direction: column;
+  flex: 1 1 auto; min-height: 0;
+  gap: 16px; padding: 20px 24px; overflow: auto;
+}
 .report-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
 }
@@ -251,7 +292,14 @@
   font-size: 12px;
 }
 .report-notice button { margin-left: auto; width: 28px; height: 28px; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 18px; }
-.report-table-wrap { min-height: 0; flex: 1; overflow: auto; }
+.report-table-wrap {
+  min-height: 0; flex: 1; overflow: auto;
+  background: var(--panel-solid);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 8px 4px;
+}
 .report-table { min-width: 1120px; }
 .report-table th { top: 0; z-index: 1; }
 .report-table td { vertical-align: middle; }
@@ -893,26 +941,28 @@
  * ============================================================ */
 /* 鍒悕锛氱粍浠剁敤 report-summary / report-toolbar / report-search / report-table-scroll / report-notice-close */
 .report-summary {
-  display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr));
-  border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.report-summary > div {
   background: var(--panel-solid);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
 }
-.report-summary button {
-  min-height: 58px; padding: 10px 14px; border: 0; border-right: 1px solid var(--line);
-  background: transparent; color: var(--txt); text-align: left; cursor: pointer;
-  transition: background var(--t-fast), box-shadow var(--t-fast);
-}
-.report-summary button:last-child { border-right: 0; }
-.report-summary button:hover, .report-summary button.active { background: rgba(0, 113, 227, 0.06); }
-.report-summary button.active { box-shadow: inset 0 -2px var(--accent); }
-.report-summary button.danger.active { box-shadow: inset 0 -2px var(--danger); }
-.report-summary span { display: block; color: var(--sub-bright); font-size: 11.5px; margin-bottom: 4px; }
-.report-summary strong { display: block; color: var(--txt-bright); font-size: 18px; font-variant-numeric: tabular-nums; }
+.report-summary span { display: block; color: var(--sub); font-size: 12px; margin-bottom: 4px; }
+.report-summary strong { display: block; color: var(--txt); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .report-summary .danger strong { color: var(--danger); }
 
 .report-toolbar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 12px; border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
 }
 .report-toolbar .report-search,
 .report-toolbar select {

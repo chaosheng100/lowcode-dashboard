@@ -4,7 +4,7 @@ import { useApi } from './useApi'
 import { api } from '../mock'
 import { getRouteCapability } from '../data/capabilities'
 import type { DataSourceDTO, DsKind, SqlVendor, ParseMode } from '../mock/types'
-import { Modal, Field, Input, Select, Tag, Textarea } from './common'
+import { Modal, Field, Input, Select, Tag, Textarea, PageHeader } from './common'
 import { querySqlViaProxy, proxyHealth } from '../data/live/liveClient'
 
 const KIND_LABEL: Record<DsKind, string> = {
@@ -95,18 +95,19 @@ export default function DataSourcePage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">数据源配置</h2>
-          <p className="fp-sub">
+      <PageHeader
+        title="数据源配置"
+        subtitle={
+          <>
             画布组件取数的来路 · {cap ? `画布能力：${cap.capability}` : ''} ·{' '}
             {proxyOn === null ? '代理检测中…' : proxyOn
               ? <span style={{ color: '#34c759' }}>● 数据代理在线（SQL/WS/MQTT 真实取数）</span>
               : <span style={{ color: '#ff9500' }}>● 数据代理离线（npm run proxy 启动后启用真实取数）</span>}
-          </p>
-        </div>
+          </>
+        }
+      >
         <Button onClick={() => setEditing({ name: '', kind: 'api', scope: 'public', endpoint: '', status: 'connected' })}>＋ 新建数据源</Button>
-      </div>
+      </PageHeader>
 
       <Tabs
         activeKey={filter}

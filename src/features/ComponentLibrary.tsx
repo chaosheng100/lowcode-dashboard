@@ -35,7 +35,7 @@ import {
   iotComponentAssets,
   type IoTWidgetKind
 } from './iotWidgetCatalog'
-import { Field, Input, Modal, Tag, Textarea } from './common'
+import { Field, Input, Modal, PageHeader, Tag, Textarea } from './common'
 
 const WIDGET_STATUS: Record<WidgetLifecycleStatus, { label: string; color: string }> = {
   draft: { label: '草稿', color: '#86868b' },
@@ -300,17 +300,16 @@ export default function ComponentLibrary() {
 
   return (
     <div className="feature-page component-library-page">
-      <div className="fp-head component-library-head">
-        <div>
-          <h2 className="fp-title">组件库</h2>
-          <p className="fp-sub">统一管理标准组件与数字孪生业务组件，按资产键幂等投放到大屏</p>
-        </div>
-        <div className="component-library-summary" aria-label="组件资产统计">
+      <PageHeader
+        className="component-library-head"
+        title="组件库"
+        subtitle="统一管理标准组件与数字孪生业务组件，按资产键幂等投放到大屏"
+        actions={<div className="component-library-summary" aria-label="组件资产统计">
           <span>标准组件 <strong>{standardComponentAssets.length}</strong></span>
           <span>孪生组件 <strong>{twinComponentAssets.length}</strong></span>
           <span>服务已注册 <strong>{data?.list.length ?? 0}</strong></span>
-        </div>
-      </div>
+        </div>}
+      />
 
       {/* 组件中心状态统计条 */}
       {stats && (

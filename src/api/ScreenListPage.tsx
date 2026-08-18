@@ -27,6 +27,7 @@ import {
   Typography,
   type MenuProps,
 } from 'antd'
+import { MetricCard, MetricRow, PageHeader } from '../features/common'
 import {
   AuditOutlined,
   CodeOutlined,
@@ -407,72 +408,64 @@ export default function ScreenListPage() {
   }
 
   return (
-    <div className="screen-page">
-      <div className="screen-head">
-        <h2>大屏管理</h2>
-        <div className="screen-toolbar">
-          <Input
-            placeholder="搜索大屏名称"
-            prefix={<SearchOutlined style={{ opacity: 0.5 }} />}
-            value={kw}
-            onChange={(e) => setKw(e.target.value)}
-            allowClear
-          />
-          <Select
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v)}
-            style={{ width: 120 }}
-            options={[
-              { value: 'all', label: '全部状态' },
-              { value: 'DRAFT', label: '草稿' },
-              { value: 'PENDING_REVIEW', label: '待审核' },
-              { value: 'APPROVED', label: '已通过' },
-              { value: 'PUBLISHED', label: '已发布' },
-              { value: 'ARCHIVED', label: '已归档' },
-            ]}
-          />
-          <Select
-            value={sortBy}
-            onChange={(v) => setSortBy(v)}
-            style={{ width: 130 }}
-            options={[
-              { value: 'updatedAt', label: '按更新时间' },
-              { value: 'createdAt', label: '按创建时间' },
-              { value: 'name', label: '按名称' },
-            ]}
-          />
-          <Button
-            icon={sortDesc ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
-            onClick={() => setSortDesc((v) => !v)}
-          >
-            {sortDesc ? '倒序' : '升序'}
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
-          <Button icon={<AuditOutlined />} onClick={openPolicy}>审批策略</Button>
+    <div className="feature-page">
+      <PageHeader
+        title="大屏管理"
+        subtitle="创建、管理并发布可视化大屏，支持审批与环境部署"
+        actions={
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建大屏
           </Button>
-        </div>
+        }
+      />
+
+      <div className="list-toolbar">
+        <Input
+          placeholder="搜索大屏名称"
+          prefix={<SearchOutlined style={{ opacity: 0.5 }} />}
+          value={kw}
+          onChange={(e) => setKw(e.target.value)}
+          allowClear
+        />
+        <Select
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v)}
+          style={{ width: 120 }}
+          options={[
+            { value: 'all', label: '全部状态' },
+            { value: 'DRAFT', label: '草稿' },
+            { value: 'PENDING_REVIEW', label: '待审核' },
+            { value: 'APPROVED', label: '已通过' },
+            { value: 'PUBLISHED', label: '已发布' },
+            { value: 'ARCHIVED', label: '已归档' },
+          ]}
+        />
+        <Select
+          value={sortBy}
+          onChange={(v) => setSortBy(v)}
+          style={{ width: 130 }}
+          options={[
+            { value: 'updatedAt', label: '按更新时间' },
+            { value: 'createdAt', label: '按创建时间' },
+            { value: 'name', label: '按名称' },
+          ]}
+        />
+        <Button
+          icon={sortDesc ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
+          onClick={() => setSortDesc((v) => !v)}
+        >
+          {sortDesc ? '倒序' : '升序'}
+        </Button>
+        <Button icon={<ReloadOutlined />} onClick={load}>刷新</Button>
+        <Button icon={<AuditOutlined />} onClick={openPolicy}>审批策略</Button>
       </div>
 
-      <div className="screen-summary">
-        <div className="screen-summary-item">
-          <strong>{stats.total}</strong>
-          <span>全部大屏</span>
-        </div>
-        <div className="screen-summary-item">
-          <strong>{stats.published}</strong>
-          <span>已发布</span>
-        </div>
-        <div className="screen-summary-item">
-          <strong>{stats.pending}</strong>
-          <span>待审核</span>
-        </div>
-        <div className="screen-summary-item">
-          <strong>{stats.draft}</strong>
-          <span>草稿</span>
-        </div>
-      </div>
+      <MetricRow>
+        <MetricCard label="全部大屏" value={stats.total} accent="#0071e3" />
+        <MetricCard label="已发布" value={stats.published} accent="#34c759" />
+        <MetricCard label="待审核" value={stats.pending} accent="#ff9500" />
+        <MetricCard label="草稿" value={stats.draft} accent="var(--sub)" />
+      </MetricRow>
 
       <Spin spinning={loading}>
         {!loading && filtered.length === 0 ? (

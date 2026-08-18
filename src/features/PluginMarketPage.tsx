@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Tag } from './common'
+import { Tag , PageHeader } from './common'
 
 /** 插件市场：一键安装市场插件为画布组件能力 */
 export default function PluginMarketPage() {
@@ -15,10 +15,9 @@ export default function PluginMarketPage() {
   }
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div><h2 className="fp-title">插件市场</h2><p className="fp-sub">浏览并一键安装市场插件，扩展画布组件生态</p></div>
-        <span className="fp-count">共 {data?.list.length ?? 0} 个</span>
-      </div>
+      <PageHeader title="插件市场" subtitle="浏览并一键安装市场插件，扩展画布组件生态">
+<span className="fp-count">共 {data?.list.length ?? 0} 个</span>
+</PageHeader>
       {loading && <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}
       {!loading && !error && (

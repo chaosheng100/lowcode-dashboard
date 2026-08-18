@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Modal, Field, Input, Tag } from './common'
+import { Modal, Field, Input, Tag , PageHeader } from './common'
 import type { CategoryDTO } from '../mock/types'
 
 const COLORS = ['#0a84ff', '#0a84ff', '#af52de', '#ff9500', '#34c759']
@@ -17,13 +17,9 @@ export default function CategoryPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">分类标签</h2>
-          <p className="fp-sub">大屏 / 组件 / 资源的分类与标签，沉淀为画布模板与分组</p>
-        </div>
-        <Button onClick={() => setEditing({ name: '', group: '大屏分类', color: '#0a84ff', count: 0 })}>＋ 新建分类</Button>
-      </div>
+      <PageHeader title="分类标签" subtitle="大屏 / 组件 / 资源的分类与标签，沉淀为画布模板与分组">
+<Button onClick={() => setEditing({ name: '', group: '大屏分类', color: '#0a84ff', count: 0 })}>＋ 新建分类</Button>
+</PageHeader>
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
       {!loading && !error && (

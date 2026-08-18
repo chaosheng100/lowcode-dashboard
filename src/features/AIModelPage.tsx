@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Alert, Button, Spin } from 'antd'
 import { useApi } from './useApi'
 import { api } from '../mock'
-import { Modal, Field, Input, Select, Tag } from './common'
+import { Modal, Field, Input, Select, Tag , PageHeader } from './common'
 import type { AIModelDTO, AIModelType, ProviderCatalogItem } from '../mock/types'
 
 const TYPE_LABEL: Record<AIModelType, string> = { chat: '对话', vision: '视觉', code: '代码', embedding: '向量' }
@@ -76,19 +76,15 @@ export default function AIModelPage() {
 
   return (
     <div className="feature-page">
-      <div className="fp-head">
-        <div>
-          <h2 className="fp-title">AI 模型管理</h2>
-          <p className="fp-sub">智能生成组件 / 代码加注释 / AI 问答 + 自定义机器人的模型底座（需填写 API Key 才能接入对话）</p>
-        </div>
-        <Button
+      <PageHeader title="AI 模型管理" subtitle="智能生成组件 / 代码加注释 / AI 问答 + 自定义机器人的模型底座（需填写 API Key 才能接入对话）">
+<Button
           onClick={() =>
             setEditing({ name: '', provider: '', type: 'chat', baseUrl: '', apiKey: '', status: 'unset', group: 'default', priority: 0 })
           }
         >
           ＋ 接入模型
         </Button>
-      </div>
+</PageHeader>
       {loading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
           <Spin />

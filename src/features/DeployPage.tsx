@@ -18,6 +18,7 @@ import {
 import { ReloadOutlined, SendOutlined } from '@ant-design/icons'
 import { useApi } from './useApi'
 import { api } from '../mock'
+import { MetricCard, MetricRow } from './common'
 import { screenApi } from '../api/screenApi'
 import { screenToRoute } from '../api/screenAdapter'
 import { buildStandaloneHtml, type StandalonePayload } from './standaloneBuilder'
@@ -279,10 +280,14 @@ export default function DeployPage() {
   // ====================== 视图 ======================
   const overview = (
     <div className="grid2" style={{ padding: 16, gap: 16 }}>
-      <Card><div className="fp-sub">可部署大屏</div><div style={{ fontSize: 28, fontWeight: 800, color: '#0071e3' }}>{dashboards.length}</div></Card>
-      <Card><div className="fp-sub">已部署包</div><div style={{ fontSize: 28, fontWeight: 800, color: '#34c759' }}>{pkgs.filter((p) => p.status === 'deployed').length}</div></Card>
-      <Card><div className="fp-sub">部署环境</div><div style={{ fontSize: 28, fontWeight: 800, color: '#0a84ff' }}>{envs.length}</div></Card>
-      <Card><div className="fp-sub">最近部署</div><div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{recs[0]?.packageName || '—'}</div><div className="fp-sub">{recs[0] ? new Date(recs[0].deployedAt).toLocaleString('zh-CN') : '暂无记录'}</div></Card>
+      <MetricRow style={{ gridColumn: '1 / -1' }}>
+        <MetricCard label="可部署大屏" value={dashboards.length} accent="#0071e3" />
+        <MetricCard label="已部署包" value={pkgs.filter((p) => p.status === 'deployed').length} accent="#34c759" />
+        <MetricCard label="部署环境" value={envs.length} accent="#0a84ff" />
+        <MetricCard label="最近部署" value={recs[0]?.packageName || '—'} accent="var(--txt)">
+          <div className="fp-sub">{recs[0] ? new Date(recs[0].deployedAt).toLocaleString('zh-CN') : '暂无记录'}</div>
+        </MetricCard>
+      </MetricRow>
       <Card style={{ gridColumn: '1 / -1' }}>
         <div className="fp-sub" style={{ marginBottom: 8 }}>说明</div>
         <div style={{ color: '#86868b', fontSize: 13, lineHeight: 1.8 }}>
