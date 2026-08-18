@@ -11,7 +11,13 @@ import DataEntryPage from './DataEntryPage'
 import WorkflowPage from './WorkflowPage'
 import ComponentMenuPage from './ComponentMenuPage'
 import AIModelPage from './AIModelPage'
+import BotMarketPage from './BotMarketPage'
 import AIAssistantPage from './AIAssistantPage'
+import PromptTemplatePage from './PromptTemplatePage'
+import AgentUsagePage from './AgentUsagePage'
+import ToolsPage from './ToolsPage'
+import KnowledgePage from './KnowledgePage'
+import FlowPage from './FlowPage'
 import GlobalVarPage from './GlobalVarPage'
 import CodeRepoPage from './CodeRepoPage'
 import MapResourcePage from './MapResourcePage'
@@ -55,7 +61,13 @@ export const featurePages: Record<string, ComponentType> = {
   '/components/menu': ComponentMenuPage,
   // AI 智能
   '/ai/models': AIModelPage,
+  '/ai/market': BotMarketPage,
   '/ai/assistant': AIAssistantPage,
+  '/ai/prompts': PromptTemplatePage,
+  '/ai/usage': AgentUsagePage,
+  '/ai/tools': ToolsPage,
+  '/ai/knowledge': KnowledgePage,
+  '/ai/flows': FlowPage,
   // 开发工具
   '/dev/variables': GlobalVarPage,
   '/dev/code': CodeRepoPage,

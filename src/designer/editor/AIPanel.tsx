@@ -73,6 +73,10 @@ export default function AIPanel({ onClose }: { onClose: () => void }) {
           result.schema = s
         },
         onReview: setReview,
+        onFallback: (info) =>
+          message.info(
+            `模型 ${info.from || ''} 调用失败，已自动切换到 ${info.to || ''}`,
+          ),
         onError: (m) => {
           setError(m)
           setLoading(false)

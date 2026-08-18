@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { App, Button, Collapse, Empty, Input, Space, Spin, Tag } from 'antd'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { App, Button, Collapse, Empty, Input, Modal, Space, Spin, Tag } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import { api } from '../mock/api'
-import type { AIBotDTO, CodeLang } from '../mock/types'
+import type { AIBotDTO, AISessionItem, CodeLang } from '../mock/types'
 import { extractEchartsOption } from './aiEcharts'
 
 const CARD = {
@@ -68,6 +68,77 @@ export default function AIAssistantPage() {
     'component',
   )
 
+  // ---- 会话管理 ----
+  const [sessions, setSessions] = useState<AISessionItem[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [renameTarget, setRenameTarget] = useState<AISessionItem | null>(null)
+  const [renameTitle, setRenameTitle] = useState('')
+
+  const loadSessions = useCallback(() => {
+    api
+      .listAISessions({ pageSize: 50 })
+      .then((r) => r.code === 0 && setSessions(r.data.list))
+      .catch(() => {})
+  }, [])
+  useEffect(loadSessions, [loadSessions])
+
+  const newSession = async () => {
+    const r = await api.createAISession({ title: '新会话' })
+    if (r.code === 0) {
+      setSessions((prev) => [r.data, ...prev])
+      setActiveSessionId(r.data.id)
+      setChat([])
+      setChatInput('')
+    } else {
+      message.error(r.message)
+    }
+  }
+
+  const selectSession = async (id: string) => {
+    setActiveSessionId(id)
+    const r = await api.getAISessionMessages(id)
+    setChat(
+      r.code === 0
+        ? r.data.map((m) => ({
+            role: m.role === 'user' ? 'user' : 'ai',
+            content: m.content,
+          }))
+        : [],
+    )
+  }
+
+  const confirmRename = async () => {
+    if (!renameTarget) return
+    const r = await api.renameAISession(renameTarget.id, renameTitle)
+    if (r.code === 0) {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === renameTarget.id
+            ? { ...s, title: renameTitle.trim() || s.title }
+            : s,
+        ),
+      )
+      message.success('已重命名')
+    } else {
+      message.error(r.message)
+    }
+    setRenameTarget(null)
+  }
+
+  const removeSession = async (id: string) => {
+    const r = await api.deleteAISession(id)
+    if (r.code === 0) {
+      setSessions((prev) => prev.filter((s) => s.id !== id))
+      if (activeSessionId === id) {
+        setActiveSessionId(null)
+        setChat([])
+      }
+      message.success('已删除会话')
+    } else {
+      message.error(r.message)
+    }
+  }
+
   // ---- 组件生成 ----
   const [compPrompt, setCompPrompt] = useState('')
   const [compType, setCompType] = useState<GenType>('html')
@@ -95,6 +166,10 @@ export default function AIAssistantPage() {
           compAccRef.current += t
           setCompCode(compAccRef.current)
         },
+        onFallback: (info) =>
+          message.info(
+            `模型 ${info.from || ''} 调用失败，已自动切换到 ${info.to || ''}`,
+          ),
         onError: (m) => setCompError(m),
       })
       if (r.code === 0 && r.data.code) setCompCode(r.data.code)
@@ -126,9 +201,14 @@ export default function AIAssistantPage() {
 
   const previewSrcDoc = (): string => {
     if (!compCode) return ''
-    if (compType === 'html') return compCode
+    const csp =
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: https:; font-src data: https:">'
+    if (compType === 'html') {
+      if (/^\s*<(?:!doctype|html)/i.test(compCode)) return compCode
+      return `<!doctype html><html><head><meta charset="utf-8">${csp}</head><body>${compCode}</body></html>`
+    }
     if (compType === 'echarts') {
-      return `<!doctype html><html><head><meta charset="utf-8"><script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#0b1325"><div id="chart" style="width:100vw;height:100vh"></div><script>\n${compCode}\ntry { echarts.init(document.getElementById('chart')).setOption(option || window.option || {}); } catch (e) { document.body.innerHTML = '<pre style="color:#f87171;padding:12px">' + e.message + '</pre>' }\n<\/script></body></html>`
+      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#0b1325"><div id="chart" style="width:100vw;height:100vh"></div><script>\n${compCode}\ntry { echarts.init(document.getElementById('chart')).setOption(option || window.option || {}); } catch (e) { document.body.innerHTML = '<pre style="color:#f87171;padding:12px">' + e.message + '</pre>' }\n<\/script></body></html>`
     }
     return ''
   }
@@ -201,6 +281,7 @@ export default function AIAssistantPage() {
     abortRef.current = ctrl
     api
       .aiChat(userMsg, {
+        sessionId: activeSessionId ?? undefined,
         signal: ctrl.signal,
         onDelta: (t) => {
           acc += t
@@ -210,6 +291,10 @@ export default function AIAssistantPage() {
             return next
           })
         },
+        onFallback: (info) =>
+          message.info(
+            `模型 ${info.from || ''} 调用失败，已自动切换到 ${info.to || ''}`,
+          ),
         onError: (m) => {
           setChat((c) => {
             const next = [...c]
@@ -218,13 +303,96 @@ export default function AIAssistantPage() {
           })
         },
       })
-      .finally(() => setChatLoading(false))
+      .then((r) => {
+        if (r.code === 0 && r.data.sessionId) {
+          setActiveSessionId((prev) => prev || (r.data.sessionId as string))
+        }
+      })
+      .finally(() => {
+        setChatLoading(false)
+        loadSessions()
+      })
   }
 
   return (
     <div style={{ padding: 24, color: '#e8f0ff', height: '100%', overflow: 'auto' }}>
       <h2 style={{ marginTop: 0 }}>AI 助手</h2>
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ width: 240, ...CARD, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Button type="primary" size="small" onClick={newSession}>
+            ＋ 新建会话
+          </Button>
+          <div
+            style={{
+              overflow: 'auto',
+              maxHeight: 520,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => selectSession(s.id)}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  background:
+                    activeSessionId === s.id
+                      ? 'rgba(0,212,255,.12)'
+                      : 'rgba(255,255,255,.03)',
+                  border:
+                    '1px solid ' +
+                    (activeSessionId === s.id
+                      ? 'rgba(0,212,255,.3)'
+                      : 'transparent'),
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {s.title || '未命名会话'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: '#7e8aa3' }}>
+                    {s.messageCount} 条
+                  </span>
+                  <Space size={0} style={{ marginLeft: 'auto' }}>
+                    <Button
+                      type="text"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setRenameTarget(s)
+                        setRenameTitle(s.title || '')
+                      }}
+                    >
+                      重命名
+                    </Button>
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeSession(s.id)
+                      }}
+                    >
+                      删除
+                    </Button>
+                  </Space>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div style={{ flex: 1, minWidth: 460, ...CARD }}>
           <Space style={{ marginBottom: 16 }}>
             <Button
@@ -412,6 +580,21 @@ export default function AIAssistantPage() {
           {activeTab === 'bot' && <BotList />}
         </div>
       </div>
+      <Modal
+        title="重命名会话"
+        open={!!renameTarget}
+        onOk={confirmRename}
+        onCancel={() => setRenameTarget(null)}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Input
+          value={renameTitle}
+          onChange={(e) => setRenameTitle(e.target.value)}
+          onPressEnter={confirmRename}
+          placeholder="会话标题"
+        />
+      </Modal>
     </div>
   )
 }

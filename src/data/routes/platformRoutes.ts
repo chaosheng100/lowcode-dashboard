@@ -47,6 +47,7 @@ const platformTree: RouteTreeNode[] = [
     path: '/ai',
     children: [
       { name: '模型管理', path: '/ai/models' },
+      { name: '机器人市场', path: '/ai/market' },
       { name: 'AI助手', path: '/ai/assistant' }
     ]
   },
