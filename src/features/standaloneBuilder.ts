@@ -33,21 +33,21 @@ export function buildStandaloneHtml(payload: StandalonePayload): string {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
-    background: #070c18;
-    background-image: radial-gradient(ellipse at 20% 0%, rgba(0,100,200,.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(0,200,180,.04) 0%, transparent 50%);
-    color: #e6edf3; font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f5f7;
+    background-image: radial-gradient(ellipse at 20% 0%, rgba(0, 113, 227,.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(52, 199, 89,.04) 0%, transparent 50%);
+    color: #1d1d1f; font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
     overflow: hidden;
   }
   #app { display: flex; flex-direction: column; height: 100%; }
-  header { display: flex; align-items: center; gap: 16px; height: 52px; padding: 0 18px; background: rgba(12,19,36,.72); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(42,66,108,.35); flex: none; }
-  #title { font-weight: 700; font-size: 15px; background: linear-gradient(135deg,#00d4ff,#4f8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px; }
-  #env { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: rgba(45,212,191,.12); color: #2dd4bf; border: 1px solid rgba(45,212,191,.3); }
+  header { display: flex; align-items: center; gap: 16px; height: 52px; padding: 0 18px; background: rgba(255, 255, 255,.72); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(0, 0, 0,.35); flex: none; }
+  #title { font-weight: 700; font-size: 15px; color: #1d1d1f; }
+  #env { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: rgba(52, 199, 89,.12); color: #34c759; border: 1px solid rgba(52, 199, 89,.3); }
   #nav { display: flex; gap: 8px; margin-left: auto; }
-  .tab { background: transparent; border: 1px solid rgba(42,66,108,.5); color: #9aa7b4; padding: 5px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
-  .tab:hover { color: #e6edf3; border-color: #00d4ff; }
-  .tab.active { background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(79,140,255,.15)); color: #e6edf3; border-color: #00d4ff; }
+  .tab { background: transparent; border: 1px solid rgba(0, 0, 0,.5); color: #86868b; padding: 5px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
+  .tab:hover { color: #1d1d1f; border-color: #0071e3; }
+  .tab.active { background: rgba(0, 113, 227,.12); color: #0071e3; border-color: #0071e3; }
   #stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-  #banner { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); display: none; align-items: center; background: linear-gradient(135deg,#00d4ff,#4f8cff); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; z-index: 100; box-shadow: 0 0 24px rgba(0,212,255,.18); }
+  #banner { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); display: none; align-items: center; background: #0071e3; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; z-index: 100; box-shadow: 0 4px 14px rgba(0, 0, 0,.12); }
   .comp { transition: opacity .2s, box-shadow .2s; }
 </style>
 </head>

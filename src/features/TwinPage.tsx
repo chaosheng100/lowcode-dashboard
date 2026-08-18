@@ -60,15 +60,15 @@ import { resolveEntityBinding, subscribeTwinLive } from '../twin/TwinDataBridge'
 type Keyframe = { time: number; x: number; z: number; rotationY: number }
 
 const PRESETS: { geoType: GeoType; name: string; color: string }[] = [
-  { geoType: 'box', name: '建筑A', color: '#4f8cff' },
-  { geoType: 'box', name: '建筑B', color: '#22d3ee' },
-  { geoType: 'cylinder', name: '储罐', color: '#a855f7' },
-  { geoType: 'sphere', name: '球形罐', color: '#4ade80' },
-  { geoType: 'cone', name: '塔楼', color: '#f59e0b' },
-  { geoType: 'torus', name: '环形设施', color: '#ec4899' },
-  { geoType: 'box', name: '厂房', color: '#64748b' },
-  { geoType: 'cylinder', name: '烟囱', color: '#ef4444' },
-  { geoType: 'plane', name: '平台', color: '#3b82f6' }
+  { geoType: 'box', name: '建筑A', color: '#0a84ff' },
+  { geoType: 'box', name: '建筑B', color: '#0a84ff' },
+  { geoType: 'cylinder', name: '储罐', color: '#af52de' },
+  { geoType: 'sphere', name: '球形罐', color: '#34c759' },
+  { geoType: 'cone', name: '塔楼', color: '#ff9500' },
+  { geoType: 'torus', name: '环形设施', color: '#ff2d55' },
+  { geoType: 'box', name: '厂房', color: '#86868b' },
+  { geoType: 'cylinder', name: '烟囱', color: '#ff3b30' },
+  { geoType: 'plane', name: '平台', color: '#0071e3' }
 ]
 
 const BINDING_TARGETS: { key: string; label: string; hint: string }[] = [
@@ -644,7 +644,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
       name: `测量${annotations.length + 1}`,
       start,
       end: { x: gp.x, z: gp.z },
-      color: '#4ade80'
+      color: '#34c759'
     }
     setAnnotations((prev) => [...prev, ann])
     view.addAnnotation(ann)
@@ -987,7 +987,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
                             onChange={(v) => {
                               const glowColor = selected.material?.emissive && selected.material.emissive !== '#000000'
                                 ? selected.material.emissive
-                                : '#4f8cff'
+                                : '#0a84ff'
                               updateSelected({
                                 material: {
                                   ...(selected.material || {}),
@@ -1056,7 +1056,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
                       <span className="twin-field-label">测试数据</span>
                       <div className="twin-field-ctrl">
                         <Input
-                          placeholder='{"temperature":85,"health":35,"color":"#ef4444","state":"fault"}'
+                          placeholder='{"temperature":85,"health":35,"color":"#ff3b30","state":"fault"}'
                           value={testRowText}
                           onChange={(e) => {
                             const text = e.target.value
@@ -1236,33 +1236,33 @@ export default function TwinPage(props: TwinPageProps = {}) {
               const x = (i / duration) * TL_WIDTH
               return (
                 <g key={i}>
-                  <line x1={x} y1={0} x2={x} y2={RULER_H} stroke="#2a3340" strokeWidth={1} />
-                  <text x={x + 3} y={14} fill="#6b7d8f" fontSize={10}>{i}s</text>
+                  <line x1={x} y1={0} x2={x} y2={RULER_H} stroke="#d2d2d7" strokeWidth={1} />
+                  <text x={x + 3} y={14} fill="#86868b" fontSize={10}>{i}s</text>
                 </g>
               )
             })}
             {objectsWithKfs.length === 0 ? (
-              <text x={TL_WIDTH / 2 - 60} y={RULER_H + 30} fill="#6b7d8f" fontSize={12}>选中对象后点击「录制关键帧」添加轨迹</text>
+              <text x={TL_WIDTH / 2 - 60} y={RULER_H + 30} fill="#86868b" fontSize={12}>选中对象后点击「录制关键帧」添加轨迹</text>
             ) : (
               objectsWithKfs.map((o, rowIdx) => {
                 const y = RULER_H + rowIdx * ROW_H
                 const kfs = keyframes[o.id] || []
                 return (
                   <g key={o.id}>
-                    <line x1={0} y1={y} x2={TL_WIDTH} y2={y} stroke="#1a2433" strokeWidth={1} />
-                    <text x={4} y={y + 14} fill="#9fb0c3" fontSize={10}>{o.name}</text>
+                    <line x1={0} y1={y} x2={TL_WIDTH} y2={y} stroke="#e5e5ea" strokeWidth={1} />
+                    <text x={4} y={y + 14} fill="#86868b" fontSize={10}>{o.name}</text>
                     {kfs.map((kf, i) => {
                       const kx = (kf.time / duration) * TL_WIDTH
                       return (
-                        <polygon key={i} points={`${kx - 5},${y + 10} ${kx},${y + 4} ${kx + 5},${y + 10} ${kx},${y + 16}`} fill={o.color} stroke="#0a0e1a" strokeWidth={0.5} style={{ cursor: 'pointer' }} />
+                        <polygon key={i} points={`${kx - 5},${y + 10} ${kx},${y + 4} ${kx + 5},${y + 10} ${kx},${y + 16}`} fill={o.color} stroke="#ffffff" strokeWidth={0.5} style={{ cursor: 'pointer' }} />
                       )
                     })}
                   </g>
                 )
               })
             )}
-            <line x1={(currentTime / duration) * TL_WIDTH} y1={0} x2={(currentTime / duration) * TL_WIDTH} y2={Math.max(tlContentH, TL_HEIGHT)} stroke="#ef4444" strokeWidth={1.5} />
-            <polygon points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`} fill="#ef4444" />
+            <line x1={(currentTime / duration) * TL_WIDTH} y1={0} x2={(currentTime / duration) * TL_WIDTH} y2={Math.max(tlContentH, TL_HEIGHT)} stroke="#ff3b30" strokeWidth={1.5} />
+            <polygon points={`${(currentTime / duration) * TL_WIDTH - 5},0 ${(currentTime / duration) * TL_WIDTH + 5},0 ${(currentTime / duration) * TL_WIDTH},8`} fill="#ff3b30" />
           </svg>
         </div>
       )}

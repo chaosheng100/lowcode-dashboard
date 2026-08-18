@@ -72,7 +72,7 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
             border: '1px solid var(--line)',
             borderRadius: 'var(--r-lg)',
             padding: 10,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
             zIndex: 100,
           }}
         >

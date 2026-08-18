@@ -110,7 +110,7 @@ export default function ResourcePanel() {
 
   return (
     <div className="dlp-inner">
-      <div style={{ color: '#9aa7b4', fontSize: 12, marginBottom: 10 }}>基础能力 → 画布</div>
+      <div style={{ color: '#86868b', fontSize: 12, marginBottom: 10 }}>基础能力 → 画布</div>
       <Tabs
         size="small"
         activeKey={tab}

@@ -41,8 +41,8 @@ function LayerItem({
       data-layer-id={component.id}
       onClick={() => onSelect(component.id)}
       style={{
-        border: `1px solid ${isOver ? '#00d4ff' : selected ? 'rgba(0,212,255,.45)' : 'rgba(42,66,108,.35)'}`,
-        background: selected ? 'rgba(0,212,255,.1)' : 'rgba(15,23,42,.55)',
+        border: `1px solid ${isOver ? '#0071e3' : selected ? 'rgba(0, 113, 227,.45)' : 'rgba(0, 0, 0,.08)'}`,
+        background: selected ? 'rgba(0, 113, 227,.1)' : 'var(--panel2)',
         borderRadius: 6,
         marginBottom: 6,
         opacity: isDragging ? 0.35 : 1,

@@ -34,12 +34,12 @@ import ModelPreview3D from '../twin/ModelPreview3D'
 
 const CATEGORIES: TwinCategory[] = ['建筑', '设备', '交通', '自然', '人物', '其他']
 const CATEGORY_COLORS: Record<string, string> = {
-  建筑: '#4f8cff',
-  设备: '#a855f7',
-  交通: '#22d3ee',
-  自然: '#4ade80',
-  人物: '#f59e0b',
-  其他: '#94a3b8'
+  建筑: '#0a84ff',
+  设备: '#af52de',
+  交通: '#0a84ff',
+  自然: '#34c759',
+  人物: '#ff9500',
+  其他: '#86868b'
 }
 const STATUS_LABELS: Record<TwinModelStatus, string> = {
   draft: '草稿',
@@ -47,9 +47,9 @@ const STATUS_LABELS: Record<TwinModelStatus, string> = {
   inactive: '已下架'
 }
 const STATUS_COLORS: Record<TwinModelStatus, string> = {
-  draft: '#f59e0b',
-  active: '#4ade80',
-  inactive: '#94a3b8'
+  draft: '#ff9500',
+  active: '#34c759',
+  inactive: '#86868b'
 }
 
 function formatBytes(n?: number): string {
@@ -416,7 +416,7 @@ export default function TwinModelLibrary() {
               <div className="twin-lib-meta">
                 <div className="twin-lib-status-row">
                   <Tag color={STATUS_COLORS[m.status || 'active']}>{STATUS_LABELS[m.status || 'active']}</Tag>
-                  <Tag color={CATEGORY_COLORS[m.category] ?? '#4f8cff'}>{m.category || '其他'}</Tag>
+                  <Tag color={CATEGORY_COLORS[m.category] ?? '#0a84ff'}>{m.category || '其他'}</Tag>
                 </div>
                 {m.assetUrl ? (
                   <span className="muted2">{m.format?.toUpperCase()} · {formatBytes(m.fileSize)}</span>
@@ -427,7 +427,7 @@ export default function TwinModelLibrary() {
               {(m.tags ?? []).length > 0 && (
                 <div className="twin-lib-tags">
                   {m.tags!.map((t) => (
-                    <Tag key={t} color="#22d3ee">{t}</Tag>
+                    <Tag key={t} color="#0a84ff">{t}</Tag>
                   ))}
                 </div>
               )}
@@ -450,7 +450,7 @@ export default function TwinModelLibrary() {
                       </Tooltip>
                     </div>
                     {compressingId === m.id && compressProgress !== null && (
-                      <Progress percent={compressProgress} size="small" strokeColor="#22d3ee" />
+                      <Progress percent={compressProgress} size="small" strokeColor="#0a84ff" />
                     )}
                     <div className="twin-lib-action-row">
                       <Tooltip title="预览">
@@ -521,7 +521,7 @@ export default function TwinModelLibrary() {
                 <div key={`${f.name}-${i}`} className="twin-upload-file">
                   <div className="twin-upload-file-main">
                     <span className="twin-upload-file-name" title={f.name}>{f.name}</span>
-                    <Progress percent={uploadProgress[`${f.name}-${i}`] ?? 0} size="small" strokeColor="#22d3ee" />
+                    <Progress percent={uploadProgress[`${f.name}-${i}`] ?? 0} size="small" strokeColor="#0a84ff" />
                   </div>
                   <Button
                     type="text"
@@ -591,11 +591,11 @@ export default function TwinModelLibrary() {
             <div className="twin-preview-info">
               <Field label="名称"><span>{previewing.name}</span></Field>
               <Field label="分类">
-                <Tag color={CATEGORY_COLORS[previewing.category] ?? '#4f8cff'}>{previewing.category || '其他'}</Tag>
+                <Tag color={CATEGORY_COLORS[previewing.category] ?? '#0a84ff'}>{previewing.category || '其他'}</Tag>
               </Field>
               <Field label="标签">
                 {(previewing.tags ?? []).length
-                  ? previewing.tags!.map((t) => <Tag key={t} color="#22d3ee">{t}</Tag>)
+                  ? previewing.tags!.map((t) => <Tag key={t} color="#0a84ff">{t}</Tag>)
                   : <span className="muted2">无</span>}
               </Field>
               <Field label="格式"><span>{previewing.format ? previewing.format.toUpperCase() : '-'}</span></Field>

@@ -101,8 +101,8 @@ export default function DataSourcePage() {
           <p className="fp-sub">
             画布组件取数的来路 · {cap ? `画布能力：${cap.capability}` : ''} ·{' '}
             {proxyOn === null ? '代理检测中…' : proxyOn
-              ? <span style={{ color: '#4ade80' }}>● 数据代理在线（SQL/WS/MQTT 真实取数）</span>
-              : <span style={{ color: '#facc15' }}>● 数据代理离线（npm run proxy 启动后启用真实取数）</span>}
+              ? <span style={{ color: '#34c759' }}>● 数据代理在线（SQL/WS/MQTT 真实取数）</span>
+              : <span style={{ color: '#ff9500' }}>● 数据代理离线（npm run proxy 启动后启用真实取数）</span>}
           </p>
         </div>
         <Button onClick={() => setEditing({ name: '', kind: 'api', scope: 'public', endpoint: '', status: 'connected' })}>＋ 新建数据源</Button>
@@ -197,8 +197,8 @@ export default function DataSourcePage() {
             <>
               <div className="muted2" style={{ marginBottom: 6 }}>
                 {sqlOut.simulated
-                  ? <span style={{ color: '#facc15' }}>模拟结果（{sqlOut.fallbackReason || '驱动未安装'}）</span>
-                  : <span style={{ color: '#4ade80' }}>真实查询</span>}
+                  ? <span style={{ color: '#ff9500' }}>模拟结果（{sqlOut.fallbackReason || '驱动未安装'}）</span>
+                  : <span style={{ color: '#34c759' }}>真实查询</span>}
                 {' '}· {sqlOut.rows.length} 行 · {sqlOut.elapsedMs}ms
               </div>
               <Table<Record<string, unknown> | unknown[]>

@@ -7,86 +7,91 @@ import App from './App'
 import './styles/global.css'
 import './management/DashboardManagement.css'
 
-const { darkAlgorithm } = theme
+const { defaultAlgorithm } = theme
+document.documentElement.dataset.theme = 'light'
+
+// Apple HIG 风格系统令牌：浅色优先，浅灰分层 + 系统蓝
+const appleTheme = {
+  algorithm: defaultAlgorithm,
+  token: {
+    colorPrimary: '#0071e3',
+    colorInfo: '#0071e3',
+    colorLink: '#0071e3',
+    colorBgBase: '#f5f5f7',
+    colorBgLayout: '#f5f5f7',
+    colorBgContainer: '#ffffff',
+    colorBgElevated: '#ffffff',
+    colorBorder: 'rgba(0, 0, 0, 0.10)',
+    colorBorderSecondary: 'rgba(0, 0, 0, 0.06)',
+    colorText: '#1d1d1f',
+    colorTextSecondary: '#6e6e73',
+    colorTextTertiary: '#86868b',
+    colorTextQuaternary: '#aeaeb2',
+    colorSuccess: '#34c759',
+    colorWarning: '#ff9500',
+    colorError: '#ff3b30',
+    borderRadius: 10,
+    fontSize: 14,
+    controlHeight: 34,
+    controlHeightSM: 28,
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif',
+  },
+  components: {
+    Button: { controlHeight: 34, controlHeightSM: 28, fontWeight: 500 },
+    Input: { controlHeight: 34 },
+    InputNumber: { controlHeight: 34 },
+    Select: { controlHeight: 34 },
+    Table: {
+      headerBg: '#f5f5f7',
+      headerColor: '#6e6e73',
+      rowHoverBg: 'rgba(0, 0, 0, 0.03)',
+      borderColor: 'rgba(0, 0, 0, 0.06)',
+      cellPaddingBlock: 10,
+      cellPaddingInline: 12,
+    },
+    Modal: { contentBg: '#ffffff', headerBg: '#ffffff' },
+    Card: { headerBg: 'transparent', headerFontSize: 15 },
+    Tag: { defaultBg: '#f2f2f7', defaultColor: '#3a3a3c' },
+    Tabs: {
+      inkBarColor: '#0071e3',
+      itemSelectedColor: '#0071e3',
+      itemHoverColor: '#0a84ff',
+      horizontalMargin: '0',
+    },
+    Tree: {
+      nodeHoverBg: 'rgba(0, 0, 0, 0.04)',
+      nodeSelectedBg: 'rgba(0, 113, 227, 0.12)',
+      titleHeight: 26,
+    },
+    Slider: {
+      railBg: 'rgba(0, 0, 0, 0.12)',
+      trackBg: '#0071e3',
+      trackHoverBg: '#0a84ff',
+      handleColor: '#0071e3',
+      handleActiveColor: '#0071e3',
+    },
+    Pagination: { itemActiveBg: 'rgba(0, 113, 227, 0.12)' },
+    Menu: {
+      itemBg: '#ffffff',
+      itemHoverBg: 'rgba(0, 0, 0, 0.04)',
+      itemSelectedBg: 'rgba(0, 113, 227, 0.12)',
+      itemSelectedColor: '#0071e3',
+      itemHeight: 34,
+      itemMarginInline: 6,
+    },
+    Statistic: { titleFontSize: 12, contentFontSize: 24 },
+    Alert: {
+      colorInfoBg: 'rgba(0, 113, 227, 0.06)',
+      colorInfoBorder: 'rgba(0, 113, 227, 0.18)',
+    },
+    Popover: { colorBgElevated: '#ffffff' },
+  },
+}
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        algorithm: darkAlgorithm,
-        token: {
-          colorPrimary: '#00d4ff',
-          colorInfo: '#00d4ff',
-          colorBgBase: '#050810',
-          colorBgContainer: '#0b1325',
-          colorBgElevated: '#0f1a30',
-          colorBorder: 'rgba(42, 66, 108, 0.35)',
-          colorBorderSecondary: 'rgba(42, 66, 108, 0.2)',
-          colorText: '#e8f0ff',
-          colorTextSecondary: '#7889a3',
-          colorTextTertiary: '#9aabc4',
-          colorTextQuaternary: '#556080',
-          borderRadius: 6,
-          fontSize: 13,
-          controlHeight: 30,
-          controlHeightSM: 24,
-          colorSuccess: '#4ade80',
-          colorWarning: '#facc15',
-          colorError: '#f87171',
-        },
-        components: {
-          Button: { controlHeight: 30, controlHeightSM: 24 },
-          Input: { controlHeight: 30 },
-          Select: { controlHeight: 30 },
-          Table: {
-            headerBg: '#0f1a30',
-            headerColor: '#9aabc4',
-            rowHoverBg: 'rgba(0, 212, 255, 0.06)',
-            borderColor: 'rgba(42, 66, 108, 0.2)',
-            cellPaddingBlock: 6,
-            cellPaddingInline: 8,
-          },
-          Modal: { contentBg: '#0b1325', headerBg: '#0b1325' },
-          Tag: { defaultBg: 'rgba(0, 212, 255, 0.08)', defaultColor: '#00d4ff' },
-          InputNumber: { controlHeight: 30 },
-          Tabs: {
-            inkBarColor: '#00d4ff',
-            itemSelectedColor: '#00d4ff',
-            itemHoverColor: '#7fe7ff',
-            horizontalMargin: '0',
-          },
-          Tree: {
-            nodeHoverBg: 'rgba(0, 212, 255, 0.06)',
-            nodeSelectedBg: 'rgba(0, 212, 255, 0.14)',
-            titleHeight: 24,
-          },
-          Slider: {
-            railBg: 'rgba(42, 66, 108, 0.45)',
-            trackBg: '#00d4ff',
-            trackHoverBg: '#4f8cff',
-            handleColor: '#00d4ff',
-            handleActiveColor: '#00d4ff',
-          },
-          Pagination: { itemActiveBg: 'rgba(0, 212, 255, 0.12)' },
-          Menu: {
-            itemBg: '#0f1a30',
-            itemHoverBg: 'rgba(0, 212, 255, 0.06)',
-            itemSelectedBg: 'rgba(0, 212, 255, 0.12)',
-            itemSelectedColor: '#00d4ff',
-            itemHeight: 34,
-            itemMarginInline: 4,
-          },
-          Card: { headerBg: 'transparent', headerFontSize: 14 },
-          Statistic: { titleFontSize: 11, contentFontSize: 20 },
-          Alert: {
-            colorInfoBg: 'rgba(0, 212, 255, 0.08)',
-            colorInfoBorder: 'rgba(0, 212, 255, 0.25)',
-          },
-          Popover: { colorBgElevated: '#0f1a30' },
-        },
-      }}
-    >
+    <ConfigProvider locale={zhCN} theme={appleTheme}>
       <AntApp>
         <HashRouter>
           <App />

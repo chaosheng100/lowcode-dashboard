@@ -149,10 +149,10 @@ export default function BotMarketPage() {
   const renderBotCard = (bot: AIBotDTO, marketItem: boolean) => (
     <div key={bot.id} className="card">
       <div className="flex" style={{ justifyContent: 'space-between' }}>
-        <b style={{ color: '#e6edf3' }}>{bot.name}</b>
+        <b style={{ color: '#1d1d1f' }}>{bot.name}</b>
         <Space size={4}>
-          {bot.isPublic ? <Tag color="#4ade80">已共享</Tag> : <Tag color="#64748b">私有</Tag>}
-          {!bot.enabled && <Tag color="#f59e0b">停用</Tag>}
+          {bot.isPublic ? <Tag color="#34c759">已共享</Tag> : <Tag color="#86868b">私有</Tag>}
+          {!bot.enabled && <Tag color="#ff9500">停用</Tag>}
         </Space>
       </div>
       <div className="muted2" style={{ margin: '6px 0' }}>

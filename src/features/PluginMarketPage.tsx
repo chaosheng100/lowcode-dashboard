@@ -26,7 +26,7 @@ export default function PluginMarketPage() {
           {(data?.list ?? []).map((p) => (
             <div key={p.id} className="card">
               <div className="flex" style={{ justifyContent: 'space-between' }}>
-                <b style={{ color: '#e6edf3' }}>{p.name}</b><Tag color={p.installed ? '#4ade80' : '#9fb0c3'}>{p.installed ? '已安装' : '未安装'}</Tag>
+                <b style={{ color: '#1d1d1f' }}>{p.name}</b><Tag color={p.installed ? '#34c759' : '#86868b'}>{p.installed ? '已安装' : '未安装'}</Tag>
               </div>
               <div className="muted2" style={{ margin: '8px 0' }}>{p.desc}</div>
               <div className="muted2">作者 {p.author} · ★ {p.rating} · v{p.version}</div>

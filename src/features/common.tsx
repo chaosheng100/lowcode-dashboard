@@ -33,7 +33,7 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 }
 
 /** 彩色标签（保旧语义：字色=主色、底 10% 透明、边 40% 透明） */
-export function Tag({ color = '#4f8cff', children }: { color?: string; children: ReactNode }) {
+export function Tag({ color = '#0a84ff', children }: { color?: string; children: ReactNode }) {
   return (
     <AntTag style={{ color, borderColor: color + '66', background: color + '1a', marginInlineEnd: 4 }}>
       {children}

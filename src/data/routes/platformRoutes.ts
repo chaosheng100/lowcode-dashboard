@@ -113,7 +113,7 @@ function makeRoute(overrides: Partial<RouteConfig> = {}): RouteConfig {
     params: {},
     props: {},
     state: {},
-    page: { width: 1920, height: 1080, background: '#0a0e1a', backgroundImage: '', backgroundImageFit: 'stretch', backgroundImageOpacity: 1, scale: 0.42, fit: true },
+    page: { width: 1920, height: 1080, background: '#f5f5f7', backgroundImage: '', backgroundImageFit: 'stretch', backgroundImageOpacity: 1, scale: 0.42, fit: true },
     components: [],
     links: [],
     ...overrides

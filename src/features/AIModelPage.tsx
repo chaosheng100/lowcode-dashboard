@@ -122,8 +122,8 @@ export default function AIModelPage() {
           {(data?.list ?? []).map((m) => (
             <div key={m.id} className="card">
               <div className="flex" style={{ justifyContent: 'space-between' }}>
-                <b style={{ color: '#e6edf3' }}>{m.name}</b>
-                <Tag color={m.status === 'ready' ? '#4ade80' : m.status === 'error' ? '#ff8585' : '#e0b15a'}>
+                <b style={{ color: '#1d1d1f' }}>{m.name}</b>
+                <Tag color={m.status === 'ready' ? '#34c759' : m.status === 'error' ? '#ff3b30' : '#ff9500'}>
                   {m.status}
                 </Tag>
               </div>

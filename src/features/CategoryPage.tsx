@@ -5,7 +5,7 @@ import { api } from '../mock'
 import { Modal, Field, Input, Tag } from './common'
 import type { CategoryDTO } from '../mock/types'
 
-const COLORS = ['#4f8cff', '#22d3ee', '#a855f7', '#e0b15a', '#4ade80']
+const COLORS = ['#0a84ff', '#0a84ff', '#af52de', '#ff9500', '#34c759']
 
 /** 分类标签：大屏 / 组件 / 资源的分类与标签治理 */
 export default function CategoryPage() {
@@ -22,7 +22,7 @@ export default function CategoryPage() {
           <h2 className="fp-title">分类标签</h2>
           <p className="fp-sub">大屏 / 组件 / 资源的分类与标签，沉淀为画布模板与分组</p>
         </div>
-        <Button onClick={() => setEditing({ name: '', group: '大屏分类', color: '#4f8cff', count: 0 })}>＋ 新建分类</Button>
+        <Button onClick={() => setEditing({ name: '', group: '大屏分类', color: '#0a84ff', count: 0 })}>＋ 新建分类</Button>
       </div>
       {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>}
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 10 }} />}
@@ -32,7 +32,7 @@ export default function CategoryPage() {
             <div key={c.id} className="card" style={{ minWidth: 180 }}>
               <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ width: 12, height: 12, borderRadius: '50%', background: c.color, display: 'inline-block' }} />
-                <b style={{ color: '#e6edf3', flex: 1, marginLeft: 8 }}>{c.name}</b>
+                <b style={{ color: '#1d1d1f', flex: 1, marginLeft: 8 }}>{c.name}</b>
                 <Tag color={c.color}>{c.group}</Tag>
               </div>
               <div className="muted2" style={{ marginTop: 8 }}>关联 {c.count} 项</div>

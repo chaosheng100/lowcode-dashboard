@@ -255,10 +255,11 @@ export const assets: AssetDTO[] = ASSET_DEFS.map((a, i) => ({
 
 // 运行配置主题（画布主题来源）
 export const themes: ThemeDTO[] = [
-  { id: 'theme_dark', name: '深空蓝', background: '#0a0e1a', accent: '#4f8cff', desc: '默认深色科技风' },
-  { id: 'theme_cyan', name: '青绿极光', background: '#06141a', accent: '#22d3ee', desc: '冷色极光主题' },
-  { id: 'theme_purple', name: '紫魅夜', background: '#120a1f', accent: '#a855f7', desc: '紫调夜间主题' },
-  { id: 'theme_ink', name: '墨金', background: '#0d0b07', accent: '#e0b15a', desc: '商务墨金主题' }
+  { id: 'theme_light', name: '苹果浅色', background: '#f5f5f7', accent: '#0071e3', desc: '浅色系统风格' },
+  { id: 'theme_dark', name: '深空蓝', background: '#0a0e1a', accent: '#0a84ff', desc: '深色科技风' },
+  { id: 'theme_cyan', name: '青绿极光', background: '#06141a', accent: '#0a84ff', desc: '冷色极光主题' },
+  { id: 'theme_purple', name: '紫魅夜', background: '#120a1f', accent: '#af52de', desc: '紫调夜间主题' },
+  { id: 'theme_ink', name: '墨金', background: '#0d0b07', accent: '#ff9500', desc: '商务墨金主题' }
 ]
 
 // ====================== 扩展域：消息推送 ======================

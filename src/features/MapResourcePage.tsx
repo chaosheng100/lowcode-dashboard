@@ -37,7 +37,7 @@ export default function MapResourcePage() {
             {(data?.list ?? []).map((m) => (
               <div key={m.id} className="card" style={{ marginBottom: 12 }}>
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
-                  <b style={{ color: '#e6edf3' }}>{m.name}</b><Tag>{PROVIDER_LABEL[m.provider]}</Tag>
+                  <b style={{ color: '#1d1d1f' }}>{m.name}</b><Tag>{PROVIDER_LABEL[m.provider]}</Tag>
                 </div>
                 <div className="muted2" style={{ margin: '6px 0' }}>中心 {m.center?.join(', ') ?? '—'} · 缩放 {m.zoom}</div>
                 <div className="fp-toolbar" style={{ marginTop: 6 }}>
@@ -51,15 +51,15 @@ export default function MapResourcePage() {
             <div className="muted2" style={{ marginBottom: 8 }}>地图预览（{sel ? PROVIDER_LABEL[sel.provider] : '—'}）</div>
             {sel?.provider === 'echart' ? (
               <EChartBox height={280} option={{
-                title: { text: '区域指标分布', textStyle: { color: '#9fb0c3', fontSize: 13 } },
-                xAxis: { type: 'category', data: ['华东', '华北', '华南', '西部'], axisLabel: { color: '#9fb0c3' } },
-                yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1b2636' } } },
-                series: [{ type: 'bar', data: [320, 210, 260, 150], itemStyle: { color: '#4f8cff', borderRadius: [4, 4, 0, 0] } }]
+                title: { text: '区域指标分布', textStyle: { color: '#86868b', fontSize: 13 } },
+                xAxis: { type: 'category', data: ['华东', '华北', '华南', '西部'], axisLabel: { color: '#86868b' } },
+                yAxis: { type: 'value', splitLine: { lineStyle: { color: '#e5e5ea' } } },
+                series: [{ type: 'bar', data: [320, 210, 260, 150], itemStyle: { color: '#0a84ff', borderRadius: [4, 4, 0, 0] } }]
               }} />
             ) : (
-              <div style={{ height: 280, background: 'repeating-linear-gradient(0deg,#0b111b,#0b111b 19px,#101a28 20px),repeating-linear-gradient(90deg,#0b111b,#0b111b 19px,#101a28 20px)', borderRadius: 8, position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', left: '50%', top: '50%', width: 12, height: 12, background: '#ff8585', borderRadius: '50%', transform: 'translate(-50%,-50%)', boxShadow: '0 0 16px #ff8585' }} />
-                <div style={{ position: 'absolute', left: 12, bottom: 10, color: '#9fb0c3', fontSize: 12 }}>{sel ? PROVIDER_LABEL[sel.provider] : '请选择地图'}</div>
+              <div style={{ height: 280, background: 'repeating-linear-gradient(0deg,#f5f5f7,#f5f5f7 19px,#e8e8ed 20px),repeating-linear-gradient(90deg,#f5f5f7,#f5f5f7 19px,#e8e8ed 20px)', borderRadius: 8, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', left: '50%', top: '50%', width: 12, height: 12, background: '#ff3b30', borderRadius: '50%', transform: 'translate(-50%,-50%)', boxShadow: '0 0 0 4px rgba(255,59,48,0.12)' }} />
+                <div style={{ position: 'absolute', left: 12, bottom: 10, color: '#86868b', fontSize: 12 }}>{sel ? PROVIDER_LABEL[sel.provider] : '请选择地图'}</div>
               </div>
             )}
           </div>

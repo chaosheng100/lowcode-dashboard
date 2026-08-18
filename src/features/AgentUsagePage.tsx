@@ -40,7 +40,7 @@ export default function AgentUsagePage() {
           <p className="fp-sub">统计 AI 调用次数、Token 与耗时，配置每日调用上限</p>
         </div>
         <Space>
-          <span style={{ fontSize: 13, color: '#9fb0cc' }}>每日上限</span>
+          <span style={{ fontSize: 13, color: '#86868b' }}>每日上限</span>
           <InputNumber
             min={0}
             value={dailyLimit}
@@ -62,13 +62,13 @@ export default function AgentUsagePage() {
             style={{
               flex: '1 1 180px',
               padding: 12,
-              background: '#0d1322',
-              border: '1px solid #1b2740',
+              background: '#ffffff',
+              border: '1px solid #e5e5ea',
               borderRadius: 8,
             }}
           >
-            <div style={{ fontSize: 12, color: '#9fb0cc' }}>{s.label}</div>
-            <div style={{ fontSize: 20, color: '#e8f0ff' }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: '#86868b' }}>{s.label}</div>
+            <div style={{ fontSize: 20, color: '#1d1d1f' }}>{s.value}</div>
           </div>
         ))}
       </div>

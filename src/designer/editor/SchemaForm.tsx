@@ -100,7 +100,7 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
         if (f.type === 'color') {
           return item(
             <ColorPicker
-              value={(v as string) || '#4f8cff'}
+              value={(v as string) || '#0a84ff'}
               onChange={(c) => onChange({ [f.key]: c.toHexString() } as Partial<WidgetProps>)}
             />
           )

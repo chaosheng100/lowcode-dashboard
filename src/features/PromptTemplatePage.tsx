@@ -145,7 +145,7 @@ export default function PromptTemplatePage() {
               onChange={(scene) => setForm({ ...form, scene })}
               options={Object.entries(SCENE_LABEL).map(([value, label]) => ({ value, label }))}
             />
-            <span style={{ fontSize: 12, color: '#9fb0cc' }}>
+            <span style={{ fontSize: 12, color: '#86868b' }}>
               启用
               <Switch
                 size="small"

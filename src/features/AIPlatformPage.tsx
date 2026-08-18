@@ -11,9 +11,9 @@ export default function AIPlatformPage() {
         <div><h2 className="fp-title">AI 模型平台</h2><p className="fp-sub">外部 AI 平台模型接入画布智能组件</p></div>
       </div>
       <div className="flex" style={{ marginBottom: 14 }}>
-        <Stat label="已接入平台" value={3} accent="#4f8cff" />
-        <Stat label="可用模型" value={4} accent="#22d3ee" />
-        <Stat label="自定义机器人" value={2} accent="#a855f7" />
+        <Stat label="已接入平台" value={3} accent="#0a84ff" />
+        <Stat label="可用模型" value={4} accent="#0a84ff" />
+        <Stat label="自定义机器人" value={2} accent="#af52de" />
       </div>
       <Section title="接入方式" desc="将外部平台模型注册为画布可用的智能能力">
         <ul className="muted2" style={{ lineHeight: 1.9, margin: 0 }}>

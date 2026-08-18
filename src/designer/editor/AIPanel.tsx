@@ -139,10 +139,10 @@ export default function AIPanel({
         flexDirection: 'column',
         gap: 10,
         padding: embedded ? 4 : 12,
-        background: embedded ? 'transparent' : '#0b1325',
-        border: embedded ? 'none' : '1px solid #1e2a3a',
+        background: embedded ? 'transparent' : '#ffffff',
+        border: embedded ? 'none' : '1px solid #e5e5ea',
         borderRadius: embedded ? 0 : 8,
-        color: '#e8f0ff',
+        color: '#1d1d1f',
         boxShadow: embedded ? 'none' : '0 8px 30px rgba(0,0,0,0.45)',
         overflow: 'auto',
         height: embedded ? '100%' : undefined,
@@ -150,7 +150,7 @@ export default function AIPanel({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <b style={{ fontSize: 14 }}>
-          <RobotOutlined style={{ marginRight: 6, color: '#00d4ff' }} />
+          <RobotOutlined style={{ marginRight: 6, color: '#0071e3' }} />
           AI 编排大屏
         </b>
         <Tooltip title="关闭">
@@ -179,17 +179,17 @@ export default function AIPanel({
         </Button>
       </Space>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: 12 }}>⚠️ {error}</div>}
+      {error && <div style={{ color: '#ff3b30', fontSize: 12 }}>⚠️ {error}</div>}
 
       {loading && (
-        <div style={{ fontSize: 12, color: '#9fb0cc', maxHeight: 90, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
+        <div style={{ fontSize: 12, color: '#86868b', maxHeight: 90, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
           {thought || 'AI 正在编排当前大屏…'}
         </div>
       )}
 
       {intent && !loading && (
-        <div style={{ fontSize: 12, color: '#9fb0cc' }}>
-          <b style={{ color: '#69b1ff' }}>设计意图：</b>
+        <div style={{ fontSize: 12, color: '#86868b' }}>
+          <b style={{ color: '#0071e3' }}>设计意图：</b>
           {intent.summary}
           <div style={{ marginTop: 4 }}>
             {(intent.metrics || []).map((m, i) => (
@@ -202,8 +202,8 @@ export default function AIPanel({
       )}
 
       {review && !loading && (
-        <div style={{ fontSize: 12, color: '#9fb0cc' }}>
-          <b style={{ color: '#facc15' }}>结构校验：</b>
+        <div style={{ fontSize: 12, color: '#86868b' }}>
+          <b style={{ color: '#ff9500' }}>结构校验：</b>
           {review.issues?.length ? review.issues.join('；') : '通过'}
         </div>
       )}
@@ -212,8 +212,8 @@ export default function AIPanel({
         <div
           style={{
             padding: '8px 10px',
-            background: 'rgba(0,212,255,0.08)',
-            border: '1px solid rgba(0,212,255,0.25)',
+            background: 'rgba(0, 113, 227,0.08)',
+            border: '1px solid rgba(0, 113, 227,0.25)',
             borderRadius: 6,
             fontSize: 12,
           }}

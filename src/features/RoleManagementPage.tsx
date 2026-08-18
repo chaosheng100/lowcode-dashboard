@@ -148,7 +148,7 @@ export default function RoleManagementPage() {
       >
         {groupedPerms.map((g) => (
           <div key={g.group} style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, color: '#9aa7b4', marginBottom: 6 }}>{g.group}</div>
+            <div style={{ fontSize: 13, color: '#86868b', marginBottom: 6 }}>{g.group}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {g.perms.map((p) => {
                 const on = checked.includes(p)

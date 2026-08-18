@@ -16,9 +16,9 @@ const STATUS_LABELS: Record<IoTDeviceStatus, string> = {
 }
 
 const STATUS_COLORS: Record<IoTDeviceStatus, string> = {
-  online: '#4ade80',
-  offline: '#9aa7b4',
-  alarm: '#f87171'
+  online: '#34c759',
+  offline: '#86868b',
+  alarm: '#ff3b30'
 }
 
 export const iotComponentAssets: Array<ComponentAssetDefinition & { kind: IoTWidgetKind }> = [

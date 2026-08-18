@@ -34,7 +34,7 @@ function download(filename: string, content: string, type = 'application/json') 
   URL.revokeObjectURL(url)
 }
 
-const ENV_COLOR: Record<string, string> = { dev: '#22d3ee', test: '#facc15', prod: '#4ade80' }
+const ENV_COLOR: Record<string, string> = { dev: '#0a84ff', test: '#ff9500', prod: '#34c759' }
 const STATUS_COLOR: Record<string, string> = { draft: 'default', built: 'blue', deployed: 'green' }
 const REC_COLOR: Record<string, string> = { building: 'gold', success: 'green', failed: 'red' }
 const REC_LABEL: Record<string, string> = { building: '构建中', success: '成功', failed: '失败' }
@@ -279,15 +279,15 @@ export default function DeployPage() {
   // ====================== 视图 ======================
   const overview = (
     <div className="grid2" style={{ padding: 16, gap: 16 }}>
-      <Card><div className="fp-sub">可部署大屏</div><div style={{ fontSize: 28, fontWeight: 800, color: '#00d4ff' }}>{dashboards.length}</div></Card>
-      <Card><div className="fp-sub">已部署包</div><div style={{ fontSize: 28, fontWeight: 800, color: '#4ade80' }}>{pkgs.filter((p) => p.status === 'deployed').length}</div></Card>
-      <Card><div className="fp-sub">部署环境</div><div style={{ fontSize: 28, fontWeight: 800, color: '#22d3ee' }}>{envs.length}</div></Card>
+      <Card><div className="fp-sub">可部署大屏</div><div style={{ fontSize: 28, fontWeight: 800, color: '#0071e3' }}>{dashboards.length}</div></Card>
+      <Card><div className="fp-sub">已部署包</div><div style={{ fontSize: 28, fontWeight: 800, color: '#34c759' }}>{pkgs.filter((p) => p.status === 'deployed').length}</div></Card>
+      <Card><div className="fp-sub">部署环境</div><div style={{ fontSize: 28, fontWeight: 800, color: '#0a84ff' }}>{envs.length}</div></Card>
       <Card><div className="fp-sub">最近部署</div><div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{recs[0]?.packageName || '—'}</div><div className="fp-sub">{recs[0] ? new Date(recs[0].deployedAt).toLocaleString('zh-CN') : '暂无记录'}</div></Card>
       <Card style={{ gridColumn: '1 / -1' }}>
         <div className="fp-sub" style={{ marginBottom: 8 }}>说明</div>
-        <div style={{ color: '#9aa7b4', fontSize: 13, lineHeight: 1.8 }}>
+        <div style={{ color: '#86868b', fontSize: 13, lineHeight: 1.8 }}>
           企业级独立部署聚合「大屏 + 数据源 + 数据集 + 全局变量」多模块数据，支持多环境（开发/测试/生产）一套大屏多套配置；
-          导出的独立 HTML 为<strong style={{ color: '#e6edf3' }}>真实可运行</strong>的大屏产物，内置全局变量解析与点击联动（与平台内大屏同源联动）。
+          导出的独立 HTML 为<strong style={{ color: '#1d1d1f' }}>真实可运行</strong>的大屏产物，内置全局变量解析与点击联动（与平台内大屏同源联动）。
         </div>
       </Card>
     </div>
@@ -386,7 +386,7 @@ export default function DeployPage() {
         }}>导出独立 HTML（真实大屏）</Button>
         <Button onClick={() => buildCli()}>生成构建脚本</Button>
       </Space>
-      <div className="fp-sub" style={{ marginTop: 8, color: '#7889a3' }}>
+      <div className="fp-sub" style={{ marginTop: 8, color: '#6e6e73' }}>
         提示：独立 HTML 内置原生运行态，浏览器直接打开即为真实可交互大屏，支持全局变量 ${'{G.x}'} 解析与点击联动；图表优先加载 ECharts CDN，离线自动降级为 SVG。
       </div>
     </div>
@@ -560,10 +560,10 @@ export default function DeployPage() {
             <span>打包全局变量（实现模块间数据互通）</span>
           </div>
           <div className="fp-sub">数据源环境级绑定（覆盖默认 endpoint，实现多环境多套配置）</div>
-          <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid rgba(42,66,108,.35)', borderRadius: 8, padding: 8 }}>
+          <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid rgba(0, 0, 0,.35)', borderRadius: 8, padding: 8 }}>
             {dataSources.map((ds) => (
               <div key={ds.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ width: 160, color: '#9aa7b4', fontSize: 12 }}>{ds.name}</span>
+                <span style={{ width: 160, color: '#86868b', fontSize: 12 }}>{ds.name}</span>
                 <Input size="small" value={pkgForm.bindings[ds.id]} onChange={(e) => setPkgForm({ ...pkgForm, bindings: { ...pkgForm.bindings, [ds.id]: e.target.value } })} />
               </div>
             ))}
@@ -573,7 +573,7 @@ export default function DeployPage() {
 
       {/* 日志弹窗 */}
       <Modal title="部署日志" open={!!logModal} onOk={() => setLogModal(null)} onCancel={() => setLogModal(null)} footer={<Button onClick={() => setLogModal(null)}>关闭</Button>}>
-        <pre style={{ background: '#0b111b', padding: 12, borderRadius: 8, fontSize: 12.5, color: '#4ade80', maxHeight: 320, overflow: 'auto' }}>
+        <pre style={{ background: '#f5f5f7', padding: 12, borderRadius: 8, fontSize: 12.5, color: '#34c759', maxHeight: 320, overflow: 'auto' }}>
 {(logModal?.log || []).join('\n')}</pre>
       </Modal>
 

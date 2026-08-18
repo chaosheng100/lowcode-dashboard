@@ -57,7 +57,7 @@ export default function SyncTaskPage() {
       title: '上次状态',
       dataIndex: 'lastStatus',
       key: 'lastStatus',
-      render: (v?: string) => (v ? <Tag color={v === 'success' ? '#4ade80' : '#f87171'}>{v}</Tag> : '—')
+      render: (v?: string) => (v ? <Tag color={v === 'success' ? '#34c759' : '#ff3b30'}>{v}</Tag> : '—')
     },
     {
       title: '操作',

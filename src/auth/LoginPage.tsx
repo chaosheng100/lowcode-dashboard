@@ -31,73 +31,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={wrap}>
-      <form onSubmit={submit} style={card}>
-        <img src="/logo.png" alt="低代码大屏平台" style={logo} />
-        <h2 style={{ margin: '0 0 4px', color: '#e6edf3' }}>低代码大屏平台</h2>
-        <p style={{ margin: '0 0 18px', color: '#9aa7b4', fontSize: 13 }}>登录以继续使用</p>
-        <label style={label}>邮箱</label>
-        <input style={input} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-        <label style={label}>密码</label>
-        <input style={input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
-        {err && <div style={{ color: '#ff7875', fontSize: 13, margin: '6px 0' }}>{err}</div>}
-        <button style={btn} disabled={loading} type="submit">
+    <div className="auth-wrap">
+      <form onSubmit={submit} className="auth-card">
+        <img src="/logo.png" alt="低代码大屏平台" className="auth-logo" />
+        <h2 className="auth-title">低代码大屏平台</h2>
+        <p className="auth-sub">登录以继续使用</p>
+        <label className="auth-label" htmlFor="login-email">邮箱</label>
+        <input id="login-email" className="auth-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        <label className="auth-label" htmlFor="login-password">密码</label>
+        <input id="login-password" className="auth-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+        {err && <div className="auth-error">{err}</div>}
+        <button className="auth-btn" disabled={loading} type="submit">
           {loading ? '登录中…' : '登 录'}
         </button>
-        <div style={{ marginTop: 12, fontSize: 13 }}>
-          <span style={{ color: '#9aa7b4' }}>还没有账号？</span>
-          <a href="#/register" style={{ color: '#3b82f6' }}> 注册</a>
+        <div className="auth-foot">
+          <span>还没有账号？</span>
+          <a href="#/register">注册</a>
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, color: '#5b6776' }}>
-          演示账号：admin@demo.com / Admin@123（超级管理员）
+        <div className="auth-hint">
+          演示账号：admin@demo.com / Admin@123
         </div>
       </form>
     </div>
   )
-}
-
-const wrap: React.CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'linear-gradient(135deg,#0a0e1a,#0d1a33)',
-}
-const card: React.CSSProperties = {
-  width: 340,
-  padding: 28,
-  background: '#111a27',
-  border: '1px solid #1e2a3a',
-  borderRadius: 12,
-}
-const logo: React.CSSProperties = {
-  width: 64,
-  height: 64,
-  objectFit: 'contain',
-  display: 'block',
-  margin: '0 auto 12px',
-  padding: 6,
-  background: 'rgba(255,255,255,0.06)',
-  borderRadius: 12,
-}
-const label: React.CSSProperties = { display: 'block', marginTop: 12, marginBottom: 6, color: '#cfe0ff', fontSize: 13 }
-const input: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  background: '#0d1420',
-  border: '1px solid #1e2a3a',
-  borderRadius: 8,
-  color: '#e6edf3',
-  fontSize: 14,
-}
-const btn: React.CSSProperties = {
-  width: '100%',
-  marginTop: 18,
-  padding: '10px',
-  background: '#3b82f6',
-  border: 'none',
-  borderRadius: 8,
-  color: '#fff',
-  fontSize: 15,
-  cursor: 'pointer',
 }

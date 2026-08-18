@@ -221,8 +221,8 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
   if (loadError) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 12 }}>
-        <h3 style={{ margin: 0, color: '#f87171' }}>大屏加载失败</h3>
-        <p style={{ margin: 0, color: '#9aa7b4' }}>{loadError}</p>
+        <h3 style={{ margin: 0, color: '#ff3b30' }}>大屏加载失败</h3>
+        <p style={{ margin: 0, color: '#86868b' }}>{loadError}</p>
         <Button type="primary" onClick={() => { location.hash = '#/dashboard' }}>
           返回大屏管理
         </Button>
@@ -235,7 +235,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
       <div className="win-bar">
         <span className="win-title">
           {isEditor ? '大屏编辑器' : '大屏预览'} · {routeName}
-          <span style={{ marginLeft: 8, color: '#52c41a', fontSize: 12 }}>[云端]</span>
+          <span style={{ marginLeft: 8, color: '#34c759', fontSize: 12 }}>[云端]</span>
         </span>
         <span className="win-sep" />
         {isEditor ? (
@@ -247,7 +247,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
         ) : (
           <>
             <Switch size="small" checked={refreshing} onChange={(v) => setRefreshing(v)} />
-            <span style={{ color: '#9aa7b4', fontSize: 12 }}>实时刷新</span>
+            <span style={{ color: '#86868b', fontSize: 12 }}>实时刷新</span>
             <Button
               icon={isFs ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
               onClick={toggleFs}
@@ -292,7 +292,7 @@ function ZoomControls() {
       >
         适应
       </Button>
-      <span style={{ color: '#9aa7b4', fontSize: 12 }}>缩放</span>
+      <span style={{ color: '#86868b', fontSize: 12 }}>缩放</span>
       <Slider
         style={{ width: 110, margin: 0, opacity: fit ? 0.5 : 1 }}
         min={0.2} max={1} step={0.02}
@@ -301,7 +301,7 @@ function ZoomControls() {
         onChange={(v) => setPage({ scale: v as number, fit: false })}
         tooltip={{ formatter: (v) => `${Math.round((v ?? 0) * 100)}%` }}
       />
-      <span style={{ color: '#9aa7b4', fontSize: 12, width: 38 }}>
+      <span style={{ color: '#86868b', fontSize: 12, width: 38 }}>
         {fit ? '自动' : Math.round(scale * 100) + '%'}
       </span>
     </>

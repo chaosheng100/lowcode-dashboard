@@ -178,14 +178,14 @@ export default function FlowPage() {
           <Space wrap>
             <Input style={{ width: 220 }} placeholder="流程名称" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <Input style={{ width: 260 }} placeholder="描述" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            <span style={{ fontSize: 12, color: '#9fb0cc' }}>
+            <span style={{ fontSize: 12, color: '#86868b' }}>
               启用
               <Switch size="small" checked={form.enabled} onChange={(enabled) => setForm({ ...form, enabled })} style={{ marginLeft: 6 }} />
             </span>
           </Space>
           {form.nodes.map((n, i) => (
             <Space key={n.id} wrap align="start">
-              <span style={{ color: '#7e8aa3', fontSize: 12, width: 24, lineHeight: '30px' }}>{i + 1}</span>
+              <span style={{ color: '#86868b', fontSize: 12, width: 24, lineHeight: '30px' }}>{i + 1}</span>
               <Select
                 style={{ width: 150 }}
                 value={n.type}
@@ -226,15 +226,15 @@ export default function FlowPage() {
         {runResult && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflow: 'auto' }}>
             {runResult.steps.map((s, i) => (
-              <div key={s.id || i} style={{ padding: 8, background: '#0a101d', border: '1px solid #1b2740', borderRadius: 6, fontSize: 12 }}>
+              <div key={s.id || i} style={{ padding: 8, background: '#f5f5f7', border: '1px solid #e5e5ea', borderRadius: 6, fontSize: 12 }}>
                 <Tag color={s.ok ? 'green' : 'red'}>{s.ok ? '成功' : '失败'}</Tag>
                 <b>{s.label || s.type}</b>
-                <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#9fb0cc' }}>{s.output}</pre>
+                <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#86868b' }}>{s.output}</pre>
               </div>
             ))}
-            <div style={{ padding: 8, background: 'rgba(0,212,255,.06)', border: '1px solid rgba(0,212,255,.25)', borderRadius: 6, fontSize: 12 }}>
+            <div style={{ padding: 8, background: 'rgba(0, 113, 227,.06)', border: '1px solid rgba(0, 113, 227,.25)', borderRadius: 6, fontSize: 12 }}>
               <b>最终输出</b>
-              <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#cfe3ff' }}>{runResult.output}</pre>
+              <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#1d1d1f' }}>{runResult.output}</pre>
             </div>
           </div>
         )}

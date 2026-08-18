@@ -32,17 +32,17 @@ export default function AnalysisPage() {
         </div>
       </div>
       <div className="flex" style={{ marginBottom: 14 }}>
-        <Stat label="总访问量(PV)" value={totalPv.toLocaleString()} accent="#4f8cff" />
-        <Stat label="平均性能 P95" value={avgPerf + 'ms'} accent="#22d3ee" />
-        <Stat label="平均错误率" value={avgErr + '%'} accent="#ff8585" />
-        <Stat label="监控大屏数" value={list.length} accent="#4ade80" />
+        <Stat label="总访问量(PV)" value={totalPv.toLocaleString()} accent="#0a84ff" />
+        <Stat label="平均性能 P95" value={avgPerf + 'ms'} accent="#0a84ff" />
+        <Stat label="平均错误率" value={avgErr + '%'} accent="#ff3b30" />
+        <Stat label="监控大屏数" value={list.length} accent="#34c759" />
       </div>
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="muted2" style={{ marginBottom: 8 }}>各大大屏访问量</div>
         <EChartBox height={240} option={{
-          xAxis: { type: 'category', data: list.map((d) => d.name), axisLabel: { color: '#9fb0c3', rotate: 20 } },
-          yAxis: { type: 'value', splitLine: { lineStyle: { color: '#1b2636' } } },
-          series: [{ type: 'bar', data: list.map((d) => d.pv), itemStyle: { color: '#4f8cff', borderRadius: [4, 4, 0, 0] } }]
+          xAxis: { type: 'category', data: list.map((d) => d.name), axisLabel: { color: '#86868b', rotate: 20 } },
+          yAxis: { type: 'value', splitLine: { lineStyle: { color: '#e5e5ea' } } },
+          series: [{ type: 'bar', data: list.map((d) => d.pv), itemStyle: { color: '#0a84ff', borderRadius: [4, 4, 0, 0] } }]
         }} />
       </div>
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 14 }} />}

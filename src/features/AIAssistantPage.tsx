@@ -7,8 +7,8 @@ import type { AIBotDTO, AISessionItem, CodeLang } from '../mock/types'
 import { extractEchartsOption } from './aiEcharts'
 
 const CARD = {
-  background: '#0d1322',
-  border: '1px solid #1b2740',
+  background: '#ffffff',
+  border: '1px solid #e5e5ea',
   borderRadius: 10,
   padding: 14,
 }
@@ -146,7 +146,7 @@ function BotList() {
         key: b.id,
         label: `${b.name}${b.status === 'ready' ? ' · 已就绪' : ' · 待配置'}`,
         children: (
-          <div style={{ fontSize: 13, color: '#9fb0cc', lineHeight: 1.8 }}>
+          <div style={{ fontSize: 13, color: '#86868b', lineHeight: 1.8 }}>
             <div>类型：{b.type}</div>
             <div>描述：{b.description || '—'}</div>
             <div>绑定模型：{b.modelId || '—'}</div>
@@ -325,7 +325,7 @@ export default function AIAssistantPage() {
         if (/^\s*<(?:!doctype|html)/i.test(cleanCode)) return cleanCode
         return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body>${cleanCode}</body></html>`
       }
-      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#0b1325"><div id="chart" style="width:100vw;height:100vh"></div><script>\ntry {\n${safeInline(cleanCode)}\nif (typeof echarts === 'undefined') throw new Error('ECharts CDN 未加载');\nif (!document.querySelector('#chart canvas')) {\nvar __chart = echarts.init(document.getElementById('chart'));\n__chart.setOption((typeof option !== 'undefined' ? option : window.option) || {});\n}\n} catch (e) { document.body.innerHTML = '<pre style="color:#f87171;padding:12px">' + (e && e.message ? e.message : String(e)) + '</pre>' }\n<\/script></body></html>`
+      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#ffffff"><div id="chart" style="width:100vw;height:100vh"></div><script>\ntry {\n${safeInline(cleanCode)}\nif (typeof echarts === 'undefined') throw new Error('ECharts CDN 未加载');\nif (!document.querySelector('#chart canvas')) {\nvar __chart = echarts.init(document.getElementById('chart'));\n__chart.setOption((typeof option !== 'undefined' ? option : window.option) || {});\n}\n} catch (e) { document.body.innerHTML = '<pre style="color:#ff3b30;padding:12px">' + (e && e.message ? e.message : String(e)) + '</pre>' }\n<\/script></body></html>`
     }
     return ''
   }
@@ -452,7 +452,7 @@ export default function AIAssistantPage() {
   }
 
   return (
-    <div style={{ padding: 24, color: '#e8f0ff', height: '100%', overflow: 'auto' }}>
+    <div style={{ padding: 24, color: '#1d1d1f', height: '100%', overflow: 'auto' }}>
       <h2 style={{ marginTop: 0 }}>AI 助手</h2>
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ width: 240, ...CARD, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -478,12 +478,12 @@ export default function AIAssistantPage() {
                   cursor: 'pointer',
                   background:
                     activeSessionId === s.id
-                      ? 'rgba(0,212,255,.12)'
+                      ? 'rgba(0, 113, 227,.12)'
                       : 'rgba(255,255,255,.03)',
                   border:
                     '1px solid ' +
                     (activeSessionId === s.id
-                      ? 'rgba(0,212,255,.3)'
+                      ? 'rgba(0, 113, 227,.3)'
                       : 'transparent'),
                 }}
               >
@@ -498,7 +498,7 @@ export default function AIAssistantPage() {
                   {s.title || '未命名会话'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
-                  <span style={{ fontSize: 11, color: '#7e8aa3' }}>
+                  <span style={{ fontSize: 11, color: '#86868b' }}>
                     {s.messageCount} 条
                   </span>
                   <Space size={0} style={{ marginLeft: 'auto' }}>
@@ -582,13 +582,13 @@ export default function AIAssistantPage() {
                 </Button>
               </Space>
               {compError && (
-                <div style={{ color: '#ff6b6b', fontSize: 13 }}>⚠️ {compError}</div>
+                <div style={{ color: '#ff3b30', fontSize: 13 }}>⚠️ {compError}</div>
               )}
               {compCode && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Tag color="cyan">{compType.toUpperCase()}</Tag>
-                    <span style={{ fontSize: 12, color: '#9fb0cc' }}>
+                    <span style={{ fontSize: 12, color: '#86868b' }}>
                       {compCode.length} 字符
                     </span>
                     <Space style={{ marginLeft: 'auto' }}>
@@ -610,9 +610,9 @@ export default function AIAssistantPage() {
                     <div
                       style={{
                         height: 260,
-                        border: '1px solid #1b2740',
+                        border: '1px solid #e5e5ea',
                         borderRadius: 8,
-                        background: '#0a101d',
+                        background: '#f5f5f7',
                         overflow: 'hidden',
                       }}
                     >
@@ -632,9 +632,9 @@ export default function AIAssistantPage() {
                       style={{
                         width: '100%',
                         height: 260,
-                        border: '1px solid #1b2740',
+                        border: '1px solid #e5e5ea',
                         borderRadius: 8,
-                        background: '#0a101d',
+                        background: '#f5f5f7',
                       }}
                     />
                   )}
@@ -642,13 +642,13 @@ export default function AIAssistantPage() {
                     style={{
                       maxHeight: 420,
                       overflow: 'auto',
-                      background: '#0a101d',
-                      border: '1px solid #1b2740',
+                      background: '#f5f5f7',
+                      border: '1px solid #e5e5ea',
                       borderRadius: 8,
                       padding: 12,
                       fontSize: 12.5,
                       lineHeight: 1.7,
-                      color: '#cfe3ff',
+                      color: '#1d1d1f',
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-all',
                     }}
@@ -673,14 +673,14 @@ export default function AIAssistantPage() {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
-                  background: '#0a101d',
-                  border: '1px solid #1b2740',
+                  background: '#f5f5f7',
+                  border: '1px solid #e5e5ea',
                   borderRadius: 8,
                   padding: 12,
                 }}
               >
                 {chat.length === 0 && (
-                  <div style={{ color: '#5b6776', fontSize: 13 }}>
+                  <div style={{ color: '#86868b', fontSize: 13 }}>
                     问我任何关于大屏设计、组件或数据可视化的问题
                   </div>
                 )}
@@ -692,7 +692,7 @@ export default function AIAssistantPage() {
                       maxWidth: '82%',
                       padding: '8px 10px',
                       borderRadius: 8,
-                      background: m.role === 'user' ? '#1668dc' : '#131c2e',
+                      background: m.role === 'user' ? '#0071e3' : '#f2f2f7',
                       fontSize: 13,
                       whiteSpace: 'pre-wrap',
                     }}

@@ -148,9 +148,9 @@ export default function CarouselPage() {
         <Button type="primary" onClick={() => setView({ mode: "edit", item: EMPTY_CAROUSEL })}>＋ 新建方案</Button>
       </header>
       <section aria-label="轮播方案概览" style={{ display: "flex", gap: 12 }}>
-        <Stat label="全部方案" value={carousels.data?.total ?? 0} accent="#4f8cff" />
-        <Stat label="运行中" value={enabledCount} accent="#4ade80" />
-        <Stat label="已停用" value={Math.max(0, (carousels.data?.total ?? 0) - enabledCount)} accent="#9fb0c3" />
+        <Stat label="全部方案" value={carousels.data?.total ?? 0} accent="#0a84ff" />
+        <Stat label="运行中" value={enabledCount} accent="#34c759" />
+        <Stat label="已停用" value={Math.max(0, (carousels.data?.total ?? 0) - enabledCount)} accent="#86868b" />
       </section>
       <div className="carousel-toolbar">
         <Input style={{ width: 320 }} placeholder="按名称搜索…" value={keyword} onChange={(e) => setKeyword(e.target.value)} />

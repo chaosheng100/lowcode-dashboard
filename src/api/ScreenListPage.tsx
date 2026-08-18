@@ -488,7 +488,7 @@ export default function ScreenListPage() {
                   key={s.id}
                   hoverable
                   className="screen-card"
-                  style={{ borderColor: s.status === 'PUBLISHED' ? '#52c41a' : '#d9d9d9' }}
+                  style={{ borderColor: s.status === 'PUBLISHED' ? '#34c759' : '#d9d9d9' }}
                 >
                   <div
                     className="screen-card-thumb"

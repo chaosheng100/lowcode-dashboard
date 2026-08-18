@@ -21,7 +21,7 @@ export default function DataEntryPage() {
         <div className="grid2">
           {(data?.list ?? []).map((e) => (
             <div key={e.id} className="card">
-              <b style={{ color: '#e6edf3' }}>{e.name}</b>
+              <b style={{ color: '#1d1d1f' }}>{e.name}</b>
               <div className="muted2" style={{ margin: '8px 0' }}>字段：{e.fields.map((f) => f.name).join('、') || '无'}</div>
               <div className="flex">
                 {e.fields.map((f) => <Tag key={f.name}>{f.name} · {f.type}</Tag>)}

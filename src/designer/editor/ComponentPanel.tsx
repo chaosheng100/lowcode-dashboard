@@ -63,7 +63,7 @@ export default function ComponentPanel() {
 
   return (
     <div className="dlp-inner">
-      <div style={{ color: '#9aa7b4', fontSize: 12, marginBottom: 10 }}>拖拽组件到画布 →</div>
+      <div style={{ color: '#86868b', fontSize: 12, marginBottom: 10 }}>拖拽组件到画布 →</div>
       {categories.map((cat) => {
         const items = Object.entries(widgetRegistry).filter(
           ([, v]) => v.category === cat

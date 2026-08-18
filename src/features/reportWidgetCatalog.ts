@@ -48,7 +48,7 @@ export function createReportComponent(report: ReportDTO, kind: ReportWidgetKind)
       ...sourceProps,
       content: `${report.name} | ${report.status === "enabled" ? "已启用" : "已暂停"} | ${report.format.join("/")} | ${report.schedule}`,
       fontSize: 22,
-      color: report.status === "enabled" ? "#5eead4" : "#fbbf24",
+      color: report.status === "enabled" ? "#34c759" : "#ff9500",
       bold: true
     }
   }

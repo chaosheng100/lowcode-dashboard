@@ -18,7 +18,7 @@ const clone = (o: unknown): unknown => JSON.parse(JSON.stringify(o))
 const defaultPage = (): RouteConfig['page'] => ({
   width: 1920,
   height: 1080,
-  background: '#0a0e1a',
+  background: '#f5f5f7',
   backgroundImage: '',
   backgroundImageFit: 'stretch',
   backgroundImageOpacity: 1,

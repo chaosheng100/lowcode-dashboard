@@ -1,4 +1,4 @@
-import { App, Button, Slider, Space, Upload } from 'antd'
+import { App, Button, Segmented, Slider, Space, Upload } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { buildPlatformProject } from '../../data/routes/platformRoutes'
 import { downloadJSON, readJSONFile } from '../../data/utils/export'
@@ -46,14 +46,16 @@ export default function Toolbar({
         </Button>
       )}
       <span className="title">{onBack ? '大屏编辑器' : '低代码大屏设计器'}</span>
-      <Space size={12}>
-        <Button type={mode === 'project' ? 'primary' : 'default'} onClick={() => setMode('project')}>
-          项目
-        </Button>
-        <Button type={mode === 'preview' ? 'primary' : 'default'} onClick={() => setMode('preview')}>
-          预览
-        </Button>
-        <span style={{ width: 1, height: 22, background: '#2a3340' }} />
+      <Space size={10}>
+        <Segmented
+          value={mode}
+          onChange={(v) => setMode(v as 'project' | 'preview')}
+          options={[
+            { label: '项目', value: 'project' },
+            { label: '预览', value: 'preview' },
+          ]}
+        />
+        <span style={{ width: 1, height: 22, background: 'var(--line)' }} />
         <Button
           type={fit ? 'primary' : 'default'}
           title="画布自动适配容器尺寸"
@@ -61,7 +63,7 @@ export default function Toolbar({
         >
           适应
         </Button>
-        <span style={{ color: '#9aa7b4', fontSize: 12 }}>缩放</span>
+        <span style={{ color: 'var(--sub)', fontSize: 12 }}>缩放</span>
         <Slider
           min={0.2}
           max={1}
@@ -72,10 +74,10 @@ export default function Toolbar({
           onChange={(v) => setPage({ scale: v, fit: false })}
           style={{ width: 120 }}
         />
-        <span style={{ color: '#9aa7b4', fontSize: 12, width: 38 }}>
+        <span style={{ color: 'var(--sub)', fontSize: 12, width: 38 }}>
           {fit ? '自动' : Math.round(scale * 100) + '%'}
         </span>
-        <span style={{ width: 1, height: 22, background: '#2a3340' }} />
+        <span style={{ width: 1, height: 22, background: 'var(--line)' }} />
         <Button onClick={() => onOpenCapability?.()}>能力映射</Button>
         <Button onClick={() => onOpenMock?.()}>Mock 演示</Button>
         <Button onClick={() => loadProject(buildPlatformProject())}>加载示例</Button>

@@ -6,10 +6,10 @@ import { useApi } from './useApi'
 import { Field, Input, Modal, Select, Tag } from './common'
 
 const LEVEL_COLOR: Record<NotificationLevel, string> = {
-  info: '#4f8cff',
-  warning: '#facc15',
-  error: '#f87171',
-  success: '#4ade80'
+  info: '#0a84ff',
+  warning: '#ff9500',
+  error: '#ff3b30',
+  success: '#34c759'
 }
 const LEVELS: NotificationLevel[] = ['info', 'warning', 'error', 'success']
 

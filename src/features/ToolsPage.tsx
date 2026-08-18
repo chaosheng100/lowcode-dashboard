@@ -56,13 +56,13 @@ export default function ToolsPage() {
               flex: '1 1 240px',
               padding: 10,
               cursor: 'pointer',
-              background: toolId === t.id ? 'rgba(0,212,255,.1)' : '#0d1322',
-              border: '1px solid ' + (toolId === t.id ? 'rgba(0,212,255,.4)' : '#1b2740'),
+              background: toolId === t.id ? 'rgba(0, 113, 227,.1)' : '#ffffff',
+              border: '1px solid ' + (toolId === t.id ? 'rgba(0, 113, 227,.4)' : '#e5e5ea'),
               borderRadius: 8,
             }}
           >
             <b>{t.name}</b>
-            <div style={{ fontSize: 12, color: '#9fb0cc', marginTop: 4 }}>{t.description}</div>
+            <div style={{ fontSize: 12, color: '#86868b', marginTop: 4 }}>{t.description}</div>
           </div>
         ))}
       </div>
@@ -91,14 +91,14 @@ export default function ToolsPage() {
       {result !== null && (
         <pre
           style={{
-            background: '#0a101d',
-            border: '1px solid #1b2740',
+            background: '#f5f5f7',
+            border: '1px solid #e5e5ea',
             borderRadius: 8,
             padding: 12,
             maxHeight: 420,
             overflow: 'auto',
             fontSize: 12.5,
-            color: '#cfe3ff',
+            color: '#1d1d1f',
             whiteSpace: 'pre-wrap',
           }}
         >

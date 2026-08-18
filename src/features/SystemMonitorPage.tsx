@@ -76,14 +76,14 @@ export default function SystemMonitorPage() {
       {/* 指标卡片 */}
       <div className="metrics-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
         <Card className="sec" styles={{ body: { padding: 14 } }}>
-          <Stat label="运行时长" value={fmtUptime(metrics?.uptimeSec ?? 0)} accent="#4f8cff" />
+          <Stat label="运行时长" value={fmtUptime(metrics?.uptimeSec ?? 0)} accent="#0a84ff" />
         </Card>
         <Card className="sec" styles={{ body: { padding: 14 } }}>
-          <Stat label="内存占用" value={metrics?.memory != null ? String(metrics.memory) : '—'} accent="#4ade80" />
+          <Stat label="内存占用" value={metrics?.memory != null ? String(metrics.memory) : '—'} accent="#34c759" />
         </Card>
         {Object.entries(counts).map(([k, v]) => (
           <Card key={k} className="sec" styles={{ body: { padding: 14 } }}>
-            <Stat label={k} value={v} accent="#22d3ee" />
+            <Stat label={k} value={v} accent="#0a84ff" />
           </Card>
         ))}
       </div>

@@ -110,7 +110,7 @@ export function createTwinComponent(scene: TwinSceneDTO, kind: TwinWidgetKind): 
       ...sourceProps,
       content: `${scene.name} | ${STATUS_LABELS[scene.status]} | ${scene.lighting === 'day' ? '日照' : '夜景'}${scene.fog ? ' · 雾效' : ''}`,
       fontSize: 24,
-      color: scene.status === 'online' ? '#5eead4' : scene.status === 'maintenance' ? '#fbbf24' : '#94a3b8',
+      color: scene.status === 'online' ? '#34c759' : scene.status === 'maintenance' ? '#ff9500' : '#86868b',
       bold: true
     }
   }

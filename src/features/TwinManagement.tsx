@@ -24,9 +24,9 @@ import { dtoToScene, sceneToDTO } from '../twin/dtoAdapter'
 import { syncTwinWidgetsToDashboard, unlinkTwinFromDashboard } from './twinWidgetCatalog'
 
 const TWIN_STATUS: Record<TwinSceneDTO['status'], { text: string; color: string }> = {
-  online: { text: '在线', color: '#4ade80' },
-  maintenance: { text: '维护', color: '#facc15' },
-  offline: { text: '离线', color: '#94a3b8' }
+  online: { text: '在线', color: '#34c759' },
+  maintenance: { text: '维护', color: '#ff9500' },
+  offline: { text: '离线', color: '#86868b' }
 }
 
 export function canEditScene(scene: TwinSceneDTO, userId?: string | null): boolean {
@@ -270,12 +270,12 @@ export default function TwinManagement() {
           return (
             <div className="twin-status-row">
               <Tag color={st.color}>{st.text}</Tag>
-              <Tag color={s.lighting === 'day' ? '#facc15' : '#6366f1'}>{s.lighting === 'day' ? '日照' : '夜景'}</Tag>
+              <Tag color={s.lighting === 'day' ? '#ff9500' : '#6366f1'}>{s.lighting === 'day' ? '日照' : '夜景'}</Tag>
               {s.fog && <Tag>雾效</Tag>}
-              {s.dashboardId && <Tag color="#2dd4bf">已投放</Tag>}
-              {s.deployStatus === 'pending' && <Tag color="#f59e0b">待审批</Tag>}
-              {s.deployStatus === 'approved' && <Tag color="#4ade80">已发布{s.deployEnv ? ` · ${s.deployEnv}` : ''}</Tag>}
-              {s.deployStatus === 'rejected' && <Tag color="#ef4444">已驳回</Tag>}
+              {s.dashboardId && <Tag color="#34c759">已投放</Tag>}
+              {s.deployStatus === 'pending' && <Tag color="#ff9500">待审批</Tag>}
+              {s.deployStatus === 'approved' && <Tag color="#34c759">已发布{s.deployEnv ? ` · ${s.deployEnv}` : ''}</Tag>}
+              {s.deployStatus === 'rejected' && <Tag color="#ff3b30">已驳回</Tag>}
               {(s.acl?.owner || (s.acl?.editors?.length ?? 0) > 0) && (
                 <Tag color="#818cf8">协同 {1 + (s.acl?.editors?.length ?? 0) + (s.acl?.viewers?.length ?? 0)}人</Tag>
               )}

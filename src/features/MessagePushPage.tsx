@@ -35,8 +35,8 @@ export default function MessagePushPage() {
           {(data?.list ?? []).map((c) => (
             <div key={c.id} className="card">
               <div className="flex" style={{ justifyContent: 'space-between' }}>
-                <b style={{ color: '#e6edf3' }}>{c.name}</b>
-                <Tag color={c.enabled ? '#4ade80' : '#ff8585'}>{c.enabled ? '启用' : '停用'}</Tag>
+                <b style={{ color: '#1d1d1f' }}>{c.name}</b>
+                <Tag color={c.enabled ? '#34c759' : '#ff3b30'}>{c.enabled ? '启用' : '停用'}</Tag>
               </div>
               <div className="muted2" style={{ margin: '8px 0' }}>{KIND_LABEL[c.kind]}</div>
               <div className="muted2" style={{ wordBreak: 'break-all' }}>{c.endpoint}</div>

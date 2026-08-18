@@ -16,7 +16,7 @@ import type { ScreenConfig, ScreenItem } from './screenApi'
 const PAGE_DEFAULTS: PageConfig = {
   width: 1920,
   height: 1080,
-  background: '#0b1e3b',
+  background: '#f5f5f7',
   backgroundImage: '',
   backgroundImageFit: 'stretch',
   backgroundImageOpacity: 1,

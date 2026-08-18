@@ -152,9 +152,9 @@ export default function Canvas() {
       minorLength: 4,
       majorWidth: 1.4,
       minorWidth: 1,
-      majorColor: '#7c8a99', // 主刻度：较深
-      minorColor: '#2f3a47', // 次刻度：较浅
-      labelColor: '#8a97a5',
+      majorColor: '#86868b', // 主刻度：较深
+      minorColor: '#d2d2d7', // 次刻度：较浅
+      labelColor: '#86868b',
       labelFont: '10px -apple-system, "Segoe UI", sans-serif',
       labelOffset: 3,
       direction: 'outward' as const,

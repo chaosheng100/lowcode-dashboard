@@ -73,7 +73,7 @@ export default function CodeRepoPage() {
             {(data?.list ?? []).map((s) => (
               <div key={s.id} className="card">
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
-                  <b style={{ color: '#e6edf3' }}>{s.name}</b><Tag>{LANG_LABEL[s.lang] ?? s.lang}</Tag>
+                  <b style={{ color: '#1d1d1f' }}>{s.name}</b><Tag>{LANG_LABEL[s.lang] ?? s.lang}</Tag>
                 </div>
                 <div className="flex" style={{ margin: '8px 0' }}>{(s.tags ?? []).map((t) => <Tag key={t}>{t}</Tag>)}</div>
                 <div className="muted2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(s.code ?? '').split('\n')[0]}</div>

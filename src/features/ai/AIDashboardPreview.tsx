@@ -35,11 +35,11 @@ export default function AIDashboardPreview({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#5b6b86',
+          color: '#86868b',
           fontSize: 13,
-          border: '1px dashed #1e2b44',
+          border: '1px dashed #e5e5ea',
           borderRadius: 8,
-          background: '#0a0e1a',
+          background: '#ffffff',
         }}
       >
         描述你的数据大屏，AI 将实时生成预览
@@ -47,11 +47,11 @@ export default function AIDashboardPreview({
     )
   }
 
-  const page = schema.page ?? { width: 1920, height: 1080, background: '#0a0e1a' }
+  const page = schema.page ?? { width: 1920, height: 1080, background: '#ffffff' }
   const instances = schema.components.map(toInstance)
 
   return (
-    <div style={{ overflow: 'auto', background: '#070b14', borderRadius: 8, padding: 8 }}>
+    <div style={{ overflow: 'auto', background: '#ffffff', borderRadius: 8, padding: 8 }}>
       <div
         style={{
           width: page.width * scale,
@@ -86,7 +86,7 @@ export default function AIDashboardPreview({
           </div>
         ))}
       </div>
-      <div style={{ color: '#5b6b86', fontSize: 12, marginTop: 6 }}>
+      <div style={{ color: '#86868b', fontSize: 12, marginTop: 6 }}>
         共 {instances.length} 个组件 · 画布 {page.width}×{page.height}
       </div>
     </div>

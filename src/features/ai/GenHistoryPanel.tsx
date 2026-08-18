@@ -118,7 +118,7 @@ export default function GenHistoryPanel({
               onClick={() => onSelect(v.id)}
               style={{
                 ...ITEM_STYLE,
-                borderColor: isActive ? '#1677ff' : '#1e2b44',
+                borderColor: isActive ? '#0071e3' : '#e5e5ea',
                 background: isActive ? 'rgba(22,119,255,0.08)' : 'transparent',
               }}
             >
@@ -137,14 +137,14 @@ export default function GenHistoryPanel({
                       suffix={
                         <span style={{ display: 'flex', gap: 2 }}>
                           <CheckOutlined
-                            style={{ color: '#52c41a', cursor: 'pointer' }}
+                            style={{ color: '#34c759', cursor: 'pointer' }}
                             onClick={(e) => {
                               e.stopPropagation()
                               confirmRename(v.id)
                             }}
                           />
                           <CloseOutlined
-                            style={{ color: '#ff4d4f', cursor: 'pointer' }}
+                            style={{ color: '#ff3b30', cursor: 'pointer' }}
                             onClick={(e) => {
                               e.stopPropagation()
                               setEditingId(null)
@@ -233,8 +233,8 @@ export default function GenHistoryPanel({
 // ==================== 样式常量 ====================
 
 const CARD_STYLE: React.CSSProperties = {
-  background: '#0d1322',
-  border: '1px solid #1b2740',
+  background: '#ffffff',
+  border: '1px solid #e5e5ea',
   borderRadius: 10,
   padding: 12,
   minWidth: 280,
@@ -246,19 +246,19 @@ const HEADER_STYLE: React.CSSProperties = {
   alignItems: 'center',
   marginBottom: 10,
   paddingBottom: 8,
-  borderBottom: '1px solid #1e2b44',
+  borderBottom: '1px solid #e5e5ea',
 }
 
 const TITLE_STYLE: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
-  color: '#e8f0ff',
+  color: '#1d1d1f',
   display: 'flex',
   alignItems: 'center',
 }
 
 const ITEM_STYLE: React.CSSProperties = {
-  border: '1px solid #1e2b44',
+  border: '1px solid #e5e5ea',
   borderRadius: 8,
   padding: '8px 10px',
   marginBottom: 8,
@@ -276,8 +276,8 @@ const ITEM_HEADER: React.CSSProperties = {
 const VERSION_BADGE: React.CSSProperties = {
   display: 'inline-block',
   padding: '1px 6px',
-  background: '#16324f',
-  color: '#69b1ff',
+  background: '#e8f1fb',
+  color: '#0071e3',
   borderRadius: 4,
   fontSize: 11,
   fontWeight: 600,
@@ -286,7 +286,7 @@ const VERSION_BADGE: React.CSSProperties = {
 
 const VERSION_NAME: React.CSSProperties = {
   fontSize: 13,
-  color: '#e8f0ff',
+  color: '#1d1d1f',
   fontWeight: 500,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -303,12 +303,12 @@ const ITEM_META: React.CSSProperties = {
 
 const META_TEXT: React.CSSProperties = {
   fontSize: 11,
-  color: '#7e8aa3',
+  color: '#86868b',
 }
 
 const ITEM_PROMPT: React.CSSProperties = {
   fontSize: 12,
-  color: '#9fb0cc',
+  color: '#86868b',
   lineHeight: 1.5,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -323,5 +323,5 @@ const ITEM_ACTIONS: React.CSSProperties = {
   justifyContent: 'space-between',
   alignItems: 'center',
   paddingTop: 4,
-  borderTop: '1px dashed #1e2b44',
+  borderTop: '1px dashed #e5e5ea',
 }

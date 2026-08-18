@@ -28,7 +28,7 @@ export default function PluginMinePage() {
             {mine.map((p) => (
               <div key={p.id} className="card">
                 <div className="flex" style={{ justifyContent: 'space-between' }}>
-                  <b style={{ color: '#e6edf3' }}>{p.name}</b><Tag color="#4ade80">v{p.version}</Tag>
+                  <b style={{ color: '#1d1d1f' }}>{p.name}</b><Tag color="#34c759">v{p.version}</Tag>
                 </div>
                 <div className="muted2" style={{ margin: '8px 0' }}>{p.desc}</div>
                 <div className="muted2">作者 {p.author} · ★ {p.rating}</div>

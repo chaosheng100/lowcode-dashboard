@@ -38,10 +38,10 @@ import {
 import { Field, Input, Modal, Tag, Textarea } from './common'
 
 const WIDGET_STATUS: Record<WidgetLifecycleStatus, { label: string; color: string }> = {
-  draft: { label: '草稿', color: '#94a3b8' },
-  published: { label: '已上架', color: '#4ade80' },
-  deprecated: { label: '已弃用', color: '#facc15' },
-  offline: { label: '已下架', color: '#f87171' }
+  draft: { label: '草稿', color: '#86868b' },
+  published: { label: '已上架', color: '#34c759' },
+  deprecated: { label: '已弃用', color: '#ff9500' },
+  offline: { label: '已下架', color: '#ff3b30' }
 }
 const LIFECYCLE_ACTIONS: { status: WidgetLifecycleStatus; label: string }[] = [
   { status: 'published', label: '上架' },
@@ -58,9 +58,9 @@ const PREVIEW_SCENE: TwinSceneDTO = {
   lighting: 'day',
   fog: false,
   models: [
-    { id: 'a', modelId: 'a', name: '设备 A', geoType: 'box', color: '#22d3ee', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 },
-    { id: 'b', modelId: 'b', name: '设备 B', geoType: 'cylinder', color: '#4f8cff', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 },
-    { id: 'c', modelId: 'c', name: '设备 C', geoType: 'box', color: '#4ade80', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 }
+    { id: 'a', modelId: 'a', name: '设备 A', geoType: 'box', color: '#0a84ff', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 },
+    { id: 'b', modelId: 'b', name: '设备 B', geoType: 'cylinder', color: '#0a84ff', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 },
+    { id: 'c', modelId: 'c', name: '设备 C', geoType: 'box', color: '#34c759', x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1 }
   ],
   updatedAt: ''
 }
