@@ -85,7 +85,6 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
           <img src="/logo.png" alt="logo" className="ra-logo" />
           {!collapsed && <span className="ra-title">低代码大屏设计器</span>}
         </div>
-        <UserMenu compact={collapsed} />
         <div className="ra-head-actions">
           <Button
             type="text"
@@ -131,6 +130,9 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
           />
         )}
         {!roots.length && <div className="empty-tip">暂无页面</div>}
+      </div>
+      <div className="ra-user">
+        <UserMenu compact={collapsed} />
       </div>
     </aside>
   )

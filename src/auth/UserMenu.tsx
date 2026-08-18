@@ -29,35 +29,35 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          padding: '6px 10px',
-          borderRadius: 'var(--r-lg)',
+          gap: 7,
+          padding: '6px 8px',
+          borderRadius: 8,
           cursor: 'pointer',
-          background: 'var(--panel2)',
-          border: '1px solid var(--line)',
-          maxWidth: 160,
+          background: 'transparent',
+          border: '1px solid transparent',
+          maxWidth: 196,
           overflow: 'hidden', transition: '.2s',
         }}
       >
         <span
           style={{
-            width: 28,
-            height: 28,
+            width: 26,
+            height: 26,
             borderRadius: '50%',
             background: 'var(--accent-blue)',
             color: '#fff',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 13,
+            fontSize: 12,
           }}
         >
           {initial}
         </span>
         {!compact && (
           <>
-            <span style={{ fontSize: 13, color: 'var(--txt)', maxWidth: 72, overflow: 'hidden', transition: '.2s', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-            <span style={{ fontSize: 16, color: 'var(--sub)' }}>▾</span>
+            <span style={{ fontSize: 13, color: 'var(--txt)', maxWidth: 120, overflow: 'hidden', transition: '.2s', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+            <span style={{ fontSize: 12, color: 'var(--sub)' }}>▾</span>
           </>
         )}
       </div>
@@ -66,12 +66,14 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
           style={{
             position: 'absolute',
             left: 0,
-            top: 44,
+            bottom: 44,
             width: 200,
             background: 'var(--panel2)',
             border: '1px solid var(--line)',
             borderRadius: 'var(--r-lg)',
             padding: 10,
+            maxHeight: 'calc(100vh - 120px)',
+            overflow: 'auto',
             boxShadow: '0 12px 32px rgba(0,0,0,0.14)',
             zIndex: 100,
           }}

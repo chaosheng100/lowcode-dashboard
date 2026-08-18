@@ -488,7 +488,9 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
 
 .ra-head {
   display: flex; align-items: center; justify-content: space-between;
-  height: 40px; padding: 0 10px; border-bottom: 1px solid var(--line); flex: none;
+  gap: 6px;
+  height: 52px; padding: 0 8px; border-bottom: 1px solid var(--line); flex: none;
+  background: linear-gradient(180deg, var(--panel-solid) 0%, var(--panel) 100%);
 }
 /* UserMenu 触发按钮 hover */
 .user-menu-trigger:hover {
@@ -499,19 +501,43 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
   background: var(--panel) !important;
 }
 .ra-title {
-  font-weight: 700; font-size: 13px;
+  font-weight: 650; font-size: 13px;
   color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ra-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ra-logo { width: 24px; height: 24px; object-fit: contain; border-radius: 6px; flex: none; }
-.ra-head-actions { display: flex; gap: 4px; }
+.ra-brand {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  margin-right: auto; overflow: hidden;
+}
+.ra-logo { width: 26px; height: 26px; object-fit: contain; border-radius: 7px; flex: none; }
+.ra-head-actions { display: flex; gap: 2px; flex: none; }
 .icon-btn { padding: 4px 9px; line-height: 1; }
 .ra-head .icon-btn { display: none; }
 .ra-head .collapse-btn { display: inline-block; }
+.ra-head .collapse-btn,
+.ra-head .icon-btn {
+  width: 30px; height: 30px; padding: 0;
+  display: grid; place-items: center;
+  border-radius: 8px; color: var(--sub);
+}
+.ra-head .collapse-btn:hover,
+.ra-head .icon-btn:hover { background: var(--panel-hover); color: var(--txt); }
+
+/* 侧栏底部：账号区 */
+.ra-user {
+  flex: none;
+  display: flex; align-items: center;
+  min-height: 52px; padding: 6px 10px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(0deg, var(--panel-solid) 0%, var(--panel) 100%);
+}
+.route-area.collapsed .ra-user { justify-content: center; padding: 6px 0; }
 
 .route-area.collapsed .ra-title { display: none; }
-.route-area.collapsed .ra-head { justify-content: center; padding: 0; }
-.route-area.collapsed .ra-brand { justify-content: center; }
+.route-area.collapsed .ra-head { justify-content: center; padding: 0; height: 56px; }
+.route-area.collapsed .ra-brand { display: none; }
+.route-area.collapsed .ra-head-actions .icon-btn { display: none; }
+.route-area.collapsed .ra-head-actions { gap: 0; }
 .route-area.collapsed .route-tree { padding: 6px 4px; }
 .route-area.collapsed .route-node {
   justify-content: center; gap: 0; padding: 8px 0; margin-bottom: 3px;
