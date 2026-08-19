@@ -526,11 +526,13 @@ export default function DeployPage() {
   )
 
   return (
-    <div className="mg">
-      <div className="mg-toolbar">
-        <div className="mg-title">独立部署</div>
-        <span className="fp-sub" style={{ margin: 0 }}>企业级：多环境 · 部署包 · 构建发布 · 与数据大屏联动</span>
-      </div>
+    <main className="feature-page carousel-page">
+      <header className="carousel-head">
+        <div>
+          <h1 className="fp-title">独立部署</h1>
+          <p className="fp-sub">企业级：多环境 · 部署包 · 构建发布 · 与数据大屏联动</p>
+        </div>
+      </header>
       <Tabs
         defaultActiveKey="overview"
         items={[
@@ -621,6 +623,6 @@ export default function DeployPage() {
           </div>
         </Space>
       </Modal>
-    </div>
+    </main>
   )
 }

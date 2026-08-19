@@ -7,7 +7,7 @@ import {
   useDraggable,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { App, Button, ColorPicker, Input as AntInput, InputNumber, Select, Slider } from 'antd'
+import { App, Button, ColorPicker, Input as AntInput, InputNumber, Segmented, Select, Slider } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { io } from 'socket.io-client'
 import {
@@ -32,7 +32,7 @@ import {
 } from '@ant-design/icons'
 import { useApi } from './useApi'
 import { api, type TwinCategory, type TwinModelDTO } from '../mock'
-import { Input, PageHeader, Tag } from './common'
+import { Input, Tag } from './common'
 import { useTwinRuntimeStore, EMPTY_TWIN_INSTANCE } from '../twin/twinRuntimeStore'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { getToken, useAuthStore } from '../auth/store'
@@ -244,6 +244,7 @@ export default function TwinPage(props: TwinPageProps = {}) {
   const measuringRef = useRef(false)
   const measureStartRef = useRef<{ x: number; z: number } | null>(null)
   const [measuring, setMeasuring] = useState(false)
+  const [cameraView, setCameraView] = useState<'perspective' | 'top' | 'front' | 'side'>('perspective')
   const [annotations, setAnnotations] = useState<TwinAnnotation[]>(storeScene?.annotations ?? [])
   const annotationsRef = useRef<TwinAnnotation[]>(annotations)
   const gisCfgRef = useRef<TwinScene['env']['gis']>(gisCfg)
@@ -783,15 +784,15 @@ export default function TwinPage(props: TwinPageProps = {}) {
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="feature-page">
       {lockInfo && <div className="twin-lock-banner">{lockInfo}</div>}
-      <PageHeader
-        title={<>数字孪生 3D 编辑器{readOnly ? '（预览）' : ''}</>}
-        subtitle={
-          <>
+      <div className="twin-editor-head">
+        <div className="twin-editor-head-text">
+          <div className="twin-editor-title">三维场景编辑器</div>
+          <div className="muted2 twin-editor-sub">
             {readOnly ? '场景预览 · ' : '拖拽搭建 · 关键帧轨迹 · '}日照/夜景/雾效 · {entities.length} 个场景对象 · {totalKeyframes} 个关键帧{readOnly ? '' : ' · 仿真/控制/告警已接入'}
-          </>
-        }
-        actions={<span className="fp-count">模型库 {models?.total ?? (models?.list?.length ?? 0)} 种</span>}
-      />
+          </div>
+        </div>
+        <span className="fp-count">模型库 {models?.total ?? (models?.list?.length ?? 0)} 种</span>
+      </div>
 
       <div className={readOnly ? 'twin-editor twin-preview' : 'twin-editor'}>
         {/* 左：模型库（预览模式隐藏） */}
@@ -855,37 +856,34 @@ export default function TwinPage(props: TwinPageProps = {}) {
         {/* 中：3D 视口（共享内核 TwinSceneView） */}
         <div className="twin-panel twin-center">
           <div className="twin-toolbar">
-            <Select
-              size="small"
-              style={{ width: 120 }}
-              value={lighting + (fog ? '-fog' : '')}
-              onChange={(v) => {
-                if (v === 'day' || v === 'night') {
-                  setLighting(v)
-                  setFog(false)
-                } else if (v === 'day-fog' || v === 'night-fog') {
-                  setLighting(v === 'day-fog' ? 'day' : 'night')
-                  setFog(true)
-                }
-              }}
-              options={[
-                { value: 'day', label: '日景预设' },
-                { value: 'night', label: '夜景预设' },
-                { value: 'day-fog', label: '日景雾效' },
-                { value: 'night-fog', label: '夜景雾效' }
-              ]}
-            />
-            <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} icon={<SunOutlined />} onClick={() => setLighting('day')}>日照</Button>
-            <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} icon={<MoonOutlined />} onClick={() => setLighting('night')}>夜景</Button>
-            <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效 {fog ? '开' : '关'}</Button>
-            <Button size="small" type={measuring ? 'primary' : 'default'} icon={<LineOutlined />} onClick={toggleMeasure}>{measuring ? '测量中' : '测量'}</Button>
-            <Button size="small" type={gisEnabled ? 'primary' : 'default'} icon={<GlobalOutlined />} onClick={toggleGis}>{gisEnabled ? 'GIS 开' : 'GIS'}</Button>
-            <Button size="small" onClick={() => viewRef.current?.setCameraView('top')}>顶视</Button>
-            <Button size="small" onClick={() => viewRef.current?.setCameraView('front')}>前视</Button>
-            <Button size="small" onClick={() => viewRef.current?.setCameraView('side')}>侧视</Button>
-            <Button size="small" type="primary" onClick={() => viewRef.current?.setCameraView('perspective')}>透视</Button>
-            <Button size="small" icon={<CameraOutlined />} onClick={() => viewRef.current?.resetCamera()}>复位视角</Button>
-            <Button size="small" disabled={!selectedId} onClick={() => selectedId && viewRef.current?.frameEntity(selectedId)}>聚焦选中</Button>
+            <div className="twin-tool-group">
+              <span className="muted2 twin-tool-label">环境</span>
+              <Button size="small" type={lighting === 'day' ? 'primary' : 'default'} icon={<SunOutlined />} onClick={() => setLighting('day')}>日照</Button>
+              <Button size="small" type={lighting === 'night' ? 'primary' : 'default'} icon={<MoonOutlined />} onClick={() => setLighting('night')}>夜景</Button>
+              <Button size="small" type={fog ? 'primary' : 'default'} icon={<CloudOutlined />} onClick={() => setFog((v) => !v)}>雾效</Button>
+              <Button size="small" type={measuring ? 'primary' : 'default'} icon={<LineOutlined />} onClick={toggleMeasure}>{measuring ? '测量中' : '测量'}</Button>
+              <Button size="small" type={gisEnabled ? 'primary' : 'default'} icon={<GlobalOutlined />} onClick={toggleGis}>{gisEnabled ? 'GIS 开' : 'GIS'}</Button>
+            </div>
+            <div className="twin-tool-group">
+              <span className="muted2 twin-tool-label">视角</span>
+              <Segmented
+                size="small"
+                value={cameraView}
+                onChange={(v) => {
+                  const view = v as typeof cameraView
+                  setCameraView(view)
+                  viewRef.current?.setCameraView(view)
+                }}
+                options={[
+                  { value: 'perspective', label: '透视' },
+                  { value: 'top', label: '顶视' },
+                  { value: 'front', label: '前视' },
+                  { value: 'side', label: '侧视' }
+                ]}
+              />
+              <Button size="small" icon={<CameraOutlined />} onClick={() => viewRef.current?.resetCamera()}>复位视角</Button>
+              <Button size="small" disabled={!selectedId} onClick={() => selectedId && viewRef.current?.frameEntity(selectedId)}>聚焦选中</Button>
+            </div>
             <span className="muted2 twin-toolbar-hint">
               左键：放置/选中/拖拽 · 右键：旋转视角 · 滚轮：缩放
             </span>

@@ -1,18 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { App, Button, Input, Select } from 'antd'
+import { Alert, App, Button, Input, Popconfirm, Select, Spin } from 'antd'
 import {
   AuditOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  DeleteOutlined,
   DesktopOutlined,
+  EditOutlined,
+  EyeOutlined,
+  FormOutlined,
+  PlusOutlined,
+  SearchOutlined,
+  SortAscendingOutlined,
+  SortDescendingOutlined,
   TeamOutlined
 } from '@ant-design/icons'
-import PluginManagement from './PluginManagement'
 import TwinModelLibrary from './TwinModelLibrary'
 import { api } from '../mock'
 import type { TwinSceneDTO } from '../mock/types'
-import { Tag, Field, Modal } from './common'
+import { Tag, Field, Modal, MetricRow, Stat } from './common'
 import { useApi } from './useApi'
 import { screenApi } from '../api/screenApi'
 import { screenToRoute } from '../api/screenAdapter'
@@ -126,6 +133,17 @@ export default function TwinManagement() {
   const users = userData?.list ?? []
   const currentUserId = useAuthStore((s) => s.user?.id)
   const [listTick, setListTick] = useState(0)
+  const scenes = useApi(() => api.listTwinScenes({ pageSize: 50 }), [listTick])
+  const [cview, setCview] = useState<
+    { mode: 'list' } | { mode: 'edit'; item: TwinSceneDTO } | { mode: 'preview'; item: TwinSceneDTO }
+  >({ mode: 'list' })
+  const [kw, setKw] = useState('')
+  const [status, setStatus] = useState<'all' | 'online' | 'maintenance' | 'offline'>('all')
+  const [desc, setDesc] = useState(true)
+  const [renameId, setRenameId] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [approval, setApproval] = useState<{ scene: TwinSceneDTO; env: string; note: string } | null>(null)
   const [approving, setApproving] = useState(false)
   const [aclModal, setAclModal] = useState<{ scene: TwinSceneDTO; owner: string; editors: string[]; viewers: string[] } | null>(null)
@@ -246,80 +264,221 @@ export default function TwinManagement() {
     }
   }
 
+  const twinItems = useMemo(() => {
+    const list = (scenes.data?.list ?? []) as TwinSceneDTO[]
+    const q = kw.trim().toLowerCase()
+    const filtered = list
+      .filter((it) => !q || it.name.toLowerCase().includes(q))
+      .filter((it) => status === 'all' || it.status === status)
+    return filtered.sort((a, b) => {
+      const av = new Date(a.updatedAt ?? 0).getTime()
+      const bv = new Date(b.updatedAt ?? 0).getTime()
+      return desc ? bv - av : av - bv
+    })
+  }, [scenes.data, kw, status, desc])
+
+  const createScene = async () => {
+    if (creating) return
+    setCreating(true)
+    try {
+      const r = await api.saveTwinScene({
+        name: '新建场景',
+        models: [],
+        lighting: 'day',
+        fog: false,
+        status: 'offline',
+        updatedAt: ''
+      })
+      if (r.code === 0 && r.data?.id) {
+        scenes.reload()
+        setCview({ mode: 'edit', item: r.data })
+      } else {
+        message.error(r.message || '创建失败')
+      }
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const renameScene = async (scene: TwinSceneDTO, name: string) => {
+    if (!name.trim()) {
+      setRenameId(null)
+      return
+    }
+    const r = await api.saveTwinScene({ ...scene, name: name.trim() })
+    if (r.code !== 0) message.error(r.message || '重命名失败')
+    setRenameId(null)
+    scenes.reload()
+  }
+
+  const deleteScene = async (scene: TwinSceneDTO) => {
+    setDeletingId(scene.id)
+    try {
+      await api.deleteTwinScene(scene.id)
+      scenes.reload()
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const sceneCount = scenes.data?.total ?? twinItems.length
+  const onlineCount = (scenes.data?.list ?? []).filter((s) => s.status === 'online').length
+  const maintenanceCount = (scenes.data?.list ?? []).filter((s) => s.status === 'maintenance').length
+
+  if (cview.mode === 'edit') {
+    const save = async (patch: Partial<TwinSceneDTO>) => {
+      const r = await api.saveTwinScene({ id: cview.item.id, ...patch })
+      scenes.reload()
+      return r
+    }
+    return (
+      <div className="pm-fullscreen">
+        <div className="pm-bar">
+          <Button onClick={() => { scenes.reload(); setCview({ mode: 'list' }) }}>← 返回列表</Button>
+          <span className="pm-title">数字孪生 · 编辑 · {cview.item.name}</span>
+        </div>
+        <div className="pm-body">
+          <TwinSceneHost
+            key={cview.item.id || 'blank'}
+            item={cview.item}
+            readOnly={!canEditScene(cview.item, currentUserId)}
+            save={save}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (cview.mode === 'preview') {
+    return (
+      <div className="pm-fullscreen">
+        <div className="pm-bar">
+          <Button onClick={() => setCview({ mode: 'list' })}>← 返回列表</Button>
+          <span className="pm-title">数字孪生 · 预览 · {cview.item.name}</span>
+        </div>
+        <div className="pm-body">
+          <TwinSceneHost key={cview.item.id || 'blank'} item={cview.item} readOnly />
+        </div>
+      </div>
+    )
+  }
+
   if (view === 'models') return <TwinModelLibrary />
 
   return (
     <>
-      <PluginManagement<TwinSceneDTO>
-        key={listTick}
-        title="数字孪生"
-        subtitle="三维可视化场景搭建与预览，支持 3D 编辑器设计"
-        countLabel="场景"
-        fetcher={() => api.listTwinScenes({ pageSize: 50 })}
-        saveItem={(b) => api.saveTwinScene(b)}
-        deleteItem={(id) => api.deleteTwinScene(id)}
-        blankItem={() => ({ id: '', name: '新建场景', models: [], lighting: 'day', fog: false, status: 'offline', updatedAt: '' })}
-        askNameOnCreate
-        renderThumb={(s) => <TwinThumb scene={s} label="孪生场景" />}
-        renderMeta={(s) => [
-          `模型数：${s.models?.length ?? 0} · 光照：${s.lighting === 'day' ? '日照' : '夜景'} · 雾效：${s.fog ? '开' : '关'}`,
-          `更新：${formatTime(s.updatedAt)}`
-        ]}
-        renderTags={(s) => {
-          const st = TWIN_STATUS[s.status] ?? TWIN_STATUS.offline
-          return (
-            <div className="twin-status-row">
-              <Tag color={st.color}>{st.text}</Tag>
-              <Tag color={s.lighting === 'day' ? '#ff9500' : '#6366f1'}>{s.lighting === 'day' ? '日照' : '夜景'}</Tag>
-              {s.fog && <Tag>雾效</Tag>}
-              {s.dashboardId && <Tag color="#34c759">已投放</Tag>}
-              {s.deployStatus === 'pending' && <Tag color="#ff9500">待审批</Tag>}
-              {s.deployStatus === 'approved' && <Tag color="#34c759">已发布{s.deployEnv ? ` · ${s.deployEnv}` : ''}</Tag>}
-              {s.deployStatus === 'rejected' && <Tag color="#ff3b30">已驳回</Tag>}
-              {(s.acl?.owner || (s.acl?.editors?.length ?? 0) > 0) && (
-                <Tag color="#818cf8">协同 {1 + (s.acl?.editors?.length ?? 0) + (s.acl?.viewers?.length ?? 0)}人</Tag>
-              )}
+      <main className="feature-page carousel-page">
+        <header className="carousel-head">
+          <div>
+            <h1 className="fp-title">数字孪生</h1>
+            <p className="fp-sub">三维可视化场景搭建与预览，支持 3D 编辑器设计</p>
+          </div>
+          <Button type="primary" icon={<PlusOutlined />} loading={creating} onClick={createScene}>
+            新建场景
+          </Button>
+        </header>
+        <MetricRow>
+          <Stat label="全部场景" value={sceneCount} accent="#0a84ff" />
+          <Stat label="在线" value={onlineCount} accent="#34c759" />
+          <Stat label="维护中" value={maintenanceCount} accent="#ff9500" />
+          <Stat label="离线" value={Math.max(0, sceneCount - onlineCount - maintenanceCount)} accent="#86868b" />
+        </MetricRow>
+        <div className="carousel-toolbar">
+          <Input
+            style={{ width: 320 }}
+            placeholder="按名称搜索…"
+            prefix={<SearchOutlined />}
+            allowClear
+            value={kw}
+            onChange={(e) => setKw(e.target.value)}
+          />
+          <Select
+            style={{ width: 130 }}
+            value={status}
+            onChange={(v) => setStatus(v)}
+            options={[
+              { value: 'all', label: '全部状态' },
+              { value: 'online', label: '在线' },
+              { value: 'maintenance', label: '维护中' },
+              { value: 'offline', label: '离线' }
+            ]}
+          />
+          <Button onClick={() => setDesc((v) => !v)} icon={desc ? <SortDescendingOutlined /> : <SortAscendingOutlined />}>
+            {desc ? '倒序' : '升序'}
+          </Button>
+          <span className="carousel-result">共 {twinItems.length} 个场景</span>
+        </div>
+        <section className="carousel-list">
+          {scenes.loading && <div style={{ padding: 40, textAlign: 'center' }}><Spin /></div>}
+          {scenes.error && <Alert type="error" showIcon message={`加载失败：${scenes.error}`} />}
+          {!scenes.loading && !scenes.error && (
+            <div className="carousel-grid twin-carousel-grid">
+              {twinItems.map((scene) => (
+                <div className="carousel-card twin-scene-card" key={scene.id}>
+                  <div className="carousel-card-thumb">
+                    <TwinThumb scene={scene} label="孪生场景" />
+                  </div>
+                  <div className="carousel-card-info">
+                    <div className="carousel-card-title-row">
+                      {renameId === scene.id ? (
+                        <Input
+                          size="small"
+                          autoFocus
+                          value={renameText}
+                          onChange={(e) => setRenameText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') renameScene(scene, renameText)
+                            if (e.key === 'Escape') setRenameId(null)
+                          }}
+                          onBlur={() => renameScene(scene, renameText)}
+                        />
+                      ) : (
+                        <h2 title={scene.name}>{scene.name}</h2>
+                      )}
+                      <span className={'carousel-state' + (scene.status === 'online' ? ' enabled' : '')}>
+                        {TWIN_STATUS[scene.status]?.text ?? '未知'}
+                      </span>
+                    </div>
+                    <div className="carousel-card-meta">
+                      <span><b>{scene.models?.length ?? 0}</b> 个模型</span>
+                      <span>光照：{scene.lighting === 'day' ? '日照' : '夜景'}</span>
+                      <span>雾效：{scene.fog ? '开' : '关'}</span>
+                      <span>更新：{formatTime(scene.updatedAt)}</span>
+                    </div>
+                    <div className="twin-status-row">
+                      <Tag color={scene.lighting === 'day' ? '#ff9500' : '#6366f1'}>{scene.lighting === 'day' ? '日照' : '夜景'}</Tag>
+                      {scene.fog && <Tag>雾效</Tag>}
+                      {scene.dashboardId && <Tag color="#34c759">已投放</Tag>}
+                      {scene.deployStatus === 'pending' && <Tag color="#ff9500">待审批</Tag>}
+                      {scene.deployStatus === 'approved' && <Tag color="#34c759">已发布{scene.deployEnv ? ` · ${scene.deployEnv}` : ''}</Tag>}
+                      {scene.deployStatus === 'rejected' && <Tag color="#ff3b30">已驳回</Tag>}
+                      {(scene.acl?.owner || (scene.acl?.editors?.length ?? 0) > 0) && (
+                        <Tag color="#818cf8">协同 {1 + (scene.acl?.editors?.length ?? 0) + (scene.acl?.viewers?.length ?? 0)}人</Tag>
+                      )}
+                    </div>
+                    <div className="carousel-card-actions">
+                      <Button size="small" icon={<EyeOutlined />} disabled={deletingId === scene.id} onClick={() => setCview({ mode: 'preview', item: scene })}>
+                        预览
+                      </Button>
+                      <Button size="small" type="primary" ghost icon={<EditOutlined />} disabled={deletingId === scene.id} onClick={() => setCview({ mode: 'edit', item: scene })}>
+                        编辑
+                      </Button>
+                      <Button size="small" type="link" icon={<TeamOutlined />} onClick={() => openAcl(scene)}>权限</Button>
+                      <Button size="small" type="link" icon={<AuditOutlined />} onClick={() => openApproval(scene)}>发布审批</Button>
+                      <Button size="small" type="link" icon={<DesktopOutlined />} onClick={() => openDeploy(scene)}>投放</Button>
+                      <Button size="small" type="text" icon={<FormOutlined />} onClick={() => { setRenameId(scene.id); setRenameText(scene.name) }}>重命名</Button>
+                      <Popconfirm title={`删除「${scene.name}」？此操作不可恢复。`} onConfirm={() => deleteScene(scene)}>
+                        <Button size="small" type="text" danger icon={<DeleteOutlined />} loading={deletingId === scene.id} />
+                      </Popconfirm>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!twinItems.length && <div className="carousel-empty">没有匹配的孪生场景</div>}
             </div>
-          )
-        }}
-        renderActions={(scene) => (
-          <>
-            <Button
-              size="small"
-              type="link"
-              icon={<TeamOutlined />}
-              title="协同权限"
-              onClick={(e) => { e.stopPropagation(); openAcl(scene) }}
-            >
-              权限
-            </Button>
-            <Button
-              size="small"
-              type="link"
-              icon={<AuditOutlined />}
-              title="发布审批"
-              onClick={(e) => { e.stopPropagation(); openApproval(scene) }}
-            >
-              发布审批
-            </Button>
-            <Button
-              size="small"
-              type="link"
-              icon={<DesktopOutlined />}
-              title="投放孪生场景到大屏"
-              onClick={(e) => { e.stopPropagation(); openDeploy(scene) }}
-            >
-              投放到大屏
-            </Button>
-          </>
-        )}
-        renderEditor={(item, save) => (
-          <TwinSceneHost key={item.id || 'blank'} item={item} readOnly={!canEditScene(item, currentUserId)} save={save} />
-        )}
-        renderPreview={(item) => (
-          <TwinSceneHost key={item.id || 'blank'} item={item} readOnly />
-        )}
-      />
+          )}
+        </section>
+      </main>
 
       {/* 投放到大屏弹窗 */}
       {deploying && (
