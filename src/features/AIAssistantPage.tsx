@@ -5,6 +5,7 @@ import ReactECharts from 'echarts-for-react'
 import { api } from '../mock/api'
 import type { AIBotDTO, AISessionItem, CodeLang } from '../mock/types'
 import { extractEchartsOption } from './aiEcharts'
+import { useDesignerStore } from '../data/store/useDesignerStore'
 
 const CARD = {
   background: '#ffffff',
@@ -313,12 +314,14 @@ export default function AIAssistantPage() {
     const safeInline = (code: string) => code.replace(/<\/script/gi, '<\\/script')
     const csp =
       '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' https:; style-src \'unsafe-inline\'; img-src data: https:; font-src data: https:; connect-src https: data:">'
-    const wrapHtml = (code: string) =>
-      /^\s*<(?:!doctype|html)/i.test(code)
-        ? code
-        : `<!doctype html><html><head><meta charset="utf-8">${csp}</head><body>${code}</body></html>`
     if (compType === 'html') {
-      return wrapHtml(cleanCode)
+      const cspForHtml =
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' https:; style-src \'unsafe-inline\' https:; img-src data: https:; font-src data: https:; connect-src https: data:">'
+      if (/^\s*<(?:!doctype|html)/i.test(cleanCode)) {
+        const withHead = cleanCode.replace(/<head[^>]*>/i, (m) => m + cspForHtml)
+        return withHead.replace(/<\/body>/i, () => `<script>window.__DASHBOARD__ = { data: ${JSON.stringify([{ name: '华东', value: 320 }, { name: '华北', value: 210 }])}, filter: null, pick: function (payload) { window.parent.postMessage({ type: 'dashboard:pick', payload: payload || {} }, '*') } };<\/script></body>`)
+      }
+      return `<!doctype html><html><head><meta charset="utf-8">${cspForHtml}<script>window.__DASHBOARD__ = { data: ${JSON.stringify([{ name: '华东', value: 320 }, { name: '华北', value: 210 }])}, filter: null, pick: function (payload) { window.parent.postMessage({ type: 'dashboard:pick', payload: payload || {} }, '*') } };<\/script></head><body>${cleanCode}</body></html>`
     }
     if (compType === 'echarts') {
       if (/^\s*</.test(cleanCode)) {
@@ -328,6 +331,20 @@ export default function AIAssistantPage() {
       return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#ffffff"><div id="chart" style="width:100vw;height:100vh"></div><script>\ntry {\n${safeInline(cleanCode)}\nif (typeof echarts === 'undefined') throw new Error('ECharts CDN 未加载');\nif (!document.querySelector('#chart canvas')) {\nvar __chart = echarts.init(document.getElementById('chart'));\n__chart.setOption((typeof option !== 'undefined' ? option : window.option) || {});\n}\n} catch (e) { document.body.innerHTML = '<pre style="color:#ff3b30;padding:12px">' + (e && e.message ? e.message : String(e)) + '</pre>' }\n<\/script></body></html>`
     }
     return ''
+  }
+
+  /** React 产物在 AI 助手页的安全预览：只读快照，不支持执行任意 JSX/import */
+  const reactPreviewSrcDoc = (): string => {
+    if (!compCode) return ''
+    const cleanCode = compCode
+      .trim()
+      .replace(/^```[a-zA-Z]*\s*\n?/, '')
+      .replace(/\n?```\s*$/, '')
+    const safe = cleanCode
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/&lt;\/script/gi, '&lt;\\/script')
+    return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{height:100%;margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif}pre{height:100%;box-sizing:border-box;margin:0;padding:16px;overflow:auto;font-size:12px;line-height:1.7;color:#1d1d1f;white-space:pre-wrap;word-break:break-all}</style></head><body><pre>${safe}</pre></body></html>`
   }
 
   const downloadFile = () => {
@@ -365,7 +382,12 @@ export default function AIAssistantPage() {
       return
     }
     const suffix = Date.now().toString(36)
-    const type = compType === 'echarts' ? `ai_echarts_${suffix}` : `ai_${suffix}`
+    const type =
+      compType === 'echarts'
+        ? `ai_echarts_${suffix}`
+        : compType === 'html'
+        ? `ai_html_${suffix}`
+        : `ai_react_${suffix}`
     const base = {
       type,
       name: snippetName(),
@@ -390,14 +412,88 @@ export default function AIAssistantPage() {
         schema: { type: 'echartCustom', optionJson },
       })
     } else {
+      const rendererType = compType === 'html' ? 'htmlComponent' : 'reactComponent'
+      const defaultStyle = { x: 80, y: 80, w: 420, h: 280 }
+      const defaultProps = {
+        title: snippetName(),
+        sourceCode: compCode,
+        sandboxMode: 'sandbox',
+        interactive: true,
+        filterField: 'name',
+        data: [
+          { name: '华东', value: 320 },
+          { name: '华北', value: 210 },
+          { name: '华南', value: 260 },
+          { name: '西部', value: 150 },
+        ],
+      }
+      const componentMeta = {
+        type,
+        name: snippetName(),
+        description: compPrompt.trim() || (compType === 'html' ? 'AI 生成的 HTML 组件' : 'AI 生成的 React 组件'),
+        category: 'AI 生成',
+        icon: compType === 'html' ? 'HTML' : 'React',
+        renderer: rendererType,
+        defaultStyle,
+        props: {
+          title: { type: 'string' as const, default: snippetName(), label: '标题', ui: 'text' as const, group: 'data' as const },
+          sourceCode: { type: 'string' as const, default: compCode, label: compType === 'html' ? 'HTML 源码' : 'TSX 源码', ui: 'textarea' as const, group: 'data' as const },
+          sandboxMode: { type: 'string' as const, default: 'sandbox', label: '运行模式', ui: 'select' as const, options: [{ value: 'sandbox', label: '沙箱（隔离）' }, { value: 'trusted', label: '信任（直接渲染）' }], group: 'data' as const },
+          data: { type: 'array' as const, default: defaultProps.data },
+          filterField: { type: 'string' as const, default: 'name', label: '联动字段', ui: 'text' as const, group: 'event' as const },
+          interactive: { type: 'boolean' as const, default: true, label: '点击联动', ui: 'boolean' as const, group: 'event' as const },
+          liveSourceId: { type: 'string' as const, label: '实时数据源', ui: 'select' as const, dynamicOptions: 'liveSources', group: 'data' as const },
+          liveIntervalMs: { type: 'number' as const, default: 2000, label: '刷新间隔 (ms)', ui: 'number' as const, min: 300, step: 100, group: 'data' as const },
+        },
+        styleSchema: [{ key: 'title', label: '标题', type: 'string' as const, ui: 'text' as const }],
+        bindingSchema: [
+          { key: 'sourceCode', label: compType === 'html' ? 'HTML 源码' : 'TSX 源码', type: 'string' as const, ui: 'textarea' as const },
+          { key: 'sandboxMode', label: '运行模式', type: 'string' as const, ui: 'select' as const, options: [{ value: 'sandbox', label: '沙箱（隔离）' }, { value: 'trusted', label: '信任（直接渲染）' }] },
+          { key: 'liveSourceId', label: '实时数据源', type: 'string' as const, ui: 'select' as const, dynamicOptions: 'liveSources' },
+          { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number' as const, ui: 'number' as const, min: 300, step: 100 },
+        ],
+        eventSchema: [
+          { key: 'filterField', label: '联动字段', type: 'string' as const, ui: 'text' as const },
+          { key: 'interactive', label: '点击联动', type: 'boolean' as const, ui: 'boolean' as const },
+        ],
+        schemaVersion: 3,
+        scope: 'custom' as const,
+        enabled: true,
+        version: '1.0.0',
+        status: 'published' as const,
+        manifest: {
+          runtime: rendererType === 'htmlComponent' ? 'sandbox-iframe' : 'safe-tsx-subset',
+          bridge: rendererType === 'htmlComponent' ? 'postMessage' : 'props',
+          sourceCode: compCode,
+          dataContract: ['data', 'filter', 'liveSourceId', 'liveIntervalMs'],
+        },
+      }
+      await api.saveComponent(componentMeta)
+      await api.publishComponent(type, { version: '1.0.0', description: compPrompt.trim() })
       r = await api.saveWidget({
         ...base,
+        kind: rendererType,
         icon: 'CodeOutlined',
         category: 'AI 生成',
+        renderer: rendererType,
+        sourceCode: compCode,
+        sandboxMode: 'sandbox',
+        dataSchema: { generated: true, source: compType },
+        schema: {
+          type: rendererType,
+          sourceCode: compCode,
+          sandboxMode: 'sandbox',
+          defaultProps,
+        },
       })
     }
-    if (r.code === 0) message.success(`已登记到组件中心（${type}）`)
-    else message.error(r.message)
+    if (r.code === 0) {
+      message.success(`已登记到组件中心（${type}）`)
+      // 登记后立即刷新组件目录，编辑器左侧可拖拽到画布
+      useDesignerStore.getState().loadCatalog()
+    } else {
+      message.error(r.message)
+    }
   }
 
   // ---- 智能问答 ----
@@ -637,6 +733,24 @@ export default function AIAssistantPage() {
                         background: '#f5f5f7',
                       }}
                     />
+                  )}
+                  {compType === 'react' && (
+                    <div
+                      style={{
+                        height: 260,
+                        border: '1px solid #e5e5ea',
+                        borderRadius: 8,
+                        background: '#f5f5f7',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <iframe
+                        title="AI React 组件安全预览"
+                        srcDoc={reactPreviewSrcDoc()}
+                        sandbox="allow-scripts"
+                        style={{ width: '100%', height: '100%', border: 0, background: 'transparent' }}
+                      />
+                    </div>
                   )}
                   <pre
                     style={{

@@ -10,6 +10,8 @@ import ContainerWidget from './ContainerWidget'
 import EChartWidget from './EChartWidget'
 import TwinWidget from './TwinWidget'
 import AlarmListWidget from './AlarmListWidget'
+import HtmlComponentWidget from './HtmlComponentWidget'
+import ReactComponentWidget from './ReactComponentWidget'
 import type { WidgetType, WidgetViewProps } from '../../data/types'
 
 const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
@@ -28,11 +30,20 @@ const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
   echartRadar: EChartWidget,
   echartCustom: EChartWidget,
   digitalTwin: TwinWidget,
-  twinAlarm: AlarmListWidget
+  twinAlarm: AlarmListWidget,
+  htmlComponent: HtmlComponentWidget,
+  reactComponent: ReactComponentWidget
 }
 
 export default function WidgetRenderer({ component, filter, onPick }: WidgetViewProps) {
-  const Cmp = map[component.type]
-  if (!Cmp) return <div style={{ color: '#ff5d5d', padding: 8 }}>未知组件: {component.type}</div>
+  const renderer = component.props.catalogRenderer || component.type
+  const Cmp = map[renderer as WidgetType] || map[component.type]
+  if (!Cmp) {
+    return (
+      <div style={{ color: '#ff3b30', background: 'rgba(255,59,48,0.06)', borderRadius: 8, padding: 8, fontSize: 12 }}>
+        未知组件 · {component.props.catalogName || component.type}（{renderer}）
+      </div>
+    )
+  }
   return <Cmp component={component} filter={filter} onPick={onPick} />
 }

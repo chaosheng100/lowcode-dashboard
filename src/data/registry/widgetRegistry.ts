@@ -4,6 +4,7 @@ import {
   PictureOutlined, LineChartOutlined, BarChartOutlined, PieChartOutlined,
   NumberOutlined, TableOutlined, BorderOutlined, DashboardOutlined,
   RadarChartOutlined, SettingOutlined, GlobalOutlined, WarningOutlined,
+  CodeOutlined, FileTextOutlined,
 } from '@ant-design/icons'
 
 /**
@@ -229,9 +230,36 @@ export const widgetRegistry: WidgetRegistry = {
       filterField: 'entityId',
       maxItems: 30
     }
+  },
+  // —— AI 生成源码组件：HTML 走沙箱 iframe，React 走白名单安全子集 ——
+  htmlComponent: {
+    name: 'HTML 组件',
+    icon: createElement(FileTextOutlined),
+    category: 'AI 生成',
+    defaultStyle: { x: 80, y: 80, w: 420, h: 280 },
+    defaultProps: {
+      title: 'AI HTML 组件',
+      sourceCode: '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-family:system-ui;background:linear-gradient(135deg,#f5f5f7,#e8e8ed);color:#1d1d1f;border-radius:12px">\n  <div style="text-align:center">\n    <div style="font-size:22px;font-weight:600">AI HTML 组件</div>\n    <div style="margin-top:8px;font-size:13px;color:#6e6e73">window.__DASHBOARD__.data 已注入</div>\n  </div>\n</div>',
+      sandboxMode: 'sandbox',
+      interactive: true,
+      filterField: 'name'
+    }
+  },
+  reactComponent: {
+    name: 'React 组件',
+    icon: createElement(CodeOutlined),
+    category: 'AI 生成',
+    defaultStyle: { x: 540, y: 80, w: 420, h: 280 },
+    defaultProps: {
+      title: 'AI React 组件',
+      sourceCode: "export default function AICard({ data, filter, pick }) {\n  const total = data.reduce((s, d) => s + Number(d.value || 0), 0)\n  return (\n    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', borderRadius: 12, fontFamily: 'system-ui', color: '#1d1d1f' }}>\n      <div style={{ textAlign: 'center' }}>\n        <div style={{ fontSize: 22, fontWeight: 600 }}>AI React 组件</div>\n        <div style={{ marginTop: 8, fontSize: 13, color: '#6e6e73' }}>数据 {data.length} 项 · 合计 {total}</div>\n        <button onClick={() => pick({ field: 'name', value: data[0]?.name || 'A' })} style={{ marginTop: 12, padding: '6px 14px', borderRadius: 8, border: 0, background: '#0071e3', color: '#fff', cursor: 'pointer' }}>联动点击</button>\n      </div>\n    </div>\n  )\n}",
+      sandboxMode: 'sandbox',
+      interactive: true,
+      filterField: 'name'
+    }
   }
 }
 
-export const widgetCategories: string[] = ['基础', '图表', 'ECharts', '指标', '布局', '数字孪生']
+export const widgetCategories: string[] = ['基础', '图表', 'ECharts', '指标', '布局', '数字孪生', 'AI 生成']
 
 export type { WidgetType, WidgetMeta }

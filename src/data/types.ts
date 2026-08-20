@@ -4,6 +4,7 @@
 
 import type { TwinScene } from '../twin/twinTypes'
 import type { ReactNode } from 'react'
+import type { ComponentMetaDTO } from '../mock/types'
 
 /** 组件类型（与组件注册表、渲染映射一一对应） */
 export type WidgetType =
@@ -26,6 +27,9 @@ export type WidgetType =
   | 'digitalTwin'
   // 数字孪生告警清单（仿真预测性维护产出，联动反向定位）
   | 'twinAlarm'
+  // AI 助手生成的 HTML / React 组件（源码资产，沙箱或安全子集渲染）
+  | 'htmlComponent'
+  | 'reactComponent'
 
 /** 图表数据位点 */
 export interface DataPoint {
@@ -41,6 +45,11 @@ export interface WidgetProps {
   /** 同一资产在目标大屏中的稳定实例键，用于幂等投放 */
   catalogSourceId?: string
   businessType?: 'general' | 'twin'
+  /** 组件目录来源：后端 ComponentMeta.type */
+  catalogRenderer?: string
+  catalogVersion?: string
+  catalogSchemaVersion?: number
+  catalogCategory?: string
   // 文本
   content?: string
   fontSize?: number
@@ -105,6 +114,19 @@ export interface WidgetProps {
   maxItems?: number
   /** 预览态：组件库预览/占位演示时使用静态数据，不向后端发起实时请求 */
   preview?: boolean
+  /** AI 生成组件源码：htmlComponent 为完整 HTML 文档/片段，reactComponent 为 TSX */
+  sourceCode?: string
+  /** 源码运行模式：sandbox=沙箱隔离；trusted=信任源码（仅内网/审核后使用） */
+  sandboxMode?: 'sandbox' | 'trusted'
+  /** AI 产物声明的数据/交互契约，供属性面板与运行时校验 */
+  dataSchema?: Record<string, unknown>
+  /** 声明式事件配置：pick 事件发送的联动字段与值表达式 */
+  eventConfig?: {
+    pick?: {
+      field?: string
+      valueExpr?: string
+    }
+  }
 }
 
 /** CSS 风格定位尺寸（画布坐标系，单位 px） */
@@ -235,10 +257,18 @@ export interface DesignerState {
   selectedId: string | null
   filter: Filter | null
 
+  // 组件目录缓存（后端 ComponentMeta 唯一来源）
+  catalog: ComponentMetaDTO[]
+  catalogLoading: boolean
+  catalogError: string | null
+
   // 视图 / 选择
   setMode: (mode: 'project' | 'preview') => void
   selectRoute: (id: string) => void
   select: (id: string | null) => void
+
+  // 组件目录
+  loadCatalog: () => Promise<void>
 
   // 路由树操作
   addRoute: (parentId?: string | null) => string
@@ -253,6 +283,7 @@ export interface DesignerState {
     stylePatch?: Partial<ComponentStyle>,
     propsPatch?: Partial<WidgetProps>,
     preset?: { type: WidgetType; props?: WidgetProps },
+    meta?: ComponentMetaDTO,
   ) => string | undefined
   removeComponent: (id: string) => void
   updateComponentProps: (id: string, patch: Partial<WidgetProps>) => void

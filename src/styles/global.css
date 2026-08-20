@@ -365,10 +365,27 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
   background: var(--panel-hover);
   transform: translateX(1px);
 }
+.cp-item.dragging {
+  opacity: 0.92;
+  transform: scale(1.03) translateX(1px);
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.16);
+  cursor: grabbing;
+  z-index: 2;
+}
 .cp-item .ico {
   width: 20px; height: 20px; display: grid; place-items: center;
   background: var(--accent-grad-soft); border-radius: var(--r-sm);
   color: var(--accent); font-weight: 700;
+}
+.cp-item .cp-version {
+  margin-left: auto; font-size: 10px; color: var(--sub);
+  background: var(--panel-hover); border-radius: 999px; padding: 1px 6px;
+}
+.cp-search { margin-bottom: 10px; }
+.cp-empty {
+  padding: 18px 10px; text-align: center; color: var(--sub);
+  font-size: 12.5px;
 }
 
 /* Canvas viewport */
@@ -579,6 +596,20 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
   transition: all var(--t-fast);
 }
 .route-node.active .rt-badge {
+  background: rgba(0, 113, 227, 0.14); color: var(--accent); border-color: transparent;
+  font-weight: 700;
+}
+/* 父级路由与叶子一致可点击 / 可选中；角标保留子节点数提示 */
+.route-area .rt-parent .ant-tree-node-content-wrapper { cursor: pointer; }
+.route-area .rt-parent.ant-tree-treenode-selected .ant-tree-node-content-wrapper {
+  background: var(--accent-grad-soft);
+  color: var(--accent);
+}
+.route-area .rt-parent .rt-badge {
+  background: transparent;
+  color: var(--sub);
+}
+.route-area .rt-parent.ant-tree-treenode-selected .rt-badge {
   background: rgba(0, 113, 227, 0.14); color: var(--accent); border-color: transparent;
   font-weight: 700;
 }

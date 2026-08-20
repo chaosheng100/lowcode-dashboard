@@ -24,3 +24,6 @@ npm-debug.log*
 # 数据代理运行产物（注册表 / 审计日志，凭据不入库）
 server/data/
 
+# 本地工具 / 记忆 / 验证产物
+.commandcode/
+

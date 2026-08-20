@@ -636,16 +636,90 @@ export interface WidgetDefDTO {
   kind?: 'echarts' | string
   /** ECharts option JSON（echarts 资产专用） */
   optionJson?: string
+  /** AI 生成的源码资产源码（html/react） */
+  sourceCode?: string
+  /** 源码运行模式 */
+  sandboxMode?: 'sandbox' | 'trusted'
   /** 数据字段契约，用于投放后绑定数据集/实时源 */
   dataSchema?: Record<string, unknown>
+  /** 组件目录渲染原语，如 htmlComponent / reactComponent */
+  renderer?: string
   /** 组件 Schema：渲染器类型 + 默认 props */
   schema?: {
     type?: string
     optionJson?: string
+    sourceCode?: string
+    sandboxMode?: string
     defaultProps?: Record<string, unknown>
   }
   /** 后端组件生命周期状态（可选，老定义兼容） */
   status?: WidgetLifecycleStatus
+}
+
+/** 组件目录元信息：与后端 GET /api/ai/components 的 listComponentsMeta 返回一致 */
+export interface ComponentPropOptionDTO {
+  value: string
+  label: string
+}
+
+export interface ComponentPropShowDTO {
+  key: string
+  value?: unknown
+  not?: boolean
+}
+
+export interface ComponentPropDefDTO {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object'
+  required?: boolean
+  default?: unknown
+  label?: string
+  ui?: 'text' | 'number' | 'color' | 'select' | 'textarea' | 'boolean'
+  options?: ComponentPropOptionDTO[]
+  placeholder?: string
+  min?: number
+  max?: number
+  step?: number
+  group?: 'style' | 'data' | 'event'
+  dynamicOptions?: string
+  show?: ComponentPropShowDTO | null
+}
+
+export interface ComponentMetaFieldDTO {
+  key: string
+  label: string
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object'
+  ui: 'text' | 'number' | 'color' | 'select' | 'textarea' | 'boolean'
+  options?: ComponentPropOptionDTO[]
+  placeholder?: string
+  min?: number
+  max?: number
+  step?: number
+  dynamicOptions?: string
+  show?: ComponentPropShowDTO | null
+}
+
+export interface ComponentMetaDTO {
+  type: string
+  name: string
+  category: string
+  icon?: string | null
+  renderer: string
+  defaultStyle: { x: number; y: number; w: number; h: number }
+  schemaVersion?: number
+  enabled?: boolean
+  scope?: 'system' | 'custom'
+  ownerId?: string | null
+  description?: string | null
+  version?: string
+  status?: 'draft' | 'published' | 'deprecated'
+  manifest?: Record<string, unknown> | null
+  publishedAt?: string | null
+  usageCount?: number
+  props?: Record<string, ComponentPropDefDTO>
+  defaultProps?: Record<string, unknown>
+  styleSchema?: ComponentMetaFieldDTO[]
+  bindingSchema?: ComponentMetaFieldDTO[]
+  eventSchema?: ComponentMetaFieldDTO[]
 }
 
 /** 组件版本 */

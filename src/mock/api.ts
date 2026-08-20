@@ -32,6 +32,7 @@ import type {
   RbacUserDTO,
   ExtensionDTO,
   WidgetDefDTO,
+  ComponentMetaDTO,
   ReportDTO,
   AnalyticsDTO,
   AssetDTO,
@@ -229,6 +230,15 @@ export const api = {
 
   // 组件库
   listWidgets: (q: PageQuery = {}) => mockFetch<PageResult<WidgetDefDTO>>('GET', '/api/widgets', { query: q }),
+
+  // 组件目录（大屏编辑器唯一组件来源）
+  listComponents: () => mockFetch<ComponentMetaDTO[]>('GET', '/api/ai/components'),
+  /** 登记 AI 生成的源码组件到组件目录（renderer=htmlComponent/reactComponent） */
+  saveComponent: (body: Partial<ComponentMetaDTO>) =>
+    mockFetch<ComponentMetaDTO>('POST', '/api/ai/components', { body }),
+  /** 发布组件目录条目，供大屏设计器拖拽使用 */
+  publishComponent: (type: string, body?: { version?: string; description?: string }) =>
+    mockFetch<ComponentMetaDTO>('POST', `/api/ai/components/${encodeURIComponent(type)}/publish`, { body }),
 
   // 报表
   listReports: (q: PageQuery = {}) => mockFetch<PageResult<ReportDTO>>('GET', '/api/reports', { query: q }),

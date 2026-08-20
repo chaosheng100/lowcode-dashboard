@@ -56,6 +56,9 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   selectedRouteId: DEFAULT_ROUTE_ID,
   selectedId: null, // 当前选中的组件
   filter: null, // 联动全局筛选 { field, value }
+  catalog: [],
+  catalogLoading: false,
+  catalogError: null,
 
   // —— 数字孪生场景库（模块编辑器与大屏数字孪生组件共享同一份场景数据，实现互通 + 持久化）——
   twinScenes: { main: createDemoScene() },
@@ -65,6 +68,23 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   setMode: (mode) => set({ mode, selectedId: null }),
   selectRoute: (id) => set({ selectedRouteId: id, selectedId: null, filter: null }),
   select: (id) => set({ selectedId: id }),
+
+  // —— 组件目录（后端 ComponentMeta 唯一来源）——
+  loadCatalog: async () => {
+    const st = get()
+    if (st.catalogLoading) return
+    set({ catalogLoading: true, catalogError: null })
+    try {
+      const res = await import('../../mock/api').then((m) => m.api.listComponents())
+      if (res.code === 0) {
+        set({ catalog: Array.isArray(res.data) ? res.data : [], catalogLoading: false })
+      } else {
+        set({ catalogError: res.message || '组件目录加载失败', catalogLoading: false })
+      }
+    } catch (e) {
+      set({ catalogError: (e as Error).message || '组件目录加载失败', catalogLoading: false })
+    }
+  },
 
   // —— 路由树操作 ——
   addRoute: (parentId = null) => {
@@ -106,21 +126,38 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     set((s) => ({ routes: s.routes.map((r) => (r.id === route.id ? route : r)) })),
 
   // —— 组件操作（作用于当前选中路由）—— 
-  addComponent: (type, stylePatch = {}, propsPatch, preset) => {
+  addComponent: (type, stylePatch = {}, propsPatch, preset, meta) => {
     const s = get()
     const route = s.routes.find((r) => r.id === s.selectedRouteId)
     if (!route) return undefined
     const def = widgetRegistry[type]
-    if (!def && !preset) return undefined
-    const defaultStyle = def?.defaultStyle || { x: 60, y: 60, w: 400, h: 240 }
+    if (!def && !preset && !meta) return undefined
+    const defaultStyle = meta?.defaultStyle ?? def?.defaultStyle ?? { x: 60, y: 60, w: 400, h: 240 }
+    const catalogProps: Partial<WidgetProps> = meta
+      ? {
+          catalogKey: meta.type,
+          catalogName: meta.name,
+          catalogSourceId: `catalog:${meta.type}`,
+          catalogRenderer: meta.renderer,
+          catalogVersion: meta.version,
+          catalogSchemaVersion: meta.schemaVersion,
+          catalogCategory: meta.category,
+          businessType: 'general',
+        }
+      : {
+          catalogKey: type,
+          catalogRenderer: type,
+        }
     const comp: ComponentInstance = {
       id: genId(type),
-      type: preset?.type ?? type,
+      type: (meta?.type ?? preset?.type ?? type) as ComponentInstance['type'],
       style: { ...defaultStyle, ...stylePatch },
       props: clone({
         ...(def?.defaultProps ?? {}),
+        ...(meta?.defaultProps ?? {}),
         ...(propsPatch || {}),
         ...(preset?.props || {}),
+        ...catalogProps,
       }) as WidgetProps
     }
     set((st) => ({
@@ -299,6 +336,10 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       const type = (widgetRegistry[c.type as keyof typeof widgetRegistry]
         ? c.type
         : 'text') as ComponentInstance['type']
+      const catalog = s.catalog.find((meta) => meta.type === c.type)
+      const resolvedType = (catalog?.renderer && (catalog.renderer === 'htmlComponent' || catalog.renderer === 'reactComponent')
+        ? catalog.renderer
+        : type) as ComponentInstance['type']
       const def = widgetRegistry[type]
       const baseStyle = def.defaultStyle
       const style = {
@@ -309,9 +350,22 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       }
       return {
         id: c.id || genId(type),
-        type,
+        type: resolvedType,
         style,
-        props: { ...(clone(def.defaultProps) as Record<string, unknown>), ...(c.props || {}) } as WidgetProps,
+        props: {
+          ...(clone(def.defaultProps) as Record<string, unknown>),
+          ...(c.props || {}),
+          ...(catalog
+            ? {
+                catalogKey: catalog.type,
+                catalogName: catalog.name,
+                catalogRenderer: catalog.renderer,
+                catalogVersion: catalog.version,
+                catalogSchemaVersion: catalog.schemaVersion,
+                catalogCategory: catalog.category,
+              }
+            : {}),
+        } as WidgetProps,
         ...(c.dataSource ? { dataSource: c.dataSource } : {})
       }
     })

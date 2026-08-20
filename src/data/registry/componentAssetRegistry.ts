@@ -11,6 +11,12 @@ export interface ComponentAssetDefinition {
   businessType: 'general' | 'twin'
   /** AI 生成的 ECharts option JSON（echarts 资产专用） */
   optionJson?: string
+  /** AI 生成的源码资产：html/react 组件 */
+  sourceCode?: string
+  /** 源码运行模式 */
+  sandboxMode?: 'sandbox' | 'trusted'
+  /** 组件目录渲染原语 */
+  rendererType?: string
   /** 组件中心资产 id */
   widgetId?: string
 }
@@ -31,7 +37,9 @@ const DESCRIPTIONS: Record<WidgetType, string> = {
   echartRadar: '多维能力与状态评估',
   echartCustom: '基于 ECharts Option 的自定义图表',
   digitalTwin: '嵌入大屏的三维数字孪生场景，支持与大屏图表双向联动',
-  twinAlarm: '孪生仿真预测性维护告警清单，点击告警反向定位三维实体'
+  twinAlarm: '孪生仿真预测性维护告警清单，点击告警反向定位三维实体',
+  htmlComponent: 'AI 生成的 HTML 组件，沙箱渲染并支持大屏数据与联动',
+  reactComponent: 'AI 生成的 React/TSX 组件，安全子集渲染并支持大屏数据与联动'
 }
 
 export const standardComponentAssets: ComponentAssetDefinition[] = (
@@ -60,6 +68,14 @@ export function createStandardAssetComponent(asset: ComponentAssetDefinition): C
   }
   if (asset.type === 'echartCustom' && asset.optionJson) {
     props.optionJson = asset.optionJson
+  }
+  if (asset.sourceCode) {
+    props.sourceCode = asset.sourceCode
+    props.sandboxMode = asset.sandboxMode ?? 'sandbox'
+  }
+  if (asset.rendererType) {
+    props.catalogRenderer = asset.rendererType
+    props.catalogSourceId = `catalog:${asset.key}`
   }
   return {
     id: genId(asset.type),

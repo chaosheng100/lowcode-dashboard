@@ -1,4 +1,5 @@
 import type { WidgetType, WidgetProps } from '../../data/types'
+import type { ComponentMetaFieldDTO, ComponentPropDefDTO } from '../../mock/types'
 
 /**
  * 属性 Schema 定义 —— 对齐 Avue Data 的 AvueForm schema 驱动属性面板。
@@ -19,6 +20,57 @@ export interface PropField {
   dynamicOptions?: 'liveSources' | 'twinScenes' | 'iotDevices' | 'iotMetrics'
   /** 仅当此函数返回 true 时显示该字段 */
   show?: (props: WidgetProps) => boolean
+}
+
+/** 后端目录 schema 字段：保持与 ComponentMetaFieldDTO 形状一致 */
+export type CatalogPropField = ComponentMetaFieldDTO
+
+/** 后端目录属性定义：默认值 / 类型 / 控件提示 */
+export type CatalogPropDef = ComponentPropDefDTO
+
+/** 把后端字段定义转换为前端 SchemaForm 可直接消费的 PropField */
+export function toPropField(key: keyof WidgetProps | string, p: CatalogPropDef): PropField {
+  const ui = p.ui ?? (p.type === 'number' ? 'number' : p.type === 'boolean' ? 'boolean' : 'text')
+  return {
+    key: key as keyof WidgetProps,
+    label: p.label ?? key,
+    type: ui,
+    options: p.options,
+    placeholder: p.placeholder,
+    min: p.min,
+    step: p.step,
+    ...(p.dynamicOptions
+      ? { dynamicOptions: p.dynamicOptions as PropField['dynamicOptions'] }
+      : {}),
+    ...(p.show
+      ? {
+          show: (props: WidgetProps) =>
+            p.show!.not ? props[p.show!.key as keyof WidgetProps] !== p.show!.value : props[p.show!.key as keyof WidgetProps] === p.show!.value,
+        }
+      : {}),
+  }
+}
+
+/** 把后端 style/binding/event 三段 schema 转成前端面板 schema */
+export function toPropFields(fields: CatalogPropField[] | undefined): PropField[] {
+  return (fields ?? []).map((f) => ({
+    key: f.key as keyof WidgetProps,
+    label: f.label ?? f.key,
+    type: f.ui === 'text' ? 'text' : f.ui,
+    options: f.options,
+    placeholder: f.placeholder,
+    min: f.min,
+    step: f.step,
+    ...(f.dynamicOptions
+      ? { dynamicOptions: f.dynamicOptions as PropField['dynamicOptions'] }
+      : {}),
+    ...(f.show
+      ? {
+          show: (props: WidgetProps) =>
+            f.show!.not ? props[f.show!.key as keyof WidgetProps] !== f.show!.value : props[f.show!.key as keyof WidgetProps] === f.show!.value,
+        }
+      : {}),
+  }))
 }
 
 /** 样式类字段（渲染在「样式」Tab，位置 X/Y/W/H 之后） */
@@ -120,5 +172,29 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
     { key: 'title', label: '标题', type: 'text' },
     { key: 'filterField', label: '联动字段 (filterField)', type: 'text' },
     { key: 'maxItems', label: '最大展示条数', type: 'number', min: 1, step: 1 }
+  ],
+  htmlComponent: [
+    { key: 'sourceCode', label: 'HTML 源码', type: 'textarea' },
+    {
+      key: 'sandboxMode', label: '运行模式', type: 'select',
+      options: [
+        { value: 'sandbox', label: '沙箱（隔离）' },
+        { value: 'trusted', label: '信任（直接渲染）' }
+      ]
+    },
+    { key: 'liveSourceId', label: '实时数据源', type: 'select', dynamicOptions: 'liveSources' },
+    { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 300, step: 100, show: (p) => !!p.liveSourceId }
+  ],
+  reactComponent: [
+    { key: 'sourceCode', label: 'TSX 源码', type: 'textarea' },
+    {
+      key: 'sandboxMode', label: '运行模式', type: 'select',
+      options: [
+        { value: 'sandbox', label: '沙箱（隔离）' },
+        { value: 'trusted', label: '信任（直接渲染）' }
+      ]
+    },
+    { key: 'liveSourceId', label: '实时数据源', type: 'select', dynamicOptions: 'liveSources' },
+    { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 300, step: 100, show: (p) => !!p.liveSourceId }
   ]
 }

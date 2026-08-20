@@ -42,7 +42,7 @@ interface RoutePanelProps {
  * - 路由列表不可编辑：无新增 / 删除 / 添加子页面操作
  * - 树形结构由 antd Tree 接管（默认全展开，可逐节点收起）
  * - 支持整体折叠为「仅图标」状态（Tree 不支持该模式，保留自绘图标列）
- * - 点击节点仅用于路由导航（选中并联动右侧操作区）
+ * - 一级路由点击导航（选中并联动右侧操作区），同时保留展开 / 收起；叶子路由同样点击导航
  */
 export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer }: RoutePanelProps) {
   // 基础数据路由区：仅展示 kind !== 'dashboard' 的路由，大屏路由交由「大屏管理」模块管理
@@ -58,13 +58,19 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
   // 全部可展开节点（有子节点的路由），展开态 = 全部父节点减去被收起的
   const parentIds = routes.filter((r) => childrenOf(r.id).length > 0).map((r) => r.id)
   const expandedKeys = parentIds.filter((id) => !closedNodes.has(id))
+  const parentIdSet = new Set(parentIds)
+  // 父节点也参与选中导航，历史选中残留正常高亮
+  const selectedKeys = selectedRouteId ? [selectedRouteId] : []
 
   // 递归映射为 Tree 数据：标题保留 图标 + 名称 + 子节点数角标
   const toTreeData = (list: RouteConfig[]): TreeDataNode[] =>
     list.map((route) => {
       const kids = childrenOf(route.id)
+      const isParent = kids.length > 0
       return {
         key: route.id,
+        selectable: true,
+        className: isParent ? 'rt-parent' : undefined,
         title: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
             <span className="rt-ico">{ICONS[route.id] || FALLBACK_ICON}</span>
@@ -105,13 +111,16 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
       </div>
       <div className="route-tree">
         {collapsed ? (
-          // 仅图标模式：只展示一级路由图标，点击选中
+          // 仅图标模式：一级父路由点击展开侧栏并导航，一级叶子路由点击导航
           roots.map((r) => (
             <div
               key={r.id}
               className={'route-node lvl1' + (r.id === selectedRouteId ? ' active' : '')}
               title={r.name}
-              onClick={() => selectRoute(r.id)}
+              onClick={() => {
+                if (parentIdSet.has(r.id)) onToggleCollapse()
+                selectRoute(r.id)
+              }}
             >
               <span className="rt-ico">{ICONS[r.id] || FALLBACK_ICON}</span>
             </div>
@@ -119,13 +128,15 @@ export default function RoutePanel({ collapsed, onToggleCollapse, onCloseDrawer 
         ) : (
           <Tree
             blockNode
+            expandAction="click"
             treeData={toTreeData(roots)}
-            selectedKeys={[selectedRouteId]}
+            selectedKeys={selectedKeys}
             expandedKeys={expandedKeys}
             onExpand={(keys) => setClosedNodes(new Set(parentIds.filter((id) => !keys.includes(id))))}
             onSelect={(keys) => {
               // 点击已选中节点时 keys 为空，忽略以保持选中
-              if (keys.length > 0) selectRoute(String(keys[0]))
+              const key = keys.length > 0 ? String(keys[0]) : ''
+              if (key) selectRoute(key)
             }}
           />
         )}

@@ -27,6 +27,7 @@ export default function Designer({ routeId, onBack }: Props) {
   // 进入编辑器即切换为当前大屏路由，使其作为画布编辑对象
   useEffect(() => {
     selectRoute(routeId)
+    useDesignerStore.getState().loadCatalog()
   }, [routeId, selectRoute])
 
   return (

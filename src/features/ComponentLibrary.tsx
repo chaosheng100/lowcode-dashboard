@@ -99,6 +99,21 @@ function previewComponent(asset: LibraryAsset): ComponentInstance {
       props: { ...definition.defaultProps, optionJson: asset.optionJson }
     }
   }
+  if (asset.sourceCode && (asset.type === 'htmlComponent' || asset.type === 'reactComponent')) {
+    const definition = widgetRegistry[asset.type]
+    return {
+      id: `preview_${asset.key}`,
+      type: asset.type,
+      style: definition.defaultStyle,
+      props: {
+        ...definition.defaultProps,
+        sourceCode: asset.sourceCode,
+        sandboxMode: asset.sandboxMode ?? 'sandbox',
+        catalogRenderer: asset.rendererType,
+        catalogSourceId: `catalog:${asset.key}`,
+      }
+    }
+  }
   const definition = widgetRegistry[asset.type]
   const previewProps =
     asset.type === 'echartCustom' && asset.optionJson
@@ -131,17 +146,39 @@ export default function ComponentLibrary() {
   const registeredAssets = useMemo<LibraryAsset[]>(
     () =>
       (data?.list ?? [])
-        .filter((w) => (w.category === 'ECharts' || w.kind === 'echarts') && !!w.optionJson)
-        .map((w) => ({
-          key: `registered:${w.type}`,
-          name: w.name,
-          category: 'ECharts',
-          description: w.desc || 'AI 生成的 ECharts 组件',
-          type: 'echartCustom' as const,
-          businessType: 'general' as const,
-          optionJson: w.optionJson,
-          widgetId: w.id ?? w.type,
-        })),
+        .flatMap<LibraryAsset>((w) => {
+          const renderer = w.renderer ?? w.schema?.type
+          if ((w.category === 'ECharts' || w.kind === 'echarts') && !!w.optionJson) {
+            return [{
+              key: `registered:${w.type}`,
+              name: w.name,
+              category: 'ECharts',
+              description: w.desc || 'AI 生成的 ECharts 组件',
+              type: 'echartCustom' as const,
+              businessType: 'general' as const,
+              optionJson: w.optionJson,
+              widgetId: w.id ?? w.type,
+            }]
+          }
+          if (renderer === 'htmlComponent' || renderer === 'reactComponent' || !!w.sourceCode || w.schema?.sourceCode) {
+            const type = renderer === 'htmlComponent' || w.schema?.type === 'htmlComponent'
+              ? 'htmlComponent' as const
+              : 'reactComponent' as const
+            return [{
+              key: `registered:${w.type}`,
+              name: w.name,
+              category: 'AI 生成',
+              description: w.desc || 'AI 生成的源码组件',
+              type,
+              businessType: 'general' as const,
+              sourceCode: w.sourceCode ?? w.schema?.sourceCode,
+              sandboxMode: (w.sandboxMode ?? w.schema?.sandboxMode) as 'sandbox' | 'trusted' | undefined,
+              rendererType: type,
+              widgetId: w.id ?? w.type,
+            }]
+          }
+          return []
+        }),
     [data],
   )
   const assets = useMemo<LibraryAsset[]>(
@@ -287,6 +324,13 @@ export default function ComponentLibrary() {
       } else {
         if (deploying.optionJson) {
           await saveScreenRoute(patchScreenRoute(route, deployEchartAsset(route, deploying)))
+        } else if (deploying.sourceCode && (deploying.type === 'htmlComponent' || deploying.type === 'reactComponent')) {
+          await saveScreenRoute(
+            patchScreenRoute(route, deployStandardAsset(route, {
+              ...deploying,
+              type: deploying.type,
+            }))
+          )
         } else {
           await saveScreenRoute(patchScreenRoute(route, deployStandardAsset(route, deploying)))
         }
@@ -305,10 +349,11 @@ export default function ComponentLibrary() {
         title="组件库"
         subtitle="统一管理标准组件与数字孪生业务组件，按资产键幂等投放到大屏"
         actions={<div className="component-library-summary" aria-label="组件资产统计">
-          <span>标准组件 <strong>{standardComponentAssets.length}</strong></span>
-          <span>孪生组件 <strong>{twinComponentAssets.length}</strong></span>
-          <span>服务已注册 <strong>{data?.list.length ?? 0}</strong></span>
-        </div>}
+              <span>标准组件 <strong>{standardComponentAssets.length}</strong></span>
+              <span>孪生组件 <strong>{twinComponentAssets.length}</strong></span>
+              <span>AI 源码组件 <strong>{registeredAssets.filter((a) => a.sourceCode).length}</strong></span>
+              <span>服务已注册 <strong>{data?.list.length ?? 0}</strong></span>
+            </div>}
       />
 
       {/* 组件中心状态统计条 */}

@@ -10,6 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, WidgetProps } from '../../data/types'
+import type { ComponentMetaDTO } from '../../mock/types'
 
 export default function Editor() {
   const sensors = useSensors(
@@ -18,7 +19,11 @@ export default function Editor() {
 
   const onDragEnd = (event: DragEndEvent) => {
     const data = event.active.data.current as
-      | { type?: ComponentInstance['type']; preset?: { type: ComponentInstance['type']; props?: WidgetProps } }
+      | {
+          type?: ComponentInstance['type']
+          preset?: { type: ComponentInstance['type']; props?: WidgetProps }
+          meta?: ComponentMetaDTO
+        }
       | undefined
     const type = data?.type
     if (!type || !event.activatorEvent) return
@@ -36,7 +41,9 @@ export default function Editor() {
       x: Math.max(0, Math.min((ev.clientX - rect.left) / scale - 30, pageW - 40)),
       y: Math.max(0, Math.min((ev.clientY - rect.top) / scale - 20, pageH - 40)),
     }
-    if (data?.preset) {
+    if (data?.meta) {
+      st.addComponent(data.meta.type as ComponentInstance['type'], position, undefined, undefined, data.meta)
+    } else if (data?.preset) {
       st.addComponent(data.preset.type, position, undefined, {
         type: data.preset.type,
         props: data.preset.props,

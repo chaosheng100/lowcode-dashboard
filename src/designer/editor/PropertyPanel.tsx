@@ -9,13 +9,14 @@ import type { DataPoint } from '../../data/types'
 import type { TwinSceneOption, IoTDeviceOption } from './SchemaForm'
 import CanvasPanel from './CanvasPanel'
 import SchemaForm from './SchemaForm'
-import { styleSchemas, dataSchemas } from './propSchemas'
+import { styleSchemas, dataSchemas, toPropFields } from './propSchemas'
 
-const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie', 'digitalTwin', 'twinAlarm']
+const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie', 'digitalTwin', 'twinAlarm', 'htmlComponent', 'reactComponent']
 /** 支持数据绑定的组件类型 */
 const dataTypes: WidgetType[] = [
   'lineChart', 'barChart', 'pieChart', 'metric', 'table',
-  'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar', 'echartCustom'
+  'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar', 'echartCustom',
+  'htmlComponent', 'reactComponent'
 ]
 
 export default function PropertyPanel() {
@@ -25,6 +26,10 @@ export default function PropertyPanel() {
     (s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0]
   )! as RouteConfig
   const component: ComponentInstance | undefined = route.components.find((c) => c.id === selectedId)
+  const catalog = useDesignerStore((s) => s.catalog)
+  const catalogMeta = component
+    ? catalog.find((c) => c.type === component.props.catalogKey || c.renderer === component.type)
+    : undefined
   const updateProps = useDesignerStore((s) => s.updateComponentProps)
   const updateStyle = useDesignerStore((s) => s.updateComponentStyle)
   const updateComponentDataSource = useDesignerStore((s) => s.updateComponentDataSource)
@@ -124,8 +129,9 @@ export default function PropertyPanel() {
   const p = component.props
   const hasData = dataTypes.includes(component.type)
   const isInteractive = interactiveTypes.includes(component.type)
-  const styleSchema = styleSchemas[component.type]
-  const dataSchema = dataSchemas[component.type]
+  const styleSchema = catalogMeta ? toPropFields(catalogMeta.styleSchema) : styleSchemas[component.type]
+  const dataSchema = catalogMeta ? toPropFields(catalogMeta.bindingSchema) : dataSchemas[component.type]
+  const eventSchema = catalogMeta ? toPropFields(catalogMeta.eventSchema) : undefined
 
   const applyData = () => {
     try {
@@ -301,7 +307,16 @@ export default function PropertyPanel() {
 
       {tab === 'event' && (
         <>
-          {isInteractive ? (
+          {catalogMeta && eventSchema && eventSchema.length ? (
+            <SchemaForm
+              schema={eventSchema}
+              value={p}
+              liveSources={liveSources}
+              twinSceneOptions={twinSceneOptions}
+              iotDeviceOptions={iotDeviceOptions}
+              onChange={(patch) => updateProps(component.id, patch)}
+            />
+          ) : isInteractive ? (
             <>
               <Form.Item label="点击行为" colon={false} style={{ marginBottom: 11 }}>
                 <Select
