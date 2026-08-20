@@ -8,7 +8,7 @@ export interface ScreenItem {
   projectId: string
   name: string
   description?: string | null
-  status: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED'
+  status: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'PUBLISHED'
   config: ScreenConfig
   currentVersion: number
   publishedVersion?: number | null

@@ -66,7 +66,6 @@ const STATUS_META: Record<ScreenItem['status'], { label: string; color: string }
   PENDING_REVIEW: { label: '待审核', color: 'gold' },
   APPROVED: { label: '已通过', color: 'blue' },
   PUBLISHED: { label: '已发布', color: 'green' },
-  ARCHIVED: { label: '已归档', color: 'red' },
 }
 
 const APPROVAL_STATUS_META: Record<ScreenApproval['status'], { label: string; color: string }> = {
@@ -166,7 +165,8 @@ export default function ScreenListPage() {
     const published = screens.filter((s) => s.status === 'PUBLISHED').length
     const draft = screens.filter((s) => s.status === 'DRAFT').length
     const pending = screens.filter((s) => s.status === 'PENDING_REVIEW').length
-    return { total, published, draft, pending }
+    const approved = screens.filter((s) => s.status === 'APPROVED').length
+    return { total, published, draft, pending, approved }
   }, [screens])
 
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -437,7 +437,6 @@ export default function ScreenListPage() {
             { value: 'PENDING_REVIEW', label: '待审核' },
             { value: 'APPROVED', label: '已通过' },
             { value: 'PUBLISHED', label: '已发布' },
-            { value: 'ARCHIVED', label: '已归档' },
           ]}
         />
         <Select
@@ -464,6 +463,7 @@ export default function ScreenListPage() {
         <MetricCard label="全部大屏" value={stats.total} accent="#0071e3" />
         <MetricCard label="已发布" value={stats.published} accent="#34c759" />
         <MetricCard label="待审核" value={stats.pending} accent="#ff9500" />
+        <MetricCard label="已通过" value={stats.approved} accent="#af52de" />
         <MetricCard label="草稿" value={stats.draft} accent="var(--sub)" />
       </MetricRow>
 
