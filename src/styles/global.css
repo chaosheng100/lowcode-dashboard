@@ -303,7 +303,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
   background: var(--panel);
   backdrop-filter: blur(12px);
   border-right: 1px solid var(--line);
-  overflow-y: auto; padding: 12px;
+  overflow-y: auto; overflow-x: hidden; padding: 12px;
 }
 .panel-right {
   width: 300px;
@@ -376,17 +376,40 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
 .cp-item .ico {
   width: 20px; height: 20px; display: grid; place-items: center;
   background: var(--accent-grad-soft); border-radius: var(--r-sm);
-  color: var(--accent); font-weight: 700;
+  color: var(--accent); font-weight: 700; flex-shrink: 0;
+}
+.cp-item > span:nth-child(2) {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cp-item .cp-version {
   margin-left: auto; font-size: 10px; color: var(--sub);
   background: var(--panel-hover); border-radius: 999px; padding: 1px 6px;
+  flex-shrink: 0; white-space: nowrap;
 }
 .cp-search { margin-bottom: 10px; }
 .cp-empty {
   padding: 18px 10px; text-align: center; color: var(--sub);
   font-size: 12.5px;
 }
+.cp-empty.cp-error { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.cp-retry {
+  font-size: 12px; color: var(--accent); background: transparent;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 2px 12px; cursor: pointer; transition: all var(--t-fast);
+}
+.cp-retry:hover { border-color: var(--accent); background: var(--panel-hover); }
+.cp-item.disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+.cp-item.disabled:hover { border-color: var(--line); background: var(--panel2); transform: none; }
+.cp-item .cp-hint {
+  margin-left: auto; font-size: 10px; color: var(--sub);
+  background: var(--panel-hover); border-radius: 999px; padding: 1px 6px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.cp-asset { margin-bottom: 8px; }
+.cp-asset .cp-item { margin-bottom: 5px; }
+.cp-asset-select { width: 100%; }
 
 /* Canvas viewport */
 .canvas-viewport {

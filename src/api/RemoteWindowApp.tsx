@@ -58,7 +58,7 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
         setLoadError(res.message || '大屏不存在或已被删除')
       }
       setLoading(false)
-      useDesignerStore.getState().loadCatalog()
+      useDesignerStore.getState().loadCatalogAssets()
     }
     load()
     return () => {

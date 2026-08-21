@@ -1,6 +1,7 @@
 import { genId } from '../utils/id'
 import type { ComponentInstance, RouteConfig, WidgetProps, WidgetType } from '../types'
 import { widgetRegistry } from './widgetRegistry'
+import type { WidgetDefDTO } from '../../mock/types'
 
 export interface ComponentAssetDefinition {
   key: string
@@ -52,6 +53,44 @@ export const standardComponentAssets: ComponentAssetDefinition[] = (
   type,
   businessType: type === 'digitalTwin' || type === 'twinAlarm' ? 'twin' : 'general'
 }))
+
+/** 组件中心已注册资产（AI 生成的 ECharts / 源码组件）→ 组件库资产定义（与组件库页共用） */
+export function registeredAssetsFromWidgets(list: WidgetDefDTO[]): ComponentAssetDefinition[] {
+  return (list ?? [])
+    .flatMap<ComponentAssetDefinition>((w) => {
+      const renderer = w.renderer ?? w.schema?.type
+      if ((w.category === 'ECharts' || w.kind === 'echarts') && !!w.optionJson) {
+        return [{
+          key: `registered:${w.type}`,
+          name: w.name,
+          category: 'ECharts',
+          description: w.desc || 'AI 生成的 ECharts 组件',
+          type: 'echartCustom' as const,
+          businessType: 'general' as const,
+          optionJson: w.optionJson,
+          widgetId: w.id ?? w.type,
+        }]
+      }
+      if (renderer === 'htmlComponent' || renderer === 'reactComponent' || !!w.sourceCode || w.schema?.sourceCode) {
+        const type = renderer === 'htmlComponent' || w.schema?.type === 'htmlComponent'
+          ? 'htmlComponent' as const
+          : 'reactComponent' as const
+        return [{
+          key: `registered:${w.type}`,
+          name: w.name,
+          category: 'AI 生成',
+          description: w.desc || 'AI 生成的源码组件',
+          type,
+          businessType: 'general' as const,
+          sourceCode: w.sourceCode ?? w.schema?.sourceCode,
+          sandboxMode: (w.sandboxMode ?? w.schema?.sandboxMode) as 'sandbox' | 'trusted' | undefined,
+          rendererType: type,
+          widgetId: w.id ?? w.type,
+        }]
+      }
+      return []
+    })
+}
 
 function cloneProps(props: WidgetProps): WidgetProps {
   return JSON.parse(JSON.stringify(props)) as WidgetProps

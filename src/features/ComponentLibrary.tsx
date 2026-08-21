@@ -15,6 +15,7 @@ import {
   deployEchartAsset,
   deployStandardAsset,
   standardComponentAssets,
+  registeredAssetsFromWidgets,
   type ComponentAssetDefinition
 } from '../data/registry/componentAssetRegistry'
 import { widgetRegistry } from '../data/registry/widgetRegistry'
@@ -144,41 +145,7 @@ export default function ComponentLibrary() {
   const { data: screenData } = useApi(() => screenApi.list(), [])
   const dashboards = useMemo(() => (screenData ?? []).map(screenToRoute), [screenData])
   const registeredAssets = useMemo<LibraryAsset[]>(
-    () =>
-      (data?.list ?? [])
-        .flatMap<LibraryAsset>((w) => {
-          const renderer = w.renderer ?? w.schema?.type
-          if ((w.category === 'ECharts' || w.kind === 'echarts') && !!w.optionJson) {
-            return [{
-              key: `registered:${w.type}`,
-              name: w.name,
-              category: 'ECharts',
-              description: w.desc || 'AI 生成的 ECharts 组件',
-              type: 'echartCustom' as const,
-              businessType: 'general' as const,
-              optionJson: w.optionJson,
-              widgetId: w.id ?? w.type,
-            }]
-          }
-          if (renderer === 'htmlComponent' || renderer === 'reactComponent' || !!w.sourceCode || w.schema?.sourceCode) {
-            const type = renderer === 'htmlComponent' || w.schema?.type === 'htmlComponent'
-              ? 'htmlComponent' as const
-              : 'reactComponent' as const
-            return [{
-              key: `registered:${w.type}`,
-              name: w.name,
-              category: 'AI 生成',
-              description: w.desc || 'AI 生成的源码组件',
-              type,
-              businessType: 'general' as const,
-              sourceCode: w.sourceCode ?? w.schema?.sourceCode,
-              sandboxMode: (w.sandboxMode ?? w.schema?.sandboxMode) as 'sandbox' | 'trusted' | undefined,
-              rendererType: type,
-              widgetId: w.id ?? w.type,
-            }]
-          }
-          return []
-        }),
+    () => registeredAssetsFromWidgets(data?.list ?? []),
     [data],
   )
   const assets = useMemo<LibraryAsset[]>(

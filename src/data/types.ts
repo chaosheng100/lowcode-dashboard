@@ -4,7 +4,7 @@
 
 import type { TwinScene } from '../twin/twinTypes'
 import type { ReactNode } from 'react'
-import type { ComponentMetaDTO } from '../mock/types'
+import type { ComponentMetaDTO, IoTDeviceDTO, TwinSceneDTO, WidgetDefDTO } from '../mock/types'
 
 /** 组件类型（与组件注册表、渲染映射一一对应） */
 export type WidgetType =
@@ -262,13 +262,27 @@ export interface DesignerState {
   catalogLoading: boolean
   catalogError: string | null
 
+  // 组件中心已注册资产（AI 生成的 ECharts / 源码组件，与组件库页共用）
+  registeredWidgets: WidgetDefDTO[]
+  widgetsLoading: boolean
+
+  // 孪生/物联资产数据（左侧组件面板「组件库全量组件」数据源）
+  twinScenesMeta: Record<string, unknown>
+  iotDevicesMeta: IoTDeviceDTO[]
+  twinMetaLoading: boolean
+  iotMetaLoading: boolean
+  upsertTwinScenesMeta: (snapshots: Record<string, unknown>) => void
+  removeTwinScenesMeta: (id: string) => void
+  setIotDevicesMeta: (list: IoTDeviceDTO[]) => void
+
   // 视图 / 选择
   setMode: (mode: 'project' | 'preview') => void
   selectRoute: (id: string) => void
   select: (id: string | null) => void
 
-  // 组件目录
+  // 组件目录（含孪生/物联资产数据）
   loadCatalog: () => Promise<void>
+  loadCatalogAssets: () => Promise<void>
 
   // 路由树操作
   addRoute: (parentId?: string | null) => string
@@ -284,6 +298,18 @@ export interface DesignerState {
     propsPatch?: Partial<WidgetProps>,
     preset?: { type: WidgetType; props?: WidgetProps },
     meta?: ComponentMetaDTO,
+  ) => string | undefined
+  /** 左侧面板拖入孪生业务组件：创建实例 + 持久化场景快照到路由 state */
+  addTwinCatalogComponent: (
+    scene: TwinSceneDTO,
+    kind: 'summary' | 'models' | 'geometry' | 'scene',
+    stylePatch?: Partial<ComponentStyle>,
+  ) => string | undefined
+  /** 左侧面板拖入物联组态组件：创建实例 + 持久化设备绑定到路由 state */
+  addIoTComponent: (
+    device: IoTDeviceDTO,
+    kind: 'summary' | 'metrics' | 'alarm',
+    stylePatch?: Partial<ComponentStyle>,
   ) => string | undefined
   removeComponent: (id: string) => void
   updateComponentProps: (id: string, patch: Partial<WidgetProps>) => void

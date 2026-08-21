@@ -12,6 +12,15 @@ import type {
   Filter,
   AIDesignSchema
 } from '../types'
+import {
+  createTwinComponent,
+  type TwinWidgetKind
+} from '../../features/twinWidgetCatalog'
+import {
+  createIoTComponent,
+  type IoTWidgetKind
+} from '../../features/iotWidgetCatalog'
+import { dtoToScene } from '../../twin/dtoAdapter'
 
 const clone = (o: unknown): unknown => JSON.parse(JSON.stringify(o))
 
@@ -59,6 +68,14 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
   catalog: [],
   catalogLoading: false,
   catalogError: null,
+  // 组件中心已注册资产（AI 生成的 ECharts / 源码组件，与组件库页共用）
+  registeredWidgets: [],
+  widgetsLoading: false,
+  // 孪生/物联资产数据（左侧组件面板「组件库全量组件」数据源）
+  twinScenesMeta: {},
+  iotDevicesMeta: [],
+  twinMetaLoading: false,
+  iotMetaLoading: false,
 
   // —— 数字孪生场景库（模块编辑器与大屏数字孪生组件共享同一份场景数据，实现互通 + 持久化）——
   twinScenes: { main: createDemoScene() },
@@ -85,6 +102,66 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       set({ catalogError: (e as Error).message || '组件目录加载失败', catalogLoading: false })
     }
   },
+
+  /** 组件目录 + 组件中心资产 + 孪生场景 + 物联设备：左侧组件面板的「组件库全量组件」数据源 */
+  loadCatalogAssets: async () => {
+    const st = get()
+    await st.loadCatalog()
+    const apiMod = await import('../../mock/api').then((m) => m.api)
+    if (!st.widgetsLoading) {
+      set({ widgetsLoading: true })
+      try {
+        const res = await apiMod.listWidgets({ pageSize: 50 })
+        if (res.code === 0 && Array.isArray(res.data?.list)) {
+          set({ registeredWidgets: res.data.list })
+        }
+      } catch {
+        // 组件中心资产加载失败不阻塞组件面板
+      } finally {
+        set({ widgetsLoading: false })
+      }
+    }
+    if (!st.twinMetaLoading) {
+      set({ twinMetaLoading: true })
+      try {
+        const res = await apiMod.listTwinScenes({ pageSize: 100 })
+        if (res.code === 0 && Array.isArray(res.data?.list)) {
+          const snapshots: Record<string, unknown> = {}
+          for (const scene of res.data.list) {
+            snapshots[scene.id] = scene
+          }
+          set({ twinScenesMeta: snapshots })
+        }
+      } catch {
+        // 孪生场景加载失败不阻塞组件面板
+      } finally {
+        set({ twinMetaLoading: false })
+      }
+    }
+    if (!st.iotMetaLoading) {
+      set({ iotMetaLoading: true })
+      try {
+        const res = await apiMod.listIoTDevices({ pageSize: 100 })
+        if (res.code === 0 && Array.isArray(res.data?.list)) {
+          set({ iotDevicesMeta: res.data.list })
+        }
+      } catch {
+        // 物联设备加载失败不阻塞组件面板
+      } finally {
+        set({ iotMetaLoading: false })
+      }
+    }
+  },
+
+  upsertTwinScenesMeta: (snapshots) =>
+    set((s) => ({ twinScenesMeta: { ...s.twinScenesMeta, ...snapshots } })),
+  removeTwinScenesMeta: (id) =>
+    set((s) => {
+      const next = { ...s.twinScenesMeta }
+      delete next[id]
+      return { twinScenesMeta: next }
+    }),
+  setIotDevicesMeta: (list) => set({ iotDevicesMeta: list }),
 
   // —— 路由树操作 ——
   addRoute: (parentId = null) => {
@@ -164,6 +241,101 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       routes: st.routes.map((r) =>
         r.id === route.id ? { ...r, components: [...r.components, comp] } : r
       ),
+      selectedId: comp.id
+    }))
+    return comp.id
+  },
+
+  // —— 左侧面板拖入孪生/物联业务组件（与组件库投放共用同一资产工厂）——
+  addTwinCatalogComponent: (scene, kind, stylePatch) => {
+    const s = get()
+    const route = s.routes.find((r) => r.id === s.selectedRouteId)
+    if (!route || !scene?.id) return undefined
+    const syncedAt = new Date().toISOString()
+    const managed = createTwinComponent(scene, kind as TwinWidgetKind)
+    const comp: ComponentInstance = {
+      ...managed,
+      style: stylePatch ? { ...managed.style, ...stylePatch } : managed.style
+    }
+    const sourceId = comp.props.catalogSourceId
+    const previousScenes = typeof route.state.twinScenes === 'object' && route.state.twinScenes
+      ? route.state.twinScenes as Record<string, unknown>
+      : {}
+    set((st) => ({
+      twinScenesMeta: {
+        ...st.twinScenesMeta,
+        [scene.id]: scene
+      },
+      routes: st.routes.map((r) => {
+        if (r.id !== route.id) return r
+        const components = sourceId
+          ? r.components.map((c) =>
+              c.props.catalogSourceId === sourceId
+                ? { ...comp, id: c.id, style: c.style }
+                : c
+            ).concat(sourceId && r.components.some((c) => c.props.catalogSourceId === sourceId) ? [] : [comp])
+          : [...r.components, comp]
+        return {
+          ...r,
+          components,
+          state: {
+            ...r.state,
+            activeTwinSceneId: scene.id,
+            twinScenes: { ...previousScenes, [scene.id]: {
+              sceneId: scene.id,
+              sceneName: scene.name,
+              status: scene.status,
+              modelCount: scene.models?.length ?? 0,
+              lighting: scene.lighting,
+              fog: scene.fog,
+              scene: dtoToScene(scene),
+              syncedAt
+            } }
+          }
+        }
+      }),
+      selectedId: comp.id
+    }))
+    return comp.id
+  },
+
+  addIoTComponent: (device, kind, stylePatch) => {
+    const s = get()
+    const route = s.routes.find((r) => r.id === s.selectedRouteId)
+    if (!route || !device?.id) return undefined
+    const syncedAt = new Date().toISOString()
+    const managed = createIoTComponent(device, kind as IoTWidgetKind)
+    const comp: ComponentInstance = {
+      ...managed,
+      style: stylePatch ? { ...managed.style, ...stylePatch } : managed.style
+    }
+    const sourceId = comp.props.catalogSourceId
+    const previousBindings = Array.isArray(route.state.iotBindings)
+      ? route.state.iotBindings as Array<Record<string, unknown>>
+      : []
+    const binding = {
+      deviceId: device.id,
+      deviceName: device.name,
+      deviceType: device.type,
+      status: device.status,
+      metricCount: Object.keys(device.metrics ?? {}).length,
+      syncedAt
+    }
+    const nextBindings = previousBindings.some((b) => b.deviceId === device.id)
+      ? previousBindings.map((b) => (b.deviceId === device.id ? binding : b))
+      : [...previousBindings, binding]
+    set((st) => ({
+      routes: st.routes.map((r) => {
+        if (r.id !== route.id) return r
+        const components = sourceId
+          ? r.components.map((c) =>
+              c.props.catalogSourceId === sourceId
+                ? { ...comp, id: c.id, style: c.style }
+                : c
+            ).concat(sourceId && r.components.some((c) => c.props.catalogSourceId === sourceId) ? [] : [comp])
+          : [...r.components, comp]
+        return { ...r, components, state: { ...r.state, iotBindings: nextBindings } }
+      }),
       selectedId: comp.id
     }))
     return comp.id
