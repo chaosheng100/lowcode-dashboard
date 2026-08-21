@@ -671,6 +671,11 @@
 }
 .component-library-tabs { margin-bottom: 0; }
 .component-library-tabs .tab { min-height: 34px; font: inherit; }
+.component-library-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 12px;
+}
+.component-library-count { margin-left: auto; color: var(--sub); font-size: 12px; white-space: nowrap; }
 .component-library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .component-asset-card {
   min-width: 0; min-height: 284px; display: flex; flex-direction: column; padding: 12px;
@@ -680,14 +685,18 @@
 .component-asset-card > header > div { min-width: 0; }
 .component-asset-card > header b { display: block; overflow: hidden; color: var(--txt-bright); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .component-asset-card > header span:not(.tag) { display: block; margin-top: 3px; color: var(--sub); font-size: 10px; }
+.component-card-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.component-card-status .status-dot { font-size: 11px; }
+.component-card-version { color: var(--sub); font-size: 11px; }
 .component-preview {
   height: 156px; flex: none; margin: 10px 0; padding: 8px; overflow: hidden;
   border: 1px solid var(--line); border-radius: var(--r-sm); background: #f5f5f7;
 }
 .component-preview > * { width: 100%; height: 100%; }
 .component-asset-card > p { min-height: 34px; margin: 0 0 10px; color: var(--sub); font-size: 12px; line-height: 1.5; }
-.component-asset-card > footer { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line-soft); }
-.component-asset-card > footer > span { color: var(--sub); font-size: 10px; }
+.component-asset-card > footer { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line-soft); flex-wrap: wrap; }
+.component-asset-card > footer > span:first-child { margin-right: auto; align-self: center; }
+.component-asset-card > footer > span:not(:first-child) { flex: 1 1 auto; }
 .component-asset-card > footer .btn { min-height: 34px; }
 .component-deploy-mask {
   position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px;

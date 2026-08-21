@@ -1,15 +1,18 @@
 // ============================================================
-// AI 生成历史版本管理
-// —— 每次 AI 生成（含首次生成/迭代修改）都保存为一个版本节点，
-//    支持切换预览、从历史版本继续、版本命名、本地持久化。
+// AI 生成历史版本管理（按画布隔离的单例 store）
+// —— 每次 AI 生成（含首次生成/迭代修改/单组件调整）都保存为一个版本节点，
+//    版本按 routeId（大屏画布）分桶隔离：不同画布互不干扰，各享配额。
+//    支持切换预览、从历史版本继续、回退应用、版本命名、本地持久化。
 // ============================================================
-import { useCallback, useEffect, useState } from 'react'
+import { create } from 'zustand'
 import type { AIDesignSchema, AIDesignIntent, AIDesignReview, AIDesignData } from '../../data/types'
 
 /** 单个生成版本节点 */
 export interface GenVersion {
   id: string
-  /** 版本序号（从 1 开始，递增） */
+  /** 所属大屏画布 id（按画布隔离版本历史） */
+  routeId: string
+  /** 版本序号（从 1 开始，按画布独立递增） */
   version: number
   /** 用户输入的 prompt */
   prompt: string
@@ -27,81 +30,81 @@ export interface GenVersion {
   label?: string
   /** 生成时间（ISO 字符串） */
   createdAt: string
-  /** 父版本 id（从哪个版本衍生而来，形成迭代链路） */
+  /** 父版本 id（同一画布内从哪个版本衍生，形成迭代链路） */
   parentId?: string
   /** 生成来源 */
   source: 'initial' | 'iterate' | 'regenerate'
 }
 
-const STORAGE_KEY = 'lowcode-dashboard:ai-gen-history:v1'
+const STORAGE_KEY = 'lowcode-dashboard:ai-gen-history:v2'
 const MAX_VERSIONS = 20
 
 /** 生成唯一 id */
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 
-/** 从 localStorage 加载历史（按 session 分组，这里 MVP 用单一存储） */
-function loadHistory(): GenVersion[] {
+/** 从 localStorage 加载历史（v2 按 routeId 分桶） */
+function loadHistory(): Record<string, GenVersion[]> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr : []
+    if (!raw) return {}
+    const obj = JSON.parse(raw)
+    return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : {}
   } catch {
-    return []
+    return {}
   }
 }
 
 /** 保存历史到 localStorage */
-function saveHistory(list: GenVersion[]) {
+function saveHistory(buckets: Record<string, GenVersion[]>) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buckets))
   } catch {
     /* 配额不足时静默失败 */
   }
 }
 
-/**
- * 使用 AI 生成版本历史的 hook
- * —— 负责版本的增删改查、持久化、选中态管理
- */
-export function useGenHistory() {
-  const [versions, setVersions] = useState<GenVersion[]>(() => loadHistory())
-  const [activeId, setActiveId] = useState<string | null>(null)
+interface AIHistoryState {
+  versionsByRoute: Record<string, GenVersion[]>
+  activeByRoute: Record<string, string | null>
+  addVersion: (
+    routeId: string,
+    data: {
+      prompt: string
+      schema: AIDesignSchema
+      intent?: AIDesignIntent
+      review?: AIDesignReview
+      data?: AIDesignData
+      thought?: string
+    },
+    parentId?: string,
+    source?: GenVersion['source'],
+  ) => string
+  renameVersion: (routeId: string, id: string, label: string) => void
+  deleteVersion: (routeId: string, id: string) => void
+  clearAll: (routeId?: string) => void
+  setActiveId: (routeId: string, id: string | null) => void
+  getLineage: (routeId: string, id: string) => GenVersion[]
+}
 
-  // 持久化
-  useEffect(() => {
-    saveHistory(versions)
-  }, [versions])
+/** 按时间倒序分配版本号（最新的 = 1），超出上限截断最旧 */
+function renumber(list: GenVersion[]): GenVersion[] {
+  return list.map((v, i) => ({ ...v, version: list.length - i }))
+}
 
-  /** 当前选中的版本 */
-  const active = versions.find((v) => v.id === activeId) ?? null
+/** AI 生成历史版本单例 store（按画布分桶；AIPanel / 历史面板共享） */
+export const useAIHistoryStore = create<AIHistoryState>((set, get) => {
+  const initial = loadHistory()
+  return {
+    versionsByRoute: initial,
+    activeByRoute: Object.fromEntries(
+      Object.entries(initial).map(([routeId, list]) => [routeId, list[0]?.id ?? null]),
+    ),
 
-  /** 最新版本（通常就是当前正在编辑的版本） */
-  const latest = versions[0] ?? null
-
-  /**
-   * 新增一个版本（新生成完成后调用）
-   * @param data 版本数据
-   * @param parentId 父版本 id（迭代修改时传）
-   * @param source 生成来源
-   * @returns 新版本 id
-   */
-  const addVersion = useCallback(
-    (
-      data: {
-        prompt: string
-        schema: AIDesignSchema
-        intent?: AIDesignIntent
-        review?: AIDesignReview
-        data?: AIDesignData
-        thought?: string
-      },
-      parentId?: string,
-      source: GenVersion['source'] = 'initial',
-    ) => {
+    addVersion: (routeId, data, parentId, source = 'initial') => {
       const v: GenVersion = {
         id: uid(),
-        version: 0, // 下面统一赋值
+        routeId,
+        version: 0,
         prompt: data.prompt,
         schema: data.schema,
         intent: data.intent,
@@ -112,57 +115,55 @@ export function useGenHistory() {
         parentId,
         source,
       }
-      setVersions((prev) => {
-        const next = [v, ...prev]
-        // 按时间倒序后分配版本号（最新的 = 1）
-        next.forEach((item, i) => {
-          item.version = next.length - i
-        })
-        // 超过上限时删除最旧的
-        if (next.length > MAX_VERSIONS) {
-          return next.slice(0, MAX_VERSIONS)
+      set((s) => {
+        const bucket = renumber([v, ...(s.versionsByRoute[routeId] ?? [])]).slice(0, MAX_VERSIONS)
+        return {
+          versionsByRoute: { ...s.versionsByRoute, [routeId]: bucket },
+          activeByRoute: { ...s.activeByRoute, [routeId]: v.id },
         }
-        return next
       })
-      setActiveId(v.id)
       return v.id
     },
-    [],
-  )
 
-  /** 更新版本的 label（重命名） */
-  const renameVersion = useCallback((id: string, label: string) => {
-    setVersions((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, label: label.trim() || undefined } : v)),
-    )
-  }, [])
+    renameVersion: (routeId, id, label) =>
+      set((s) => ({
+        versionsByRoute: {
+          ...s.versionsByRoute,
+          [routeId]: (s.versionsByRoute[routeId] ?? []).map((v) =>
+            v.id === id ? { ...v, label: label.trim() || undefined } : v
+          ),
+        },
+      })),
 
-  /** 删除某个版本 */
-  const deleteVersion = useCallback((id: string) => {
-    setVersions((prev) => {
-      const next = prev.filter((v) => v.id !== id)
-      // 重新分配版本号
-      next.forEach((item, i) => {
-        item.version = next.length - i
-      })
-      return next
-    })
-    setActiveId((cur) => (cur === id ? null : cur))
-  }, [])
+    deleteVersion: (routeId, id) =>
+      set((s) => {
+        const bucket = renumber((s.versionsByRoute[routeId] ?? []).filter((v) => v.id !== id))
+        return {
+          versionsByRoute: { ...s.versionsByRoute, [routeId]: bucket },
+          activeByRoute: {
+            ...s.activeByRoute,
+            [routeId]: s.activeByRoute[routeId] === id ? (bucket[0]?.id ?? null) : s.activeByRoute[routeId],
+          },
+        }
+      }),
 
-  /** 清空全部历史 */
-  const clearAll = useCallback(() => {
-    setVersions([])
-    setActiveId(null)
-  }, [])
+    clearAll: (routeId) =>
+      set((s) => {
+        if (routeId) {
+          const versionsByRoute = { ...s.versionsByRoute }
+          delete versionsByRoute[routeId]
+          const activeByRoute = { ...s.activeByRoute }
+          delete activeByRoute[routeId]
+          return { versionsByRoute, activeByRoute }
+        }
+        return { versionsByRoute: {}, activeByRoute: {} }
+      }),
 
-  /**
-   * 获取某个版本的祖先链路（从该版本往上追溯到根）
-   * 用于在 UI 上展示迭代路径
-   */
-  const getLineage = useCallback(
-    (id: string): GenVersion[] => {
-      const map = new Map(versions.map((v) => [v.id, v]))
+    setActiveId: (routeId, id) =>
+      set((s) => ({ activeByRoute: { ...s.activeByRoute, [routeId]: id } })),
+
+    getLineage: (routeId, id) => {
+      const map = new Map((get().versionsByRoute[routeId] ?? []).map((v) => [v.id, v]))
       const path: GenVersion[] = []
       let cur: GenVersion | undefined = map.get(id)
       while (cur) {
@@ -171,19 +172,40 @@ export function useGenHistory() {
       }
       return path
     },
-    [versions],
-  )
+  }
+})
+
+// localStorage 持久化：store 每次变更后同步
+useAIHistoryStore.subscribe((s) => saveHistory(s.versionsByRoute))
+
+/**
+ * 按画布订阅版本历史 hook。
+ * @param routeId 当前大屏画布 id；返回该画布独立的版本列表与操作。
+ */
+export function useGenHistory(routeId?: string | null) {
+  const versions = useAIHistoryStore((s) => (routeId ? s.versionsByRoute[routeId] ?? [] : []))
+  const activeId = useAIHistoryStore((s) => (routeId ? s.activeByRoute[routeId] ?? null : null))
+  const setActiveId = useAIHistoryStore((s) => s.setActiveId)
+  const addVersion = useAIHistoryStore((s) => s.addVersion)
+  const renameVersion = useAIHistoryStore((s) => s.renameVersion)
+  const deleteVersion = useAIHistoryStore((s) => s.deleteVersion)
+  const clearAll = useAIHistoryStore((s) => s.clearAll)
+  const getLineage = useAIHistoryStore((s) => s.getLineage)
 
   return {
     versions,
-    active,
     activeId,
-    latest,
-    setActiveId,
-    addVersion,
-    renameVersion,
-    deleteVersion,
-    clearAll,
-    getLineage,
+    active: versions.find((v) => v.id === activeId) ?? null,
+    latest: versions[0] ?? null,
+    setActiveId: (id: string | null) => routeId && setActiveId(routeId, id),
+    addVersion: (
+      data: Parameters<AIHistoryState['addVersion']>[1],
+      parentId?: string,
+      source?: GenVersion['source'],
+    ) => (routeId ? addVersion(routeId, data, parentId, source) : ''),
+    renameVersion: (id: string, label: string) => routeId && renameVersion(routeId, id, label),
+    deleteVersion: (id: string) => routeId && deleteVersion(routeId, id),
+    clearAll: () => routeId && clearAll(routeId),
+    getLineage: (id: string) => (routeId ? getLineage(routeId, id) : []),
   }
 }

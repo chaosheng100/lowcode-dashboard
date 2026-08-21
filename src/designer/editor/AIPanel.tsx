@@ -10,8 +10,11 @@ import type {
   ComponentInstance,
   PageConfig,
 } from '../../data/types'
+import { currentCanvasSchema } from '../../data/ai/schemaUtils'
+import { useGenHistory, type GenVersion } from '../../features/ai/aiGenHistory'
+import GenHistoryPanel from '../../features/ai/GenHistoryPanel'
 
-/** 大屏设计器内嵌的 AI 编排助手：基于当前画布生成/调整大屏结构 */
+/** 大屏设计器内嵌的 AI 编排助手：基于当前画布生成/调整大屏结构，自动记录版本历史 */
 export default function AIPanel({
   onClose,
   embedded = false,
@@ -24,6 +27,16 @@ export default function AIPanel({
     s.routes.find((r) => r.id === s.selectedRouteId),
   )
   const applyAISchema = useDesignerStore((s) => s.applyAISchema)
+  const {
+    versions,
+    activeId,
+    setActiveId,
+    addVersion,
+    renameVersion,
+    deleteVersion,
+    clearAll,
+    latest,
+  } = useGenHistory(route?.id)
 
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,25 +49,15 @@ export default function AIPanel({
     components: ComponentInstance[]
     page: PageConfig
   } | null>(null)
+  const [continueFrom, setContinueFrom] = useState<GenVersion | null>(null)
 
-  /** 当前画布 → AI baseSchema（让 AI 基于现状编排，而不是凭空生成） */
-  const currentSchema = (): AIDesignSchema | undefined => {
-    if (!route) return undefined
-    return {
-      version: '1.0',
-      page: {
-        width: route.page.width,
-        height: route.page.height,
-        background: route.page.background,
-      },
-      components: route.components.map((c) => ({
-        id: c.id,
-        type: c.type,
-        style: { ...c.style },
-        props: { ...c.props },
-        ...(c.dataSource ? { dataSource: c.dataSource } : {}),
-      })),
+  /** 本次生成基于的 schema：优先「继续基准」，否则当前画布 */
+  const baseSchemaFor = (mode: 'current' | 'new'): AIDesignSchema | undefined => {
+    if (mode === 'current') {
+      if (continueFrom) return continueFrom.schema
+      return currentCanvasSchema(route)
     }
+    return undefined
   }
 
   const run = async (mode: 'current' | 'new') => {
@@ -72,7 +75,7 @@ export default function AIPanel({
     const result: { schema: AIDesignSchema | null } = { schema: null }
     try {
       await api.aiDesign(p, {
-        baseSchema: mode === 'current' ? currentSchema() : undefined,
+        baseSchema: baseSchemaFor(mode),
         onDelta: (t) => setThought((prev) => prev + t),
         onIntent: setIntent,
         onSchema: (s) => {
@@ -92,7 +95,22 @@ export default function AIPanel({
       const final = result.schema
       if (final && final.components?.length) {
         setSchema(final)
-        message.success('编排完成，确认后应用到大屏')
+        // 自动记录版本：基于历史继续 = iterate；重新生成 = regenerate；首次 = initial
+        const source: GenVersion['source'] =
+          mode === 'current' ? 'iterate' : latest ? 'regenerate' : 'initial'
+        const parentId = continueFrom?.id ?? (mode === 'current' ? latest?.id : undefined)
+        addVersion(
+          {
+            prompt: p,
+            schema: final,
+            intent: intent ?? undefined,
+            review: review ?? undefined,
+            thought: thought || undefined,
+          },
+          parentId,
+          source,
+        )
+        message.success('编排完成，已记录版本，确认后应用到大屏')
       } else if (!error) {
         message.warning('AI 未返回有效的编排结果')
       }
@@ -126,6 +144,29 @@ export default function AIPanel({
     message.success('已撤销 AI 编排应用')
   }
 
+  /** 回退应用某个历史版本到画布（可撤销） */
+  const applyVersion = (v: GenVersion) => {
+    const st = useDesignerStore.getState()
+    const current = st.routes.find((r) => r.id === st.selectedRouteId)
+    if (!current) return
+    setSnapshot({ components: current.components, page: { ...current.page } })
+    applyAISchema(v.schema)
+    message.success(`已回退应用到 v${v.version}，可撤销`)
+  }
+
+  /** 从此版本继续修改：设基准 + 预填提示 */
+  const continueFromVersion = (v: GenVersion) => {
+    setContinueFrom(v)
+    setActiveId(v.id)
+    setPrompt(`继续调整此版本：`)
+    message.info(`已以 v${v.version} 为基准，输入修改指令后「基于当前画布编排」`)
+  }
+
+  const cancelContinue = () => {
+    setContinueFrom(null)
+    setPrompt('')
+  }
+
   return (
     <div
       style={{
@@ -144,7 +185,7 @@ export default function AIPanel({
         borderRadius: embedded ? 0 : 8,
         color: '#1d1d1f',
         boxShadow: embedded ? 'none' : '0 8px 30px rgba(0,0,0,0.45)',
-        overflow: 'auto',
+        overflow: embedded ? 'visible' : 'auto',
         height: embedded ? '100%' : undefined,
       }}
     >
@@ -177,6 +218,11 @@ export default function AIPanel({
         <Button size="small" loading={loading} onClick={() => run('new')}>
           重新排布
         </Button>
+        {continueFrom && (
+          <Button size="small" onClick={cancelContinue}>
+            取消继续（v{continueFrom.version}）
+          </Button>
+        )}
       </Space>
 
       {error && <div style={{ color: '#ff3b30', fontSize: 12 }}>⚠️ {error}</div>}
@@ -223,7 +269,19 @@ export default function AIPanel({
         </div>
       )}
 
-      <div style={{ marginTop: 'auto', display: 'flex', gap: 8 }}>
+      {/* 生成历史版本面板（AIPanel 与单组件调整共享同一份版本记录） */}
+      <GenHistoryPanel
+        versions={versions}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onContinueFrom={continueFromVersion}
+        onRename={renameVersion}
+        onDelete={deleteVersion}
+        onClearAll={clearAll}
+        onApplyVersion={applyVersion}
+      />
+
+      <div className="ai-panel-footer" style={{ display: 'flex', gap: 8 }}>
         <Button size="small" onClick={() => onClose?.()} style={{ flex: 1 }}>
           取消
         </Button>

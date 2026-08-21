@@ -144,11 +144,23 @@ export default function PropertyPanel() {
 
   return (
     <div className="panel-right">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <strong>属性 · {component.type}</strong>
-        <Button danger size="small" onClick={() => removeComponent(component.id)}>
-          删除
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <strong
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          属性 · {component.type}
+        </strong>
+        <span style={{ display: 'inline-flex', gap: 6, flexShrink: 0 }}>
+          <Button danger size="small" onClick={() => removeComponent(component.id)}>
+            删除
+          </Button>
+        </span>
       </div>
 
       <Tabs

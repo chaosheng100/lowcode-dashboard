@@ -9,6 +9,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
+import { widgetRegistry } from '../../data/registry/widgetRegistry'
 import type { ComponentInstance, WidgetProps } from '../../data/types'
 import type { IoTDeviceDTO, TwinSceneDTO } from '../../mock/types'
 import type { TwinWidgetKind } from '../../features/twinWidgetCatalog'
@@ -33,20 +34,50 @@ export default function Editor() {
   const onDragEnd = (event: DragEndEvent) => {
     const data = event.active.data.current as PanelDragData | undefined
     const type = data?.type
-    if (!type || !event.activatorEvent) return
+    if (!type) return
     const el = document.querySelector('.canvas') as HTMLElement | null
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const ev = event.activatorEvent as PointerEvent
     const st = useDesignerStore.getState()
     const route = st.routes.find((r) => r.id === st.selectedRouteId) || st.routes[0]
     if (!route) return
     const pageW = Number.isFinite(route.page.width) ? route.page.width : 1920
     const pageH = Number.isFinite(route.page.height) ? route.page.height : 1080
     const scale = rect.width > 0 ? rect.width / pageW : 0.42
+
+    // 拖拽项当前屏幕位置：优先用 dnd-kit 的 translated rect（跟随鼠标的最终位置），
+    // 回退到 activatorEvent（按下点，旧逻辑落点不跟手）。
+    const translated = event.active.rect.current.translated
+    let cx = 0
+    let cy = 0
+    if (translated) {
+      cx = translated.left + translated.width / 2
+      cy = translated.top + translated.height / 2
+    } else if (event.activatorEvent) {
+      const ev = event.activatorEvent as PointerEvent
+      cx = ev.clientX
+      cy = ev.clientY
+    }
+    // 松开点必须在画布内（含轻微容差），否则丢弃，避免误拖到面板上添加组件
+    if (
+      cx < rect.left - 8 ||
+      cx > rect.right + 8 ||
+      cy < rect.top - 8 ||
+      cy > rect.bottom + 8
+    ) {
+      return
+    }
+    // 默认尺寸（用于中心对齐落点）；孪生/物联资产由工厂生成，用工厂默认尺寸
+    let halfW = 30
+    let halfH = 20
+    if (data.preset) {
+      const def = widgetRegistry[data.preset.type]
+      halfW = (def?.defaultStyle?.w ?? 300) / 2
+      halfH = (def?.defaultStyle?.h ?? 160) / 2
+    }
     const position = {
-      x: Math.max(0, Math.min((ev.clientX - rect.left) / scale - 30, pageW - 40)),
-      y: Math.max(0, Math.min((ev.clientY - rect.top) / scale - 20, pageH - 40)),
+      x: Math.max(0, Math.min((cx - rect.left) / scale - halfW, pageW - 40)),
+      y: Math.max(0, Math.min((cy - rect.top) / scale - halfH, pageH - 40)),
     }
     // 孪生 / 物联资产：需要先有场景/设备对象
     if (data?.asset && data.twinKind && data.sceneId) {
@@ -98,9 +129,13 @@ export default function Editor() {
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       <div className="editor">
-        <DesignerLeftPanel />
+        <div className="editor-panel-wrap panel-left-wrap">
+          <DesignerLeftPanel />
+        </div>
         <Canvas />
-        <PropertyPanel />
+        <div className="editor-panel-wrap panel-right-wrap">
+          <PropertyPanel />
+        </div>
       </div>
     </DndContext>
   )

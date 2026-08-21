@@ -44,7 +44,14 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
         const v = value[f.key]
         const key = String(f.key)
         const item = (control: ReactNode) => (
-          <Form.Item key={key} label={f.label} colon={false} style={{ marginBottom: 11 }}>
+          <Form.Item
+            key={key}
+            label={f.label}
+            colon={false}
+            labelCol={{ flex: '96px' }}
+            wrapperCol={{ flex: 1 }}
+            style={{ marginBottom: 10 }}
+          >
             {control}
           </Form.Item>
         )

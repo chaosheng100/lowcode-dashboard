@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { App, Button, Collapse, Empty, Input, Modal, Space, Spin, Tag } from 'antd'
+import { App, Button, Collapse, Empty, Input, Modal, Select, Space, Spin, Tag } from 'antd'
+import { RobotOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import { api } from '../mock/api'
-import type { AIBotDTO, AISessionItem, CodeLang } from '../mock/types'
+import type { AIBotDTO, AISessionItem, CodeLang, WidgetDefDTO } from '../mock/types'
 import { extractEchartsOption } from './aiEcharts'
 import { useDesignerStore } from '../data/store/useDesignerStore'
+import { componentIterationPrompt } from '../data/ai/componentIterate'
 
 const CARD = {
   background: '#ffffff',
@@ -126,6 +128,16 @@ const GEN_OPTIONS: { value: GenType; label: string; hint: string }[] = [
   { value: 'echarts', label: 'ECharts', hint: 'ECharts 图表组件（带预览）' },
 ]
 
+/** 语义化版本号递增（1.0.0 → 1.0.1；非法值兜底 0.0.1） */
+function bumpVersion(version?: string): string {
+  const parts = String(version || '0.0.0')
+    .split('.')
+    .map((p) => parseInt(p, 10) || 0)
+  while (parts.length < 3) parts.push(0)
+  parts[2] += 1
+  return parts.join('.')
+}
+
 /** 我的机器人列表（复用 /api/aiBots） */
 function BotList() {
   const [bots, setBots] = useState<AIBotDTO[]>([])
@@ -186,6 +198,10 @@ export default function AIAssistantPage() {
       .catch(() => {})
   }, [])
   useEffect(loadSessions, [loadSessions])
+  useEffect(() => {
+    loadRegisteredWidgets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const newSession = async () => {
     const r = await api.createAISession({ title: '新会话' })
@@ -252,6 +268,14 @@ export default function AIAssistantPage() {
   const [compOptionJson, setCompOptionJson] = useState('')
   const [compLoading, setCompLoading] = useState(false)
   const [compError, setCompError] = useState('')
+  // 已登记组件列表（用于「更新已登记组件」覆盖已有 type）
+  const [registeredWidgets, setRegisteredWidgets] = useState<WidgetDefDTO[]>([])
+  const [updateTarget, setUpdateTarget] = useState<string>('')
+  const [updating, setUpdating] = useState(false)
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [adjustPrompt, setAdjustPrompt] = useState('')
+  const [adjustLoading, setAdjustLoading] = useState(false)
+  const [adjustError, setAdjustError] = useState('')
   const compAccRef = useRef('')
   const previewFrameRef = useRef<HTMLIFrameElement>(null)
 
@@ -328,7 +352,18 @@ export default function AIAssistantPage() {
         if (/^\s*<(?:!doctype|html)/i.test(cleanCode)) return cleanCode
         return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body>${cleanCode}</body></html>`
       }
-      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#ffffff"><div id="chart" style="width:100vw;height:100vh"></div><script>\ntry {\n${safeInline(cleanCode)}\nif (typeof echarts === 'undefined') throw new Error('ECharts CDN 未加载');\nif (!document.querySelector('#chart canvas')) {\nvar __chart = echarts.init(document.getElementById('chart'));\n__chart.setOption((typeof option !== 'undefined' ? option : window.option) || {});\n}\n} catch (e) { document.body.innerHTML = '<pre style="color:#ff3b30;padding:12px">' + (e && e.message ? e.message : String(e)) + '</pre>' }\n<\/script></body></html>`
+      // 纯 JSON option：先解析成变量再渲染（裸对象直接插进 try 块会触发语法错误）
+      let exec = safeInline(cleanCode)
+      const trimmed = cleanCode.trim()
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed)
+          exec = `var option = ${JSON.stringify(parsed)};`
+        } catch {
+          /* 非严格 JSON（含函数/变量），按原样执行 */
+        }
+      }
+      return `<!doctype html><html><head><meta charset="utf-8">${csp}<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script></head><body style="margin:0;background:#ffffff"><div id="chart" style="width:100vw;height:100vh"></div><script>\ntry {\n${exec}\nif (typeof echarts === 'undefined') throw new Error('ECharts CDN 未加载');\nif (!document.querySelector('#chart canvas')) {\nvar __chart = echarts.init(document.getElementById('chart'));\n__chart.setOption((typeof option !== 'undefined' ? option : window.option) || {});\n}\n} catch (e) { document.body.innerHTML = '<pre style="color:#ff3b30;padding:12px">' + (e && e.message ? e.message : String(e)) + '</pre>' }\n<\/script></body></html>`
     }
     return ''
   }
@@ -491,8 +526,128 @@ export default function AIAssistantPage() {
       message.success(`已登记到组件中心（${type}）`)
       // 登记后立即刷新组件目录，编辑器左侧可拖拽到画布
       useDesignerStore.getState().loadCatalog()
+      loadRegisteredWidgets()
     } else {
       message.error(r.message)
+    }
+  }
+
+  /** 加载已登记组件（用于「更新已登记组件」下拉） */
+  const loadRegisteredWidgets = async () => {
+    const r = await api.listWidgets({ pageSize: 50 })
+    if (r.code === 0 && Array.isArray(r.data?.list)) {
+      setRegisteredWidgets(r.data.list)
+      setUpdateTarget((cur) =>
+        r.data.list.some((w) => w.type === cur) ? cur : '',
+      )
+    }
+  }
+
+  /** 更新已登记组件：覆盖内容（saveWidget PATCH）+ 自动发布新版本 */
+  const updateRegisteredWidget = async () => {
+    if (!compCode) {
+      message.warning('请先生成组件代码')
+      return
+    }
+    if (!updateTarget) {
+      message.warning('请选择要更新的已登记组件')
+      return
+    }
+    const target = registeredWidgets.find((w) => w.type === updateTarget)
+    if (!target) return
+    setUpdating(true)
+    try {
+      const patch: Partial<WidgetDefDTO> = {
+        type: updateTarget,
+        name: snippetName(),
+        desc: compPrompt.trim() || target.desc,
+      }
+      if (compType === 'echarts') {
+        const raw = extractEChartsOption(compCode) || extractOptionFromFrame(previewFrameRef.current)
+        if (!raw) {
+          message.error('未识别到 ECharts option，无法更新组件 Schema')
+          return
+        }
+        const optionJson = JSON.stringify(JSON.parse(raw), null, 2)
+        patch.kind = 'echarts'
+        patch.optionJson = optionJson
+        patch.schema = { type: 'echartCustom', optionJson }
+      } else {
+        const rendererType = compType === 'html' ? 'htmlComponent' : 'reactComponent'
+        patch.renderer = rendererType
+        patch.sourceCode = compCode
+        patch.sandboxMode = 'sandbox'
+        patch.schema = { type: rendererType, sourceCode: compCode, sandboxMode: 'sandbox' }
+      }
+      const r = await api.saveWidget(patch)
+      if (r.code !== 0) {
+        message.error(r.message)
+        return
+      }
+      // 保存即记版：发布小版本到组件中心版本列表
+      const nextVersion = bumpVersion(target.version)
+      const vr = await api.publishWidgetVersion(updateTarget, {
+        version: nextVersion,
+        changelog: `AI 助手编辑更新：${compPrompt.trim() || '修改组件内容'}`,
+      })
+      if (vr.code !== 0) {
+        message.warning(`内容已更新，但版本记录失败：${vr.message}`)
+      } else {
+        message.success(`已更新组件（${updateTarget} → v${nextVersion}）`)
+      }
+      useDesignerStore.getState().loadCatalog()
+      loadRegisteredWidgets()
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  /** AI 调整选中组件：基于现有内容迭代生成代码，填入主生成区，由「更新已登记组件」保存并记版 */
+  const adjustSelectedWidget = async () => {
+    const target = registeredWidgets.find((w) => w.type === updateTarget)
+    if (!target) {
+      message.warning('请先选择要调整的已登记组件')
+      return
+    }
+    const p = adjustPrompt.trim()
+    if (!p) {
+      message.warning('请输入调整指令')
+      return
+    }
+    setAdjustLoading(true)
+    setAdjustError('')
+    const isEcharts = !!(target.kind === 'echarts' || target.category === 'ECharts' || target.optionJson)
+    const isReact = !isEcharts && (target.renderer === 'reactComponent' || target.schema?.type === 'reactComponent')
+    const lang: GenType = isEcharts ? 'echarts' : isReact ? 'react' : 'html'
+    let acc = ''
+    try {
+      const r = await api.aiGenerate(componentIterationPrompt(target, p), lang, {
+        onDelta: (t) => {
+          acc += t
+        },
+        onFallback: (info) =>
+          message.info(
+            `模型 ${info.from || ''} 调用失败，已自动切换到 ${info.to || ''}`,
+          ),
+        onError: (m) => setAdjustError(m),
+      })
+      if (r.code === 0 && r.data.code) acc = r.data.code
+      if (!acc && !adjustError) setAdjustError('AI 未返回有效的代码')
+      else if (acc) {
+        // 填充到主生成区，复用已有预览/保存链路
+        setCompType(lang)
+        setCompCode(acc)
+        setCompName(target.name)
+        setCompOptionJson('')
+        setUpdateTarget(target.type)
+        setAdjustOpen(false)
+        setAdjustPrompt('')
+        message.success('调整方案已生成，请预览后点击「更新已登记组件」保存')
+      }
+    } catch {
+      setAdjustError('调整请求失败')
+    } finally {
+      setAdjustLoading(false)
     }
   }
 
@@ -752,23 +907,66 @@ export default function AIAssistantPage() {
                       />
                     </div>
                   )}
-                  <pre
+                  <Input.TextArea
+                    value={compCode}
+                    onChange={(e) => setCompCode(e.target.value)}
+                    rows={10}
                     style={{
-                      maxHeight: 420,
-                      overflow: 'auto',
+                      fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", monospace',
+                      fontSize: 12.5,
+                      lineHeight: 1.7,
                       background: '#f5f5f7',
                       border: '1px solid #e5e5ea',
                       borderRadius: 8,
-                      padding: 12,
-                      fontSize: 12.5,
-                      lineHeight: 1.7,
-                      color: '#1d1d1f',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-all',
                     }}
-                  >
-                    {compCode}
-                  </pre>
+                  />
+                  <Space wrap style={{ marginTop: 2 }}>
+                    <Select
+                      size="small"
+                      style={{ width: 260 }}
+                      placeholder={
+                        registeredWidgets.length
+                          ? '选择要更新的已登记组件'
+                          : '暂无已登记组件'
+                      }
+                      value={updateTarget || undefined}
+                      onChange={setUpdateTarget}
+                      options={registeredWidgets
+                        .filter(
+                          (w) =>
+                            w.renderer === 'htmlComponent' ||
+                            w.renderer === 'reactComponent' ||
+                            w.kind === 'echarts' ||
+                            w.category === 'ECharts',
+                        )
+                        .map((w) => ({
+                          value: w.type,
+                          label: `${w.name}（${w.type} · v${w.version}）`,
+                        }))}
+                    />
+                    <Button
+                      size="small"
+                      type="primary"
+                      ghost
+                      loading={updating}
+                      disabled={!updateTarget}
+                      onClick={updateRegisteredWidget}
+                    >
+                      更新已登记组件
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<RobotOutlined />}
+                      disabled={!updateTarget}
+                      onClick={() => {
+                        setAdjustPrompt('')
+                        setAdjustError('')
+                        setAdjustOpen(true)
+                      }}
+                    >
+                      AI 调整选中组件
+                    </Button>
+                  </Space>
                 </>
               )}
               <Space>
@@ -846,6 +1044,48 @@ export default function AIAssistantPage() {
           onPressEnter={confirmRename}
           placeholder="会话标题"
         />
+      </Modal>
+      <Modal
+        title={
+          <span>
+            <RobotOutlined style={{ marginRight: 6, color: '#0071e3' }} />
+            AI 调整选中组件
+          </span>
+        }
+        open={adjustOpen}
+        onCancel={() => !adjustLoading && setAdjustOpen(false)}
+        footer={null}
+        width={480}
+        maskClosable={!adjustLoading}
+        destroyOnClose
+      >
+        <p style={{ marginTop: 0, color: '#86868b', fontSize: 13 }}>
+          将基于已登记组件的现有内容生成调整方案，生成后填入组件生成区预览，确认后点击「更新已登记组件」保存并记录版本。
+        </p>
+        <Input.TextArea
+          rows={3}
+          value={adjustPrompt}
+          onChange={(e) => setAdjustPrompt(e.target.value)}
+          placeholder="例如：把柱状图颜色改成渐变色，标题加粗"
+          disabled={adjustLoading}
+        />
+        {adjustError && (
+          <div style={{ marginTop: 10, color: '#ff3b30', fontSize: 12 }}>⚠️ {adjustError}</div>
+        )}
+        <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button size="small" disabled={adjustLoading} onClick={() => setAdjustOpen(false)}>
+            取消
+          </Button>
+          <Button
+            size="small"
+            type="primary"
+            icon={<RobotOutlined />}
+            loading={adjustLoading}
+            onClick={adjustSelectedWidget}
+          >
+            生成调整方案
+          </Button>
+        </div>
       </Modal>
     </div>
   )

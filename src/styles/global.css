@@ -298,19 +298,29 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
  * Editor layout
  * ============================================================ */
 .editor { display: flex; flex: 1; min-height: 0; }
+/* 左右操作栏外层容器：固定高度链，内部面板各自滚动，不撑出全屏滚动条 */
+.editor-panel-wrap {
+  flex-shrink: 0; display: flex;
+  height: 100%; min-height: 0; min-width: 0;
+}
+.panel-left-wrap { width: 210px; }
+.panel-right-wrap { width: 300px; }
 .panel-left {
-  width: 210px;
+  width: 100%;
+  display: flex; flex-direction: column;
   background: var(--panel);
   backdrop-filter: blur(12px);
   border-right: 1px solid var(--line);
-  overflow-y: auto; overflow-x: hidden; padding: 12px;
+  overflow: hidden; padding: 12px;
+  min-width: 0; height: 100%;
 }
 .panel-right {
-  width: 300px;
+  width: 100%;
   background: var(--panel);
   backdrop-filter: blur(12px);
   border-left: 1px solid var(--line);
   overflow-y: auto; padding: 12px;
+  min-width: 0; height: 100%;
 }
 
 /* ============================================================
@@ -427,6 +437,11 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
 .comp-frame { position: absolute; border: 1px solid transparent; transition: border-color var(--t-fast); }
 .comp-frame.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .comp-frame:hover { border-color: rgba(0, 113, 227, 0.4); }
+.comp-frame .comp-drag-area {
+  width: 100%; height: 100%; overflow: hidden;
+  cursor: default;
+}
+.comp-frame.selected .comp-drag-area { cursor: move; }
 .resize-handle {
   position: absolute; right: -5px; bottom: -5px; width: 12px; height: 12px;
   background: var(--accent); border-radius: 3px; cursor: nwse-resize; z-index: 10;
@@ -763,6 +778,13 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
 }
 .rp-item:hover { border-color: var(--line-strong); background: var(--panel-hover); }
 .rp-main { display: flex; flex-direction: column; min-width: 0; }
+
+/* AI 编排面板底部操作栏：栏内滚动时固定可见 */
+.ai-panel-footer {
+  position: sticky; bottom: 0; z-index: 5;
+  background: var(--panel); padding-top: 6px;
+  margin-top: auto;
+}
 .rp-main strong { font-size: 12.5px; color: var(--txt); display: flex; align-items: center; gap: 6px; }
 .rp-sub { font-size: 11px; color: var(--sub); }
 .rp-acts { display: flex; gap: 4px; flex: none; }

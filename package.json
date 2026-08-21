@@ -35,6 +35,7 @@
     "openskp": "^0.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-rnd": "^10.5.3",
     "react-router-dom": "^7.18.2",
     "socket.io-client": "^4.8.3",
     "three": "^0.169.0",

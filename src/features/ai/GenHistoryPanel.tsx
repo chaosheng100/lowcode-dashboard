@@ -13,6 +13,7 @@ import {
   RocketOutlined,
   ReloadOutlined,
   ForkOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons'
 import type { GenVersion } from './aiGenHistory'
 
@@ -25,6 +26,8 @@ interface Props {
   onRename: (id: string, label: string) => void
   onDelete: (id: string) => void
   onClearAll: () => void
+  /** 回退应用该版本到画布（可选，有回调时渲染按钮） */
+  onApplyVersion?: (version: GenVersion) => void
 }
 
 const SOURCE_LABEL: Record<GenVersion['source'], { text: string; color: string; icon: React.ReactNode }> = {
@@ -41,6 +44,7 @@ export default function GenHistoryPanel({
   onRename,
   onDelete,
   onClearAll,
+  onApplyVersion,
 }: Props) {
   const { message } = App.useApp()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -118,8 +122,8 @@ export default function GenHistoryPanel({
               onClick={() => onSelect(v.id)}
               style={{
                 ...ITEM_STYLE,
-                borderColor: isActive ? '#0071e3' : '#e5e5ea',
-                background: isActive ? 'rgba(22,119,255,0.08)' : 'transparent',
+                borderColor: isActive ? 'var(--accent)' : 'var(--line)',
+                background: isActive ? 'var(--panel-hover)' : 'var(--panel)',
               }}
             >
               <div style={ITEM_HEADER}>
@@ -209,18 +213,42 @@ export default function GenHistoryPanel({
 
               <div style={ITEM_ACTIONS} onClick={(e) => e.stopPropagation()}>
                 <Button
-                  type="primary"
                   size="small"
                   onClick={() => onContinueFrom(v)}
                   icon={<ForkOutlined />}
                 >
                   从此版本修改
                 </Button>
-                {isActive && (
-                  <Tag color="blue" style={{ margin: 0 }}>
-                    当前预览
-                  </Tag>
-                )}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {isActive && (
+                    <Tag color="blue" style={{ margin: 0 }}>
+                      当前预览
+                    </Tag>
+                  )}
+                  {onApplyVersion && (
+                    <Popconfirm
+                      title={`回退应用到 v${v.version}？`}
+                      description="将用该版本覆盖当前画布（可撤销）"
+                      onConfirm={(e) => {
+                        e?.stopPropagation()
+                        onApplyVersion(v)
+                      }}
+                      onCancel={(e) => e?.stopPropagation()}
+                      okText="回退应用"
+                      cancelText="取消"
+                    >
+                      <Button
+                        size="small"
+                        type="primary"
+                        ghost
+                        icon={<RollbackOutlined />}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        回退应用
+                      </Button>
+                    </Popconfirm>
+                  )}
+                </span>
               </div>
             </div>
           )
@@ -230,14 +258,14 @@ export default function GenHistoryPanel({
   )
 }
 
-// ==================== 样式常量 ====================
+// ==================== 样式常量（Apple 设计令牌） ====================
 
 const CARD_STYLE: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e5e5ea',
-  borderRadius: 10,
+  background: 'var(--panel2)',
+  border: '1px solid var(--line)',
+  borderRadius: 'var(--r-md)',
   padding: 12,
-  minWidth: 280,
+  minWidth: 0,
 }
 
 const HEADER_STYLE: React.CSSProperties = {
@@ -246,24 +274,25 @@ const HEADER_STYLE: React.CSSProperties = {
   alignItems: 'center',
   marginBottom: 10,
   paddingBottom: 8,
-  borderBottom: '1px solid #e5e5ea',
+  borderBottom: '1px solid var(--line)',
 }
 
 const TITLE_STYLE: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 600,
-  color: '#1d1d1f',
+  color: 'var(--txt)',
   display: 'flex',
   alignItems: 'center',
 }
 
 const ITEM_STYLE: React.CSSProperties = {
-  border: '1px solid #e5e5ea',
-  borderRadius: 8,
+  border: '1px solid var(--line)',
+  borderRadius: 'var(--r-md)',
   padding: '8px 10px',
   marginBottom: 8,
   cursor: 'pointer',
-  transition: 'all 0.2s',
+  transition: 'all var(--t-fast)',
+  background: 'var(--panel)',
 }
 
 const ITEM_HEADER: React.CSSProperties = {
@@ -276,17 +305,18 @@ const ITEM_HEADER: React.CSSProperties = {
 const VERSION_BADGE: React.CSSProperties = {
   display: 'inline-block',
   padding: '1px 6px',
-  background: '#e8f1fb',
-  color: '#0071e3',
-  borderRadius: 4,
+  background: 'var(--accent-grad-soft)',
+  color: 'var(--accent)',
+  borderRadius: 'var(--r-sm)',
   fontSize: 11,
   fontWeight: 600,
   fontFamily: 'monospace',
+  flexShrink: 0,
 }
 
 const VERSION_NAME: React.CSSProperties = {
   fontSize: 13,
-  color: '#1d1d1f',
+  color: 'var(--txt)',
   fontWeight: 500,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -303,12 +333,12 @@ const ITEM_META: React.CSSProperties = {
 
 const META_TEXT: React.CSSProperties = {
   fontSize: 11,
-  color: '#86868b',
+  color: 'var(--sub)',
 }
 
 const ITEM_PROMPT: React.CSSProperties = {
   fontSize: 12,
-  color: '#86868b',
+  color: 'var(--sub)',
   lineHeight: 1.5,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -322,6 +352,8 @@ const ITEM_ACTIONS: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
+  gap: 6,
+  flexWrap: 'wrap',
   paddingTop: 4,
-  borderTop: '1px dashed #e5e5ea',
+  borderTop: '1px dashed var(--line)',
 }

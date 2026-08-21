@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Rnd } from 'react-rnd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import WidgetRenderer from '../widgets/WidgetRenderer'
 import { useFitScale } from './useFitScale'
@@ -10,71 +11,57 @@ import type { ComponentInstance, RouteConfig } from '../../data/types'
 const RULER_X_DEFAULT = 46
 const RULER_Y_DEFAULT = 28
 
-function ComponentFrame({ component, scale }: { component: ComponentInstance; scale: number }) {
+function ComponentFrame({ component, scale, pageW, pageH }: {
+  component: ComponentInstance
+  scale: number
+  pageW: number
+  pageH: number
+}) {
   const selectedId = useDesignerStore((s) => s.selectedId)
   const select = useDesignerStore((s) => s.select)
   const moveComponent = useDesignerStore((s) => s.moveComponent)
   const updateComponentStyle = useDesignerStore((s) => s.updateComponentStyle)
   const style = component.style || {}
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).classList.contains('resize-handle')) return
-    e.stopPropagation()
-    select(component.id)
-    const startX = e.clientX
-    const startY = e.clientY
-    const ox = style.x ?? 0
-    const oy = style.y ?? 0
-    const move = (ev: PointerEvent) => {
-      const dx = (ev.clientX - startX) / scale
-      const dy = (ev.clientY - startY) / scale
-      moveComponent(component.id, ox + dx, oy + dy)
-    }
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }
-
-  const onResizeDown = (e: React.PointerEvent) => {
-    e.stopPropagation()
-    const startX = e.clientX
-    const startY = e.clientY
-    const ow = style.w ?? 400
-    const oh = style.h ?? 240
-    const move = (ev: PointerEvent) => {
-      const dw = (ev.clientX - startX) / scale
-      const dh = (ev.clientY - startY) / scale
-      updateComponentStyle(component.id, {
-        w: Math.max(40, ow + dw),
-        h: Math.max(30, oh + dh)
-      })
-    }
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }
-
   const selected = selectedId === component.id
+
   return (
-    <div
+    <Rnd
       className={'comp-frame' + (selected ? ' selected' : '')}
-      style={{
-        left: style.x ?? 0,
-        top: style.y ?? 0,
-        width: style.w ?? 400,
-        height: style.h ?? 240
+      size={{ width: style.w ?? 400, height: style.h ?? 240 }}
+      position={{ x: style.x ?? 0, y: style.y ?? 0 }}
+      bounds="parent"
+      scale={scale}
+      minWidth={40}
+      minHeight={30}
+      enableResizing={selected}
+      resizeHandleComponent={{ bottomRight: <div className="resize-handle" /> }}
+      dragHandleClassName="comp-drag-area"
+      onMouseDown={(e) => {
+        e.stopPropagation()
+        select(component.id)
       }}
-      onPointerDown={onPointerDown}
+      onDragStart={() => select(component.id)}
+      onDragStop={(_e, d) => {
+        const nx = Math.max(0, Math.min(Math.round(d.x), pageW - (style.w ?? 0)))
+        const ny = Math.max(0, Math.min(Math.round(d.y), pageH - (style.h ?? 0)))
+        moveComponent(component.id, nx, ny)
+      }}
+      onResizeStop={(_e, _dir, ref, _delta, pos) => {
+        const w = Math.max(40, Math.round(ref.offsetWidth))
+        const h = Math.max(30, Math.round(ref.offsetHeight))
+        updateComponentStyle(component.id, {
+          x: Math.max(0, Math.min(Math.round(pos.x), pageW - w)),
+          y: Math.max(0, Math.min(Math.round(pos.y), pageH - h)),
+          w,
+          h,
+        })
+      }}
     >
-      <WidgetRenderer component={component} filter={null} onPick={null} />
-      {selected && <div className="resize-handle" onPointerDown={onResizeDown} />}
-    </div>
+      <div className="comp-drag-area">
+        <WidgetRenderer component={component} filter={null} onPick={null} />
+      </div>
+    </Rnd>
   )
 }
 
@@ -257,7 +244,7 @@ export default function Canvas() {
             >
               {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
               {components.map((c) => (
-                <ComponentFrame key={c.id} component={c} scale={scale} />
+                <ComponentFrame key={c.id} component={c} scale={scale} pageW={pageW} pageH={pageH} />
               ))}
             </div>
           </div>

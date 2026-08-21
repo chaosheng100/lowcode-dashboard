@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Select, Table, Tabs, type TableProps } from 'antd'
+import { Alert, App, Button, Select, Table, Tabs } from 'antd'
+import { Input as AntInput } from 'antd'
 import { api } from '../mock'
 import type {
   TwinSceneDTO,
@@ -37,6 +38,23 @@ import {
   type IoTWidgetKind
 } from './iotWidgetCatalog'
 import { Field, Input, Modal, PageHeader, Tag, Textarea } from './common'
+import ComponentLibraryAIAdjustModal from './ComponentLibraryAIAdjustModal'
+import {
+  applySchemaFileToWidget,
+  parseWidgetSchemaFile,
+  widgetToSchemaFile,
+  type WidgetSchemaFile,
+} from '../data/widgetSchemaIO'
+
+/** 语义化版本号递增（1.0.0 → 1.0.1；非法值兜底 0.0.1） */
+function bumpVersion(version?: string): string {
+  const parts = String(version || '0.0.0')
+    .split('.')
+    .map((p) => parseInt(p, 10) || 0)
+  while (parts.length < 3) parts.push(0)
+  parts[2] += 1
+  return parts.join('.')
+}
 
 const WIDGET_STATUS: Record<WidgetLifecycleStatus, { label: string; color: string }> = {
   draft: { label: '草稿', color: '#86868b' },
@@ -44,13 +62,13 @@ const WIDGET_STATUS: Record<WidgetLifecycleStatus, { label: string; color: strin
   deprecated: { label: '已弃用', color: '#ff9500' },
   offline: { label: '已下架', color: '#ff3b30' }
 }
-const LIFECYCLE_ACTIONS: { status: WidgetLifecycleStatus; label: string }[] = [
-  { status: 'published', label: '上架' },
-  { status: 'deprecated', label: '弃用' },
-  { status: 'offline', label: '下架' }
-]
-
 type LibraryAsset = ComponentAssetDefinition & { kind?: TwinWidgetKind | IoTWidgetKind }
+
+/** 统一卡片模型：资产视图 + 可选已注册组件引用（注册组件卡片带管理操作） */
+type CardItem = {
+  asset: LibraryAsset
+  widget?: WidgetDefDTO
+}
 
 const PREVIEW_SCENE: TwinSceneDTO = {
   id: 'preview',
@@ -153,6 +171,7 @@ export default function ComponentLibrary() {
     [registeredAssets],
   )
   const categories = useMemo(() => ['全部', ...Array.from(new Set(assets.map((asset) => asset.category)))], [assets])
+  const { message } = App.useApp()
   const [category, setCategory] = useState('全部')
   const [deploying, setDeploying] = useState<LibraryAsset | null>(null)
   const [dashboardId, setDashboardId] = useState('')
@@ -166,9 +185,73 @@ export default function ComponentLibrary() {
   const [versions, setVersions] = useState<WidgetVersionDTO[] | null>(null)
   const [vForm, setVForm] = useState({ version: '', changelog: '' })
   const [vBusy, setVBusy] = useState(false)
+  const [adjustTarget, setAdjustTarget] = useState<WidgetDefDTO | null>(null)
+  // 组件 schema 导入：文件解析 → 选择目标组件 → 保存即记版
+  const [importOpen, setImportOpen] = useState(false)
+  const [importError, setImportError] = useState('')
+  const [importFile, setImportFile] = useState<WidgetSchemaFile | null>(null)
+  const [importTarget, setImportTarget] = useState('')
+  const [importVersion, setImportVersion] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
+  // 搜索条件：关键词 / 生命周期状态 / 资产类型
+  const [searchText, setSearchText] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | WidgetLifecycleStatus>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'standard' | 'twin' | 'iot' | 'ai'>('all')
   const items = assets.filter((asset) => category === '全部' || asset.category === category)
   const scenes = twinData?.list ?? []
   const devices = iotData?.list ?? []
+  const widgetRows = data?.list ?? []
+
+  // 注册组件 → 卡片：按 widget.type 关联资产；无资产映射的注册组件（未收录）也展示为卡片
+  const widgetByType = useMemo(
+    () => new Map(widgetRows.map((w) => [w.type, w])),
+    [widgetRows],
+  )
+  const cards = useMemo<CardItem[]>(() => {
+    const mapped: CardItem[] = items.map((asset) => {
+      const widget =
+        asset.widgetId && widgetByType.get(asset.widgetId)
+        || widgetByType.get(asset.type)
+      return widget ? { asset, widget } : { asset }
+    })
+    // 已注册但未出现在资产网格的组件（如老数据），补为管理卡片（仅限有源码/option 的 AI 资产）
+    for (const w of widgetRows) {
+      if (!(w.sourceCode || w.optionJson)) continue
+      if (items.some((a) => a.widgetId === (w.id ?? w.type) || a.type === w.type)) continue
+      const asset = registeredAssetsFromWidgets([w])[0]
+      if (asset) mapped.push({ asset, widget: w })
+    }
+    return mapped
+  }, [items, widgetRows, widgetByType])
+
+  /** 搜索/状态/类型过滤后的可见卡片 */
+  const visibleCards = useMemo(() => {
+    const kw = searchText.trim().toLowerCase()
+    return cards.filter(({ asset, widget }) => {
+      if (kw) {
+        const hit =
+          asset.name.toLowerCase().includes(kw) ||
+          asset.type.toLowerCase().includes(kw) ||
+          asset.description.toLowerCase().includes(kw)
+        if (!hit) return false
+      }
+      if (statusFilter !== 'all') {
+        const cur = widget?.status ?? 'draft'
+        if (cur !== statusFilter) return false
+      }
+      if (typeFilter !== 'all') {
+        const t = asset.businessType === 'twin'
+          ? 'twin'
+          : asset.category === '物联组态'
+          ? 'iot'
+          : (widget && (widget.sourceCode || widget.optionJson)) || asset.sourceCode || asset.optionJson
+          ? 'ai'
+          : 'standard'
+        if (t !== typeFilter) return false
+      }
+      return true
+    })
+  }, [cards, searchText, statusFilter, typeFilter])
 
   const widgetId = (w: WidgetDefDTO) => w.id ?? w.type
 
@@ -201,49 +284,76 @@ export default function ComponentLibrary() {
     }
   }
 
-  const widgetRows = data?.list ?? []
-  const widgetColumns: TableProps<WidgetDefDTO>['columns'] = [
-    { title: '类型', dataIndex: 'type', key: 'type' },
-    { title: '名称', dataIndex: 'name', key: 'name' },
-    { title: '分类', dataIndex: 'category', key: 'category', render: (v: string) => <Tag>{v}</Tag> },
-    { title: '版本', dataIndex: 'version', key: 'version' },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (s?: WidgetLifecycleStatus) => {
-        const cur = s ?? 'draft'
-        const m = WIDGET_STATUS[cur]
-        return <span className={'status-dot ' + (cur === 'published' ? 'active' : 'disabled')}>{m.label}</span>
+  /** 导出组件 → JSON schema 文件（下载） */
+  const exportSchema = (w: WidgetDefDTO) => {
+    const file = widgetToSchemaFile(w)
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${w.type || w.name}.schema.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  /** 读取导入文件 → 解析校验 → 打开导入弹窗 */
+  const pickImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const { file: parsed, error } = parseWidgetSchemaFile(String(reader.result ?? ''))
+      if (error || !parsed) {
+        setImportError(error ?? '文件解析失败')
+        setImportFile(null)
+        setImportOpen(true)
+        return
       }
-    },
-    {
-      title: '生命周期',
-      key: 'lifecycle',
-      render: (_, w) => (
-        <span style={{ display: 'inline-flex', gap: 4 }}>
-          {LIFECYCLE_ACTIONS.map((a) => (
-            <Button
-              key={a.status}
-              size="small"
-              loading={statusBusy === widgetId(w) && w.status !== a.status}
-              disabled={statusBusy === widgetId(w) || w.status === a.status}
-              onClick={() => setLifecycle(w, a.status)}
-            >
-              {a.label}
-            </Button>
-          ))}
-        </span>
+      setImportError('')
+      setImportFile(parsed)
+      setImportTarget((cur) =>
+        widgetRows.some((w) => w.type === cur) ? cur : (parsed.type ?? ''),
       )
-    },
-    {
-      title: '操作',
-      key: 'op',
-      render: (_, w) => (
-        <Button size="small" type="link" onClick={() => openVersions(w)}>版本</Button>
-      )
+      setImportOpen(true)
     }
-  ]
+    reader.readAsText(file)
+  }
+
+  /** 导入 schema → 应用到目标组件 → 发布新版本（保存即记版） */
+  const confirmImport = async () => {
+    if (!importFile) return
+    const target = widgetRows.find((w) => w.type === importTarget)
+    if (!target) {
+      message.warning('请选择要导入的目标组件')
+      return
+    }
+    setImportBusy(true)
+    try {
+      const r = await api.saveWidget(applySchemaFileToWidget(target, importFile))
+      if (r.code !== 0) {
+        message.error(r.message)
+        return
+      }
+      const nextVersion = importVersion.trim() || bumpVersion(target.version)
+      const vr = await api.publishWidgetVersion(target.type, {
+        version: nextVersion,
+        changelog: `从 schema 导入：${importFile.name}（${importFile.type}）`,
+      })
+      if (vr.code !== 0) {
+        message.warning(`内容已更新，但版本记录失败：${vr.message}`)
+      } else {
+        message.success(`已导入为组件 ${target.type} 的新版本 v${nextVersion}`)
+      }
+      reload()
+      setImportOpen(false)
+      setImportFile(null)
+      setImportTarget('')
+      setImportVersion('')
+    } finally {
+      setImportBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!deploying) return
@@ -361,13 +471,55 @@ export default function ComponentLibrary() {
         items={categories.map((item) => ({ key: item, label: item }))}
       />
 
+      {/* 搜索条件：关键词 / 状态 / 类型 */}
+      <div className="component-library-toolbar">
+        <AntInput.Search
+          allowClear
+          placeholder="搜索组件名称 / 类型 / 描述"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          onSearch={(v) => setSearchText(v)}
+          style={{ width: 260 }}
+        />
+        <Select
+          style={{ width: 130 }}
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: 'all', label: '全部状态' },
+            ...Object.entries(WIDGET_STATUS).map(([value, m]) => ({ value, label: m.label })),
+          ]}
+        />
+        <Select
+          style={{ width: 130 }}
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: 'all', label: '全部类型' },
+            { value: 'standard', label: '标准组件' },
+            { value: 'twin', label: '孪生组件' },
+            { value: 'iot', label: '物联组态' },
+            { value: 'ai', label: 'AI 生成' },
+          ]}
+        />
+        <span className="component-library-count">{visibleCards.length} 个组件</span>
+      </div>
+
       <div className="component-library-grid">
-        {items.map((asset) => (
+        {visibleCards.map(({ asset, widget }) => (
           <article key={asset.key} className="card component-asset-card">
             <header>
               <div><b>{asset.name}</b><span>{asset.type}</span></div>
               <Tag>{asset.category}</Tag>
             </header>
+            {widget && (
+              <div className="component-card-status">
+                <span className={'status-dot ' + ((widget.status ?? 'draft') === 'published' ? 'active' : 'disabled')}>
+                  {WIDGET_STATUS[widget.status ?? 'draft'].label}
+                </span>
+                <span className="component-card-version">v{widget.version}</span>
+              </div>
+            )}
             <AssetPreview asset={asset} />
             <p>{asset.description}</p>
             <footer>
@@ -378,24 +530,45 @@ export default function ComponentLibrary() {
                   ? '物联数据驱动'
                   : '设计器原生组件'
               }</span>
-              <Button type="primary" size="small" onClick={() => setDeploying(asset)}>投放到大屏</Button>
+              {widget ? (
+                <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {(widget.sourceCode || widget.optionJson) && (
+                    <Button size="small" onClick={() => setAdjustTarget(widget)}>AI 调整</Button>
+                  )}
+                  <Button size="small" onClick={() => openVersions(widget)}>版本</Button>
+                  <Button size="small" onClick={() => exportSchema(widget)}>导出</Button>
+                  <Button size="small" onClick={() => { setImportTarget(widget.type); setImportOpen(true) }}>导入</Button>
+                  <Button
+                    size="small"
+                    loading={statusBusy === widgetId(widget) && widget.status !== 'published'}
+                    disabled={statusBusy === widgetId(widget) || widget.status === 'published'}
+                    onClick={() => setLifecycle(widget, 'published')}
+                  >
+                    上架
+                  </Button>
+                  <Button
+                    size="small"
+                    danger
+                    loading={statusBusy === widgetId(widget) && widget.status !== 'offline'}
+                    disabled={statusBusy === widgetId(widget) || widget.status === 'offline' || !widget.status}
+                    onClick={() => setLifecycle(widget, 'offline')}
+                  >
+                    下架
+                  </Button>
+                  <Button type="primary" size="small" onClick={() => setDeploying(asset)}>投放到大屏</Button>
+                </span>
+              ) : (
+                <Button type="primary" size="small" onClick={() => setDeploying(asset)}>投放到大屏</Button>
+              )}
             </footer>
           </article>
         ))}
       </div>
-
-      {/* 组件中心 · 已注册组件：生命周期 + 版本 */}
-      <div className="component-library-widgets" style={{ marginTop: 18 }}>
-        <h3 className="fp-sub" style={{ marginBottom: 8 }}>组件中心 · 已注册组件（生命周期 / 版本）</h3>
-        <Table<WidgetDefDTO>
-          size="small"
-          rowKey={(w) => widgetId(w)}
-          pagination={false}
-          dataSource={widgetRows}
-          locale={{ emptyText: '暂无已注册组件' }}
-          columns={widgetColumns}
-        />
-      </div>
+      {visibleCards.length === 0 && (
+        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--sub)', fontSize: 13 }}>
+          没有符合条件的组件，试试调整搜索条件
+        </div>
+      )}
 
       {/* 版本弹层：列出版本 + 表单发布新版本 */}
       {versionFor && (
@@ -481,6 +654,61 @@ export default function ComponentLibrary() {
               {busy ? '投放中...' : '确认投放'}
             </Button>
           </div>
+        </Modal>
+      )}
+
+      {/* AI 调整已注册组件：迭代生成新源码/option，保存即记版 */}
+      {adjustTarget && (
+        <ComponentLibraryAIAdjustModal
+          widget={adjustTarget}
+          open
+          onClose={() => setAdjustTarget(null)}
+          onSaved={reload}
+        />
+      )}
+
+      {/* 导入组件 schema：选择文件 → 解析校验 → 应用到目标组件（保存即记版） */}
+      {importOpen && (
+        <Modal title="导入组件 Schema" onClose={() => { if (!importBusy) { setImportOpen(false); setImportFile(null); setImportError('') } }} width={560}>
+          <p style={{ marginTop: 0, color: 'var(--sub)' }}>
+            导入 JSON schema 作为某个已注册组件的新版本（保存即记版），或先选择文件再应用到目标组件。
+          </p>
+          <Field label="Schema 文件">
+            <input type="file" accept=".json,application/json" onChange={pickImportFile} />
+          </Field>
+          {importError && (
+            <div style={{ color: '#ff3b30', fontSize: 12, marginBottom: 10 }}>⚠️ {importError}</div>
+          )}
+          {importFile && (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--sub)', marginBottom: 10 }}>
+                已解析：<b>{importFile.name}</b>（{importFile.type} · v{importFile.version ?? '—'}）
+              </div>
+              <Field label="目标组件">
+                <Select
+                  style={{ width: '100%' }}
+                  value={importTarget || undefined}
+                  placeholder="选择要导入到的已注册组件"
+                  onChange={(v) => setImportTarget(v)}
+                  options={widgetRows.map((w) => ({ value: w.type, label: `${w.name}（${w.type} · v${w.version}）` }))}
+                />
+              </Field>
+              <Field label="新版本号" hint="留空则自动递增小版本">
+                <Input value={importVersion} placeholder="如 1.1.0" onChange={(e) => setImportVersion(e.target.value)} />
+              </Field>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button disabled={importBusy} onClick={() => { setImportOpen(false); setImportFile(null); setImportError('') }}>取消</Button>
+                <Button
+                  type="primary"
+                  loading={importBusy}
+                  disabled={!importFile || !importTarget}
+                  onClick={confirmImport}
+                >
+                  导入为组件新版本
+                </Button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
     </div>
