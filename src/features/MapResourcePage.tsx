@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, Button, InputNumber, Spin } from 'antd'
 import { useApi } from './useApi'
-import { api } from '../mock'
+import { governanceApi } from '../api/governanceResourceApi'
 import EChartBox from './EChartBox'
 import { Modal, Field, Input, Select, Tag , PageHeader } from './common'
 import type { MapResourceDTO, MapProvider } from '../mock/types'
@@ -13,11 +13,11 @@ const PROVIDERS: MapProvider[] = ['echart', 'gaode', 'baidu', 'tencent', 'custom
 
 /** 地图资源：EChart / 高德 / 百度 / 腾讯 / 任意三方地图，作为画布地理可视化底图 */
 export default function MapResourcePage() {
-  const { data, loading, error, reload } = useApi(() => api.listMaps({ pageSize: 50 }), [])
+  const { data, loading, error, reload } = useApi(() => governanceApi.listMaps({ pageSize: 50 }), [])
   const [editing, setEditing] = useState<Partial<MapResourceDTO> | null>(null)
 
-  const save = async () => { if (!editing) return; await api.saveMap(editing); setEditing(null); reload() }
-  const remove = async (id: string) => { await api.deleteMap(id); reload() }
+  const save = async () => { if (!editing) return; await governanceApi.saveMap(editing as Record<string, unknown>); setEditing(null); reload() }
+  const remove = async (id: string) => { await governanceApi.deleteMap(id); reload() }
   const sel = data?.list?.[0]
 
   return (
@@ -38,6 +38,7 @@ export default function MapResourcePage() {
                 <div className="muted2" style={{ margin: '6px 0' }}>中心 {m.center?.join(', ') ?? '—'} · 缩放 {m.zoom}</div>
                 <div className="fp-toolbar" style={{ marginTop: 6 }}>
                   <Button size="small" onClick={() => setEditing(m)}>编辑</Button>
+                  <Button size="small" onClick={async () => { const r = await governanceApi.mapHealth(m.id); if (r.code === 0) reload() }}>健康检查</Button>
                   <Button size="small" danger onClick={() => remove(m.id)}>删除</Button>
                 </div>
               </div>

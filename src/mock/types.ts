@@ -123,6 +123,8 @@ export interface GlobalVarDTO {
   kind: VarKind
   value: string // 变量值 / 函数体 / 格式化表达式
   scope: 'global' | 'screen'
+  status?: 'draft' | 'published' | 'deprecated'
+  hasSecret?: boolean
   updatedAt: string
 }
 

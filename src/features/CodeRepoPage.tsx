@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, App, Button, Popconfirm, Select, Spin } from 'antd'
 import { useApi } from './useApi'
-import { api } from '../mock'
+import { governanceApi } from '../api/governanceResourceApi'
 import { Field, Input, Modal, Tag, Textarea , PageHeader } from './common'
 import type { CodeSnippetDTO, CodeLang } from '../mock/types'
 
@@ -15,7 +15,7 @@ function blankSnippet(): CodeSnippetDTO {
 /** 代码仓库：源码组件 / Vue / HTML / SQL 片段，可封装为画布自定义组件 */
 export default function CodeRepoPage() {
   const { message } = App.useApp()
-  const { data, loading, error, reload } = useApi(() => api.listSnippets({ pageSize: 50 }), [])
+  const { data, loading, error, reload } = useApi(() => governanceApi.listSnippets({ pageSize: 50 }), [])
   const [editing, setEditing] = useState<CodeSnippetDTO | null>(null)
   const [tagsText, setTagsText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -39,7 +39,7 @@ export default function CodeRepoPage() {
     setSaving(true)
     try {
       const tags = tagsText.split(/[,，]/).map((t) => t.trim()).filter(Boolean)
-      await api.saveSnippet({ ...editing, tags })
+      await governanceApi.saveSnippet({ ...editing, language: editing.lang, tags })
       reload()
       setEditing(null)
     } finally {
@@ -48,7 +48,7 @@ export default function CodeRepoPage() {
   }
 
   const remove = async (s: CodeSnippetDTO) => {
-    await api.deleteSnippet(s.id)
+    await governanceApi.deleteSnippet(s.id)
     reload()
     setEditing(null)
   }
@@ -75,6 +75,7 @@ export default function CodeRepoPage() {
                 <div className="muted2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(s.code ?? '').split('\n')[0]}</div>
                 <div className="fp-toolbar" style={{ marginTop: 8 }}>
                   <Button size="small" onClick={() => openEdit(s)}>查看 / 编辑</Button>
+                  <Button size="small" onClick={async () => { await governanceApi.testSnippet(s.id); message.success('基础测试已完成') }}>测试</Button>
                   <Popconfirm title={`确定删除片段「${s.name}」？`} onConfirm={() => remove(s)}>
                     <Button size="small">删除</Button>
                   </Popconfirm>

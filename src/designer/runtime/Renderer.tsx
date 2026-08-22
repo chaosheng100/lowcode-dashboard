@@ -9,6 +9,22 @@ import { useApi } from '../../features/useApi'
 import type { ComponentInstance, Filter, LinkageEvent, RouteConfig, WidgetProps } from '../../data/types'
 import type { GlobalVarDTO } from '../../mock/types'
 
+const ANALYTICS_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+
+function trackEvent(event: Record<string, unknown>) {
+  try {
+    const body = { ...event, occurredAt: new Date().toISOString(), sessionHash: `s-${Date.now().toString(36)}` }
+    void fetch(`${ANALYTICS_URL.replace(/\/$/, '')}/analytics/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      keepalive: true,
+    }).catch(() => undefined)
+  } catch {
+    /* 采集失败不能影响大屏渲染 */
+  }
+}
+
 /**
  * 全局变量占位解析：将组件文本类属性中的 ${G.name} 替换为全局变量值，
  * 实现「全局变量 ↔ 大屏组件」的模块间数据互通（全局变量来自 /dev/variables 模块）。
@@ -94,6 +110,17 @@ export function RouteRenderer({ route }: { route: RouteConfig }) {
     if (filter && filter.field === field && filter.value === value) clearFilter()
     else setFilter({ field, value })
   }
+
+  useEffect(() => {
+    const painted = performance.now()
+    trackEvent({ screenId: route.id, eventType: 'screen_view', durationMs: Math.round(painted), status: 'success' })
+    const componentRender = window.setTimeout(() => {
+      for (const component of route.components) {
+        trackEvent({ screenId: route.id, eventType: 'component_render', componentId: component.id, durationMs: Math.round(performance.now() - painted), status: 'success' })
+      }
+    }, 120)
+    return () => window.clearTimeout(componentRender)
+  }, [route.id])
 
   // 声明式联动：监听事件总线，分发 route.links 规则
   useEffect(() => {

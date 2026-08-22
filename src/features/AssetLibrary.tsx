@@ -1,42 +1,33 @@
-import { Alert, Spin } from 'antd'
+import { useState } from 'react'
+import { Alert, Button, Empty, Input, Spin, Tag as AntTag, Upload } from 'antd'
+import { InboxOutlined, ReloadOutlined } from '@ant-design/icons'
+import type { UploadProps } from 'antd'
 import { useApi } from './useApi'
-import { api } from '../mock'
-import { getRouteCapability } from '../data/capabilities'
+import { governanceApi } from '../api/governanceResourceApi'
 import { FeatureCard, FeatureGrid, PageHeader } from './common'
-import type { AssetType } from '../mock/types'
+import { getRouteCapability } from '../data/capabilities'
 
-const TYPE_LABEL: Record<AssetType, string> = { image: '图片', map: '地图', icon: '图标' }
+const TYPE_LABEL: Record<string, string> = { image: '图片', map: '地图', icon: '图标', font: '字体', geojson: 'GeoJSON', model: '模型', file: '文件' }
 
-/**
- * 静态资源（/resources/static）—— 画布"素材能力"的底座。
- * 资源可作画布背景或图片组件（见 Designer 资源中心"素材"标签）。
- */
 export default function AssetLibrary() {
-  const { data, loading, error } = useApi(() => api.listAssets({ pageSize: 50 }), [])
+  const state = useApi(() => governanceApi.listAssets({ pageSize: 50 }), [])
+  const [keyword, setKeyword] = useState('')
   const cap = getRouteCapability('/resources/static')
+  const uploadProps: UploadProps = {
+    showUploadList: false,
+    beforeUpload: async (file) => {
+      const response = await governanceApi.uploadAsset(file)
+      if (response.code === 0) state.reload()
+      return false
+    },
+  }
+  const list = (state.data?.list || []).filter((asset) => !keyword || asset.name.toLowerCase().includes(keyword.toLowerCase()))
 
-  return (
-    <div className="feature-page">
-      <PageHeader
-        title="静态资源"
-        subtitle={`画布背景 / 图片组件的素材来源 · ${cap ? `画布能力：${cap.capability}` : ''}`}
-        actions={<span className="fp-count">共 {data?.list.length ?? 0} 个素材</span>}
-      />
-      {loading && <div style={{ textAlign: 'center', padding: '40px 0' }}><Spin /></div>}
-      {error && <Alert type="error" showIcon message={error} />}
-      {!loading && !error && (
-        <FeatureGrid>
-          {data!.list.map((a) => (
-            <FeatureCard
-              key={a.id}
-              media={<div className="feat-thumb" style={{ backgroundImage: `url(${a.url})` }} />}
-              name={a.name}
-              category={`${TYPE_LABEL[a.type]} · ${a.sizeKb}KB`}
-              desc={`更新：${a.updatedAt}`}
-            />
-          ))}
-        </FeatureGrid>
-      )}
-    </div>
-  )
+  return <div className="feature-page">
+    <PageHeader title="静态资源" subtitle={`图片、图标、字体、GeoJSON、模型与插件附件的统一资产中心 · ${cap?.capability || ''}`} actions={<div className="fp-head-actions"><Input allowClear placeholder="搜索资源" value={keyword} onChange={(e) => setKeyword(e.target.value)} /><Button icon={<ReloadOutlined />} onClick={state.reload} aria-label="刷新资产" /><Upload {...uploadProps}><Button type="primary" icon={<InboxOutlined />}>上传资源</Button></Upload></div>} />
+    {state.loading && <div className="fp-loading"><Spin size="small" />正在加载资源</div>}
+    {state.error && <Alert type="error" showIcon message={state.error} />}
+    {!state.loading && !state.error && !list.length && <Empty description="暂无资源，上传第一份素材" />}
+    {!state.loading && !state.error && <FeatureGrid>{list.map((asset) => <FeatureCard key={asset.id} media={<div className="feat-thumb" style={{ backgroundImage: asset.url ? `url(${asset.url})` : undefined }}><AntTag>{TYPE_LABEL[asset.type] || asset.type}</AntTag></div>} name={asset.name} category={`${TYPE_LABEL[asset.type] || asset.type} · ${asset.sizeKb}KB`} desc={`更新：${asset.updatedAt}`} onClick={async () => { const refs = await governanceApi.assetReferences(asset.id); if (refs.code === 0 && refs.data.length) window.alert(`该资源有 ${refs.data.length} 个引用`) }} />)}</FeatureGrid>}
+  </div>
 }

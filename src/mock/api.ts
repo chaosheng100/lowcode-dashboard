@@ -223,6 +223,17 @@ export const api = {
       mockFetch<{ ok: boolean }>('PATCH', `/api/rbac/users/${id}/roles`, { body: { roleCodes } }),
     setUserStatus: (id: string, status: 'active' | 'disabled') =>
       mockFetch<{ ok: boolean }>('PATCH', `/api/rbac/users/${id}/status`, { body: { status } }),
+    userDetail: (id: string) => mockFetch<Record<string, unknown>>('GET', `/api/rbac/users/${id}`),
+    effectivePermissions: (id: string) => mockFetch<{ permissions: string[]; roles: Array<{ code: string; name: string; source: string }> }>('GET', `/api/rbac/users/${id}/effective-permissions`),
+    revokeSessions: (id: string) => mockFetch<{ ok: boolean; revoked: number }>('POST', `/api/rbac/users/${id}/revoke-sessions`),
+    userAudit: (id: string) => mockFetch<Array<Record<string, unknown>>>('GET', `/api/rbac/users/${id}/audit`),
+    listInvitations: () => mockFetch<Array<{ id: string; email: string; role: string; status: string; expiresAt: string; createdAt: string }>>('GET', '/api/rbac/invitations'),
+    createInvitation: (body: { email: string; role?: string; expiresInDays?: number }) =>
+      mockFetch<{ id: string; email: string; role: string; expiresAt: string; inviteToken: string }>('POST', '/api/rbac/invitations', { body }),
+    revokeInvitation: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/rbac/invitations/${id}`),
+    listWorkspaceMembers: () => mockFetch<Array<{ id: string; userId: string; role: string; expiresAt: string | null; user: { id: string; email: string; name: string; status: string } | null }>>('GET', '/api/rbac/workspace-members'),
+    saveWorkspaceMember: (userId: string, role: string) => mockFetch<Record<string, unknown>>('POST', `/api/rbac/workspace-members/${userId}`, { body: { role } }),
+    removeWorkspaceMember: (userId: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/rbac/workspace-members/${userId}`),
   },
 
   // 扩展
@@ -231,8 +242,16 @@ export const api = {
   // 组件库
   listWidgets: (q: PageQuery = {}) => mockFetch<PageResult<WidgetDefDTO>>('GET', '/api/widgets', { query: q }),
 
-  // 组件目录（大屏编辑器唯一组件来源）
-  listComponents: () => mockFetch<ComponentMetaDTO[]>('GET', '/api/ai/components'),
+  // 组件目录（大屏编辑器唯一组件来源）：菜单与插件安装状态共同决定可投放项
+  listComponents: async () => {
+    const r = await mockFetch<Array<{ meta?: ComponentMetaDTO | null }>>('GET', '/api/component-menus/available')
+    if (r.code !== 0) return r as unknown as ApiResp<ComponentMetaDTO[]>
+    return {
+      code: 0,
+      message: r.message,
+      data: r.data.map((item) => item.meta).filter((meta): meta is ComponentMetaDTO => Boolean(meta)),
+    }
+  },
   /** 登记 AI 生成的源码组件到组件目录（renderer=htmlComponent/reactComponent） */
   saveComponent: (body: Partial<ComponentMetaDTO>) =>
     mockFetch<ComponentMetaDTO>('POST', '/api/ai/components', { body }),
@@ -263,22 +282,22 @@ export const api = {
   deleteChannel: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/messageChannels/${id}`),
 
   // —— 地图资源 ——
-  listMaps: (q: PageQuery = {}) => mockFetch<PageResult<MapResourceDTO>>('GET', '/api/mapResources', { query: q }),
+  listMaps: (q: PageQuery = {}) => mockFetch<PageResult<MapResourceDTO>>('GET', '/api/map-resources', { query: q }),
   saveMap: (body: Partial<MapResourceDTO>) =>
-    mockFetch<MapResourceDTO>(body.id ? 'PATCH' : 'POST', `/api/mapResources${body.id ? '/' + body.id : ''}`, { body }),
-  deleteMap: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/mapResources/${id}`),
+    mockFetch<MapResourceDTO>(body.id ? 'PATCH' : 'POST', `/api/map-resources${body.id ? '/' + body.id : ''}`, { body }),
+  deleteMap: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/map-resources/${id}`),
 
   // —— 全局变量 ——
-  listVars: (q: PageQuery = {}) => mockFetch<PageResult<GlobalVarDTO>>('GET', '/api/globalVars', { query: q }),
+  listVars: (q: PageQuery = {}) => mockFetch<PageResult<GlobalVarDTO>>('GET', '/api/global-variables', { query: q }),
   saveVar: (body: Partial<GlobalVarDTO>) =>
-    mockFetch<GlobalVarDTO>(body.id ? 'PATCH' : 'POST', `/api/globalVars${body.id ? '/' + body.id : ''}`, { body }),
-  deleteVar: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/globalVars/${id}`),
+    mockFetch<GlobalVarDTO>(body.id ? 'PATCH' : 'POST', `/api/global-variables${body.id ? '/' + body.id : ''}`, { body }),
+  deleteVar: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/global-variables/${id}`),
 
   // —— 代码仓库 ——
-  listSnippets: (q: PageQuery = {}) => mockFetch<PageResult<CodeSnippetDTO>>('GET', '/api/codeSnippets', { query: q }),
+  listSnippets: (q: PageQuery = {}) => mockFetch<PageResult<CodeSnippetDTO>>('GET', '/api/code-snippets', { query: q }),
   saveSnippet: (body: Partial<CodeSnippetDTO>) =>
-    mockFetch<CodeSnippetDTO>(body.id ? 'PATCH' : 'POST', `/api/codeSnippets${body.id ? '/' + body.id : ''}`, { body }),
-  deleteSnippet: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/codeSnippets/${id}`),
+    mockFetch<CodeSnippetDTO>(body.id ? 'PATCH' : 'POST', `/api/code-snippets${body.id ? '/' + body.id : ''}`, { body }),
+  deleteSnippet: (id: string) => mockFetch<{ ok: boolean }>('DELETE', `/api/code-snippets/${id}`),
 
   // —— 分类标签 ——
   listCategories: (q: PageQuery = {}) => mockFetch<PageResult<CategoryDTO>>('GET', '/api/categories', { query: q }),

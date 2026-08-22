@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, Button, Spin, Table } from 'antd'
 import { useApi } from './useApi'
-import { api } from '../mock'
+import { governanceApi } from '../api/governanceResourceApi'
 import { Modal, Field, Input, Select, Textarea, Tag , PageHeader } from './common'
 import type { GlobalVarDTO, VarKind } from '../mock/types'
 
@@ -9,11 +9,11 @@ const KIND_LABEL: Record<VarKind, string> = { variable: '变量', function: '函
 
 /** 全局变量：跨组件共享的变量 / 函数 / 数据格式化表达式 */
 export default function GlobalVarPage() {
-  const { data, loading, error, reload } = useApi(() => api.listVars({ pageSize: 50 }), [])
+  const { data, loading, error, reload } = useApi(() => governanceApi.listVariables({ pageSize: 50 }), [])
   const [editing, setEditing] = useState<Partial<GlobalVarDTO> | null>(null)
 
-  const save = async () => { if (!editing) return; await api.saveVar(editing); setEditing(null); reload() }
-  const remove = async (id: string) => { await api.deleteVar(id); reload() }
+  const save = async () => { if (!editing) return; await governanceApi.saveVariable(editing as Record<string, unknown>); setEditing(null); reload() }
+  const remove = async (id: string) => { await governanceApi.deleteVariable(id); reload() }
 
   return (
     <div className="feature-page">
@@ -37,6 +37,7 @@ export default function GlobalVarPage() {
               title: '操作', key: 'actions', render: (_, v) => (
                 <>
                   <Button size="small" type="link" onClick={() => setEditing(v)}>编辑</Button>
+                  {v.status !== 'published' && <Button size="small" type="link" onClick={async () => { await governanceApi.validateVariable(v.id); await governanceApi.publishVariable(v.id); reload() }}>发布</Button>}
                   <Button size="small" type="link" danger onClick={() => remove(v.id)}>删除</Button>
                 </>
               )
