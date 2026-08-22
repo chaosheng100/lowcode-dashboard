@@ -767,7 +767,7 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
 /* ============================================================
  * 编辑器左侧：组件 / 资源 双标签
  * ============================================================ */
-.dlp-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.dlp-body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; }
 .dlp-inner { padding: 12px; }
 .dlp-hint { margin-top: 12px; color: var(--sub); font-size: 11.5px; line-height: 1.6; }
 .dlp-list { display: flex; flex-direction: column; gap: 8px; }
@@ -784,6 +784,12 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
   position: sticky; bottom: 0; z-index: 5;
   background: var(--panel); padding-top: 6px;
   margin-top: auto;
+}
+/* 窄左侧栏内，AI 编排及历史列表只占可用宽度，禁止横向撑破 */
+.dlp-body > div {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .rp-main strong { font-size: 12.5px; color: var(--txt); display: flex; align-items: center; gap: 6px; }
 .rp-sub { font-size: 11px; color: var(--sub); }

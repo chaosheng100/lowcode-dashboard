@@ -10,8 +10,6 @@ import {
   HistoryOutlined,
   CheckOutlined,
   CloseOutlined,
-  RocketOutlined,
-  ReloadOutlined,
   ForkOutlined,
   RollbackOutlined,
 } from '@ant-design/icons'
@@ -30,10 +28,13 @@ interface Props {
   onApplyVersion?: (version: GenVersion) => void
 }
 
-const SOURCE_LABEL: Record<GenVersion['source'], { text: string; color: string; icon: React.ReactNode }> = {
-  initial: { text: '首次生成', color: 'blue', icon: <RocketOutlined /> },
-  iterate: { text: '迭代修改', color: 'green', icon: <ForkOutlined /> },
-  regenerate: { text: '重新生成', color: 'orange', icon: <ReloadOutlined /> },
+const SOURCE_LABEL: Record<
+  GenVersion['source'],
+  { text: string; full: string }
+> = {
+  initial: { text: '首次', full: '首次生成' },
+  iterate: { text: '迭代', full: '迭代修改' },
+  regenerate: { text: '重排', full: '重新生成' },
 }
 
 export default function GenHistoryPanel({
@@ -90,27 +91,31 @@ export default function GenHistoryPanel({
         <span style={TITLE_STYLE}>
           <HistoryOutlined style={{ marginRight: 6 }} />
           生成历史
-          <Tag style={{ marginLeft: 8, fontSize: 11 }} color="default">
-            {versions.length} 个版本
-          </Tag>
+          <span style={COUNT_STYLE}>{versions.length}</span>
         </span>
-        <Popconfirm
-          title="确定清空所有生成历史？"
-          onConfirm={() => {
-            onClearAll()
-            message.success('已清空')
-          }}
-          okText="清空"
-          cancelText="取消"
-          okButtonProps={{ danger: true }}
-        >
-          <Button type="text" size="small" danger style={{ fontSize: 12 }}>
-            清空
-          </Button>
-        </Popconfirm>
+        <Tooltip title="清空全部历史">
+          <Popconfirm
+            title="确定清空所有生成历史？"
+            onConfirm={() => {
+              onClearAll()
+              message.success('已清空')
+            }}
+            okText="清空"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              style={ICON_BUTTON_STYLE}
+            />
+          </Popconfirm>
+        </Tooltip>
       </div>
 
-      <div style={{ maxHeight: 380, overflowY: 'auto', paddingRight: 4 }}>
+      <div style={LIST_STYLE}>
         {versions.map((v) => {
           const isActive = v.id === activeId
           const srcInfo = SOURCE_LABEL[v.source]
@@ -127,104 +132,111 @@ export default function GenHistoryPanel({
               }}
             >
               <div style={ITEM_HEADER}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <span style={VERSION_BADGE}>v{v.version}</span>
-                  {editingId === v.id ? (
-                    <Input
-                      size="small"
-                      value={editingLabel}
-                      onChange={(e) => setEditingLabel(e.target.value)}
-                      onPressEnter={() => confirmRename(v.id)}
-                      autoFocus
-                      style={{ width: 100 }}
-                      onClick={(e) => e.stopPropagation()}
-                      suffix={
-                        <span style={{ display: 'flex', gap: 2 }}>
-                          <CheckOutlined
-                            style={{ color: '#34c759', cursor: 'pointer' }}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              confirmRename(v.id)
-                            }}
+                {editingId === v.id ? (
+                  <Input
+                    size="small"
+                    value={editingLabel}
+                    onChange={(e) => setEditingLabel(e.target.value)}
+                    onPressEnter={() => confirmRename(v.id)}
+                    autoFocus
+                    style={RENAME_INPUT_STYLE}
+                    onClick={(e) => e.stopPropagation()}
+                    suffix={
+                      <span style={EDIT_SUFFIX_STYLE}>
+                        <CheckOutlined
+                          style={{ color: '#34c759', cursor: 'pointer' }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirmRename(v.id)
+                          }}
+                        />
+                        <CloseOutlined
+                          style={{ color: '#ff3b30', cursor: 'pointer' }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingId(null)
+                          }}
+                        />
+                      </span>
+                    }
+                  />
+                ) : (
+                  <>
+                    <div style={ITEM_HEADER_MAIN}>
+                      <span style={VERSION_BADGE}>v{v.version}</span>
+                      <span style={VERSION_NAME} title={v.label || v.prompt}>
+                        {v.label || v.prompt.slice(0, 16) + (v.prompt.length > 16 ? '…' : '')}
+                      </span>
+                    </div>
+                    <div style={ITEM_HEADER_ACTIONS}>
+                      <Tooltip title="重命名">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startRename(v)
+                          }}
+                          style={ICON_BUTTON_STYLE}
+                        />
+                      </Tooltip>
+                      <Popconfirm
+                        title="删除此版本？"
+                        onConfirm={(e) => {
+                          e?.stopPropagation()
+                          onDelete(v.id)
+                        }}
+                        onCancel={(e) => e?.stopPropagation()}
+                        okText="删除"
+                        cancelText="取消"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Tooltip title="删除版本">
+                          <Button
+                            type="text"
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => e.stopPropagation()}
+                            style={ICON_BUTTON_STYLE}
                           />
-                          <CloseOutlined
-                            style={{ color: '#ff3b30', cursor: 'pointer' }}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEditingId(null)
-                            }}
-                          />
-                        </span>
-                      }
-                    />
-                  ) : (
-                    <span style={VERSION_NAME} title={v.label || v.prompt}>
-                      {v.label || v.prompt.slice(0, 14) + (v.prompt.length > 14 ? '…' : '')}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 2 }}>
-                  <Tooltip title="重命名">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EditOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        startRename(v)
-                      }}
-                      style={{ padding: '0 4px' }}
-                    />
-                  </Tooltip>
-                  <Popconfirm
-                    title="删除此版本？"
-                    onConfirm={(e) => {
-                      e?.stopPropagation()
-                      onDelete(v.id)
-                    }}
-                    onCancel={(e) => e?.stopPropagation()}
-                    okText="删除"
-                    cancelText="取消"
-                    okButtonProps={{ danger: true }}
-                  >
-                    <Button
-                      type="text"
-                      size="small"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ padding: '0 4px' }}
-                    />
-                  </Popconfirm>
-                </div>
+                        </Tooltip>
+                      </Popconfirm>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div style={ITEM_META}>
-                <Tag icon={srcInfo.icon} color={srcInfo.color} style={{ fontSize: 11, margin: 0 }}>
-                  {srcInfo.text}
-                </Tag>
-                <span style={META_TEXT}>{compCount} 个组件</span>
-                <span style={META_TEXT}>{fmtTime(v.createdAt)}</span>
-              </div>
+              <span
+                style={META_LINE}
+                title={`${srcInfo.full} · ${compCount} 组件 · ${fmtTime(v.createdAt)}`}
+              >
+                <span style={{ fontWeight: 500 }}>{srcInfo.text}</span>
+                <span>·</span>
+                <span>{fmtTime(v.createdAt)}</span>
+              </span>
 
               <div style={ITEM_PROMPT} title={v.prompt}>
                 {v.prompt}
               </div>
 
               <div style={ITEM_ACTIONS} onClick={(e) => e.stopPropagation()}>
-                <Button
-                  size="small"
-                  onClick={() => onContinueFrom(v)}
-                  icon={<ForkOutlined />}
-                >
-                  从此版本修改
-                </Button>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {isActive && (
-                    <Tag color="blue" style={{ margin: 0 }}>
-                      当前预览
-                    </Tag>
-                  )}
+                {isActive && (
+                  <Tag color="blue" style={ACTIVE_TAG_STYLE}>
+                    预览
+                  </Tag>
+                )}
+                <span style={ACTION_GROUP}>
+                  <Tooltip title="从此版本修改">
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<ForkOutlined />}
+                      onClick={() => onContinueFrom(v)}
+                      style={ICON_BUTTON_STYLE}
+                    />
+                  </Tooltip>
                   {onApplyVersion && (
                     <Popconfirm
                       title={`回退应用到 v${v.version}？`}
@@ -237,15 +249,15 @@ export default function GenHistoryPanel({
                       okText="回退应用"
                       cancelText="取消"
                     >
-                      <Button
-                        size="small"
-                        type="primary"
-                        ghost
-                        icon={<RollbackOutlined />}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        回退应用
-                      </Button>
+                      <Tooltip title="回退应用到画布">
+                        <Button
+                          size="small"
+                          type="text"
+                          icon={<RollbackOutlined />}
+                          onClick={(e) => e.stopPropagation()}
+                          style={ICON_BUTTON_STYLE}
+                        />
+                      </Tooltip>
                     </Popconfirm>
                   )}
                 </span>
@@ -264,17 +276,22 @@ const CARD_STYLE: React.CSSProperties = {
   background: 'var(--panel2)',
   border: '1px solid var(--line)',
   borderRadius: 'var(--r-md)',
-  padding: 12,
+  padding: 10,
+  width: '100%',
+  maxWidth: '100%',
   minWidth: 0,
+  boxSizing: 'border-box',
 }
 
 const HEADER_STYLE: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: 10,
-  paddingBottom: 8,
+  gap: 8,
+  marginBottom: 8,
+  paddingBottom: 6,
   borderBottom: '1px solid var(--line)',
+  minWidth: 0,
 }
 
 const TITLE_STYLE: React.CSSProperties = {
@@ -283,13 +300,41 @@ const TITLE_STYLE: React.CSSProperties = {
   color: 'var(--txt)',
   display: 'flex',
   alignItems: 'center',
+  minWidth: 0,
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
+}
+
+const COUNT_STYLE: React.CSSProperties = {
+  marginLeft: 6,
+  padding: '1px 6px',
+  background: 'var(--panel-hover)',
+  color: 'var(--accent)',
+  borderRadius: 'var(--r-sm)',
+  fontSize: 10.5,
+  fontWeight: 600,
+  lineHeight: '16px',
+  flexShrink: 0,
+}
+
+const LIST_STYLE: React.CSSProperties = {
+  maxHeight: 360,
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  paddingRight: 4,
+  width: '100%',
+  minWidth: 0,
 }
 
 const ITEM_STYLE: React.CSSProperties = {
   border: '1px solid var(--line)',
   borderRadius: 'var(--r-md)',
-  padding: '8px 10px',
-  marginBottom: 8,
+  padding: '6px 8px',
+  marginBottom: 6,
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   cursor: 'pointer',
   transition: 'all var(--t-fast)',
   background: 'var(--panel)',
@@ -299,7 +344,35 @@ const ITEM_HEADER: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
+  gap: 4,
   marginBottom: 4,
+  minWidth: 0,
+}
+
+const ITEM_HEADER_MAIN: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  minWidth: 0,
+  flex: 1,
+}
+
+const ITEM_HEADER_ACTIONS: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 0,
+  flexShrink: 0,
+}
+
+const RENAME_INPUT_STYLE: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+}
+
+const EDIT_SUFFIX_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
 }
 
 const VERSION_BADGE: React.CSSProperties = {
@@ -315,45 +388,67 @@ const VERSION_BADGE: React.CSSProperties = {
 }
 
 const VERSION_NAME: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: 12.5,
   color: 'var(--txt)',
   fontWeight: 500,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  maxWidth: 140,
+  flex: 1,
+  minWidth: 0,
 }
 
-const ITEM_META: React.CSSProperties = {
+const META_LINE: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  marginBottom: 4,
+  gap: 4,
+  overflow: 'hidden',
+  whiteSpace: 'nowrap',
+  marginBottom: 3,
+  minWidth: 0,
+  fontSize: 10.5,
+  color: 'var(--sub)',
+  lineHeight: '18px',
 }
 
-const META_TEXT: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--sub)',
+const ACTIVE_TAG_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: 10,
+  lineHeight: '18px',
+  paddingInline: 5,
+  flexShrink: 0,
 }
 
 const ITEM_PROMPT: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: 11,
   color: 'var(--sub)',
-  lineHeight: 1.5,
+  lineHeight: 1.4,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  marginBottom: 6,
+  whiteSpace: 'nowrap',
+  marginBottom: 4,
+  minWidth: 0,
 }
 
 const ITEM_ACTIONS: React.CSSProperties = {
   display: 'flex',
-  justifyContent: 'space-between',
+  justifyContent: 'flex-end',
   alignItems: 'center',
-  gap: 6,
-  flexWrap: 'wrap',
-  paddingTop: 4,
-  borderTop: '1px dashed var(--line)',
+  gap: 2,
+  marginTop: 2,
+  minWidth: 0,
+}
+
+const ACTION_GROUP: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 2,
+  flexShrink: 0,
+}
+
+const ICON_BUTTON_STYLE: React.CSSProperties = {
+  padding: 0,
+  minWidth: 22,
+  height: 22,
+  fontSize: 12,
 }

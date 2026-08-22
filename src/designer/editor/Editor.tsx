@@ -127,7 +127,11 @@ export default function Editor() {
   }
 
   return (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      autoScroll={false}
+      onDragEnd={onDragEnd}
+    >
       <div className="editor">
         <div className="editor-panel-wrap panel-left-wrap">
           <DesignerLeftPanel />
