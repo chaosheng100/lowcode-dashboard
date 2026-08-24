@@ -58,6 +58,8 @@ export interface WidgetProps {
   bold?: boolean
   // 图片
   src?: string
+  /** 图片来源：静态资源资产 id，用于引用追踪与删除保护 */
+  srcAssetId?: string
   fit?: 'cover' | 'contain' | 'fill'
   // 图表 / 指标 / 表格
   title?: string
@@ -143,8 +145,10 @@ export interface PageConfig {
   height: number
   /** 背景色（CSS 颜色值，支持 #hex / rgba） */
   background: string
-  /** 背景图片（dataURL 或 URL），为空则无背景图 */
+  /** 背景图片 URL，为空则无背景图 */
   backgroundImage?: string
+  /** 背景图片来源：静态资源资产 id，用于引用追踪与删除保护 */
+  backgroundImageAssetId?: string
   /** 背景图填充方式：拉伸 / 平铺 / 居中 / 覆盖 */
   backgroundImageFit?: 'stretch' | 'tile' | 'center' | 'cover'
   /** 背景图透明度 0~1 */

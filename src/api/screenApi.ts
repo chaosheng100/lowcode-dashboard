@@ -18,7 +18,13 @@ export interface ScreenItem {
 
 /** 与后端 config 字段对齐：page + components（前端 routes[0] 结构映射过来） */
 export interface ScreenConfig {
-  page: { width: number; height: number; background?: string }
+  page: {
+    width: number
+    height: number
+    background?: string
+    backgroundImage?: string
+    backgroundImageAssetId?: string
+  }
   components: unknown[]
 }
 

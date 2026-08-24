@@ -13,6 +13,19 @@ import type {
   WidgetDefDTO,
 } from '../mock/types'
 
+export interface AssetScreenRefDTO {
+  id: string
+  name: string
+  version?: number
+  source: 'draft' | 'version'
+}
+
+export interface AssetReferenceSummary {
+  assetId: string
+  count: number
+  screens: AssetScreenRefDTO[]
+}
+
 export interface GovernanceTag {
   id: string
   name: string
@@ -146,8 +159,9 @@ export const governanceApi = {
 
   listAssets: (query: PageQuery = {}) => page<AssetDTO>('/assets', query),
   assetStats: () => request<unknown[]>('/assets/stats'),
-  assetReferences: (id: string) => request<unknown[]>(`/assets/${id}/references`),
+  assetReferences: (id: string) => request<AssetReferenceSummary>(`/assets/${id}/references`),
   archiveAsset: (id: string) => request<{ ok: boolean }>(`/assets/${id}`, { method: 'DELETE' }),
+  renameAsset: (id: string, name: string) => request<AssetDTO>(`/assets/${id}`, { method: 'PATCH', body: { name } }),
   uploadAsset: (file: File, category = 'general') => {
     const body = new FormData()
     body.append('file', file)
@@ -158,4 +172,18 @@ export const governanceApi = {
   listThemes: () => request<ThemeDTO[]>('/themes'),
   listComponents: () => request<ComponentMetaDTO[]>('/ai/components'),
   listWidgets: (query: PageQuery = {}) => page<WidgetDefDTO>('/widgets', query),
+}
+
+export interface UploadedImageAsset {
+  id: string
+  url: string
+}
+
+/** 编辑器图片统一上传入口：先上静态资源，再返回 assetId + URL */
+export async function uploadImageAsset(file: File): Promise<UploadedImageAsset> {
+  const response = await governanceApi.uploadAsset(file, 'image')
+  if (response.code !== 0 || !response.data?.url) {
+    throw new Error(response.message || '图片上传失败')
+  }
+  return { id: response.data.id, url: response.data.url }
 }

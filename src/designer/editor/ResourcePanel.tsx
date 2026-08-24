@@ -94,13 +94,18 @@ export default function ResourcePanel() {
     }
   }
 
-  const setBackground = (url: string) => {
-    setPage({ backgroundImage: url, backgroundImageFit: 'cover', backgroundImageOpacity: 1 })
+  const setBackground = (url: string, assetId: string) => {
+    setPage({
+      backgroundImage: url,
+      backgroundImageAssetId: assetId,
+      backgroundImageFit: 'cover',
+      backgroundImageOpacity: 1,
+    })
     message.success('已设为画布背景')
   }
-  const insertImage = (url: string) => {
+  const insertImage = (url: string, assetId: string) => {
     const id = addComponent('image', { w: 320, h: 200, x: 80, y: 80 })
-    if (id) updateProps(id, { src: url })
+    if (id) updateProps(id, { src: url, srcAssetId: assetId })
     message.success('已向画布插入图片组件')
   }
   const applyTheme = (t: ThemeDTO) => {
@@ -146,10 +151,10 @@ export default function ResourcePanel() {
                 <span className="rp-sub">{a.type} · {a.sizeKb}KB</span>
               </div>
               <div className="rp-acts">
-                <Button size="small" type="link" onClick={() => setBackground(a.url)}>
+                <Button size="small" type="link" onClick={() => setBackground(a.url, a.id)}>
                   背景
                 </Button>
-                <Button size="small" type="link" onClick={() => insertImage(a.url)}>
+                <Button size="small" type="link" onClick={() => insertImage(a.url, a.id)}>
                   图片
                 </Button>
               </div>

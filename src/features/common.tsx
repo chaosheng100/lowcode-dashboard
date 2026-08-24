@@ -74,12 +74,14 @@ export function FeatureCard({
   category,
   desc,
   onClick,
+  extra,
 }: {
   media?: ReactNode
   name: ReactNode
   category?: ReactNode
   desc?: ReactNode
   onClick?: () => void
+  extra?: ReactNode
 }) {
   return (
     <div className="feat-card" onClick={onClick}>
@@ -87,6 +89,7 @@ export function FeatureCard({
       <div className="feat-name">{name}</div>
       {category && <div className="feat-cat">{category}</div>}
       {desc && <div className="feat-desc">{desc}</div>}
+      {extra && <div className="feat-extra">{extra}</div>}
     </div>
   )
 }

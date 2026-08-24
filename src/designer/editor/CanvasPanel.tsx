@@ -1,4 +1,6 @@
-import { Button, ColorPicker, Form, Input, InputNumber, Select, Slider, Upload } from 'antd'
+import { useState } from 'react'
+import { App, Button, ColorPicker, Form, Input, InputNumber, Select, Slider, Upload } from 'antd'
+import { uploadImageAsset } from '../../api/governanceResourceApi'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { RouteConfig } from '../../data/types'
 import LayerPanel from './LayerPanel'
@@ -8,17 +10,26 @@ import LayerPanel from './LayerPanel'
  * 背景图片（填充方式 + 透明度）。所有改动通过 setPage 实时生效并预览。
  */
 export default function CanvasPanel() {
+  const { message } = App.useApp()
+  const [uploading, setUploading] = useState(false)
   const route = useDesignerStore(
     (s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0]
   )! as RouteConfig
   const setPage = useDesignerStore((s) => s.setPage)
   const page = route.page
 
-  // 上传背景图：读取为 dataURL 嵌入项目（beforeUpload 拦截自动上传）
-  const onUpload = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = () => setPage({ backgroundImage: reader.result as string })
-    reader.readAsDataURL(file)
+  // 上传背景图：优先写入静态资源，再在画布保存轻量 URL 引用
+  const onUpload = async (file: File) => {
+    setUploading(true)
+    try {
+      const { id, url } = await uploadImageAsset(file)
+      setPage({ backgroundImage: url, backgroundImageAssetId: id })
+      message.success('背景图已上传')
+    } catch (e) {
+      message.error('背景图上传失败：' + (e as Error).message)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const fit = page.backgroundImageFit ?? 'stretch'
@@ -79,15 +90,18 @@ export default function CanvasPanel() {
           accept="image/*"
           showUploadList={false}
           beforeUpload={(f) => {
-            onUpload(f)
+            void onUpload(f)
             return false
           }}
         >
-          <Button>上传图片</Button>
+          <Button loading={uploading}>上传图片</Button>
         </Upload>
         {page.backgroundImage && (
           <>
-            <Button style={{ marginLeft: 8 }} onClick={() => setPage({ backgroundImage: '' })}>
+            <Button
+              style={{ marginLeft: 8 }}
+              onClick={() => setPage({ backgroundImage: '', backgroundImageAssetId: '' })}
+            >
               移除
             </Button>
             <img
@@ -103,7 +117,7 @@ export default function CanvasPanel() {
                 marginTop: 8,
               }}
             />
-            <div className="rc-hint">已嵌入为 dataURL，随项目一并导出。</div>
+            <div className="rc-hint">已引用静态资源图片。</div>
           </>
         )}
 

@@ -29,6 +29,7 @@ const defaultPage = (): RouteConfig['page'] => ({
   height: 1080,
   background: '#f5f5f7',
   backgroundImage: '',
+  backgroundImageAssetId: '',
   backgroundImageFit: 'stretch',
   backgroundImageOpacity: 1,
   scale: 0.42,

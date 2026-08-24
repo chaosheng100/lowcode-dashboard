@@ -240,7 +240,16 @@ export default function Canvas() {
                 background: page.background,
                 transform: `scale(${scale})`
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                const target = e.target as HTMLElement
+                if (
+                  target === e.currentTarget ||
+                  !target.closest('.comp-frame')
+                ) {
+                  select(null)
+                }
+              }}
             >
               {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
               {components.map((c) => (

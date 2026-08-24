@@ -815,6 +815,9 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
   border-radius: var(--r-md); font-size: 16px; margin-bottom: 6px;
 }
 .feat-name { font-size: 13px; color: var(--txt-bright); font-weight: 600; }
+.feat-extra { margin-top: 8px; display: flex; justify-content: flex-end; }
+.feat-acts { display: flex; justify-content: flex-end; gap: 2px; flex-wrap: wrap; }
+.asset-ref-summary { margin-bottom: 10px; color: var(--txt); font-size: 13px; }
 .feat-cat { font-size: 11px; color: var(--accent2); margin: 2px 0 5px; }
 .feat-desc { font-size: 11.5px; color: var(--sub); line-height: 1.5; }
 .feat-thumb {

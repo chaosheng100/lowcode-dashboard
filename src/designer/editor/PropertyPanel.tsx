@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { App, Button, Form, Input, InputNumber, Select, Tabs } from 'antd'
+import { App, Button, Form, Input, InputNumber, Select, Tabs, Upload } from 'antd'
+import { UploadOutlined } from '@ant-design/icons'
+import { uploadImageAsset } from '../../api/governanceResourceApi'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
 import type { ComponentDataBinding } from '../../data/types'
@@ -43,6 +45,7 @@ export default function PropertyPanel() {
   const [dataSources, setDataSources] = useState<DataSourceDTO[]>([])
   const [twinSceneOptions, setTwinSceneOptions] = useState<TwinSceneOption[]>([])
   const [iotDeviceOptions, setIotDeviceOptions] = useState<IoTDeviceOption[]>([])
+  const [imageUploading, setImageUploading] = useState(false)
 
   useEffect(() => {
     if (component && component.props.data) {
@@ -122,6 +125,20 @@ export default function PropertyPanel() {
     await doBind(datasetId, xField, yField)
   }
 
+  const uploadImage = async (file: File) => {
+    if (!component) return
+    setImageUploading(true)
+    try {
+      const { id, url } = await uploadImageAsset(file)
+      updateProps(component.id, { src: url, srcAssetId: id })
+      message.success('图片已上传')
+    } catch (e) {
+      message.error('图片上传失败：' + (e as Error).message)
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
   if (!component) {
     return <CanvasPanel />
   }
@@ -175,6 +192,38 @@ export default function PropertyPanel() {
 
       {tab === 'style' && (
         <>
+          {component.type === 'image' && (
+            <div className="rc-block" style={{ marginBottom: 12 }}>
+              <h4>图片资源</h4>
+              <Upload
+                accept="image/*"
+                showUploadList={false}
+                beforeUpload={(f) => {
+                  void uploadImage(f)
+                  return false
+                }}
+              >
+                <Button icon={<UploadOutlined />} loading={imageUploading}>
+                  上传图片
+                </Button>
+              </Upload>
+              {p.src && (
+                <img
+                  src={p.src}
+                  alt="图片预览"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 96,
+                    objectFit: 'cover',
+                    borderRadius: 6,
+                    border: '1px solid var(--line)',
+                    marginTop: 8,
+                  }}
+                />
+              )}
+            </div>
+          )}
           <div className="row2">
             <Form.Item label="X" colon={false} style={{ marginBottom: 11 }}>
               <InputNumber
@@ -211,7 +260,14 @@ export default function PropertyPanel() {
             <SchemaForm
               schema={styleSchema}
               value={p}
-              onChange={(patch) => updateProps(component.id, patch)}
+              onChange={(patch) =>
+                updateProps(
+                  component.id,
+                  component.type === 'image' && 'src' in patch
+                    ? { ...patch, srcAssetId: undefined }
+                    : patch
+                )
+              }
             />
           )}
         </>
