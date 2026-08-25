@@ -1,13 +1,16 @@
-import type { DataPoint, Filter } from '../../data/types'
+import type { Filter } from '../../data/types'
 
 // 联动筛选工具：全局 filter = { field, value }
-export function applyFilter(data: DataPoint[] = [], filter?: Filter | null): DataPoint[] {
-  if (!filter) return data
-  return data.filter((d) => (d as unknown as Record<string, unknown>)[filter.field] === filter.value)
+export function applyFilter(
+  data: Array<Record<string, unknown>> = [],
+  filter?: Filter | null
+): Array<Record<string, unknown>> {
+  if (!filter || !filter.field) return data
+  return data.filter((d) => String(d[filter.field]) === String(filter.value))
 }
 
-export function isActive(item: DataPoint, filter?: Filter | null): boolean {
-  return !!filter && (item as unknown as Record<string, unknown>)[filter.field] === filter.value
+export function isActive(item: Record<string, unknown>, filter?: Filter | null): boolean {
+  return !!filter && !!filter.field && String(item[filter.field]) === String(filter.value)
 }
 
 /** 联动数据源：global filter -> 对象数组 / 组件 props 的通用过滤 */

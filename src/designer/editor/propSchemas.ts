@@ -17,7 +17,7 @@ export interface PropField {
   min?: number
   step?: number
   /** 动态选项来源：由 SchemaForm 从 store 注入（避免 schema 里硬编码数据源列表） */
-  dynamicOptions?: 'liveSources' | 'twinScenes' | 'iotDevices' | 'iotMetrics'
+  dynamicOptions?: 'liveSources' | 'twinScenes' | 'iotDevices' | 'iotMetrics' | 'tableColumns'
   /** 仅当此函数返回 true 时显示该字段 */
   show?: (props: WidgetProps) => boolean
 }
@@ -127,7 +127,19 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
     { key: 'iotMetric', label: '设备指标', type: 'select', dynamicOptions: 'iotMetrics', show: (p) => !!p.iotDeviceId },
     { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 500, step: 100, show: (p) => !!p.iotDeviceId }
   ],
-  table: [{ key: 'title', label: '标题', type: 'text' }],
+  table: [
+    { key: 'title', label: '标题', type: 'text' },
+    { key: 'hiddenColumns', label: '隐藏列', type: 'select', dynamicOptions: 'tableColumns' },
+    { key: 'scroll', label: '自动滚动', type: 'boolean' },
+    { key: 'scrollSpeed', label: '滚动速度 (px/s)', type: 'number', min: 5, step: 1, show: (p) => !!p.scroll },
+    { key: 'visibleRows', label: '可见行数', type: 'number', min: 1, step: 1, show: (p) => !!p.scroll },
+    { key: 'pauseOnHover', label: '悬停暂停', type: 'boolean', show: (p) => !!p.scroll },
+    {
+      key: 'columns',
+      label: '列配置 (JSON: [{ "key": "region", "title": "区域" }])',
+      type: 'textarea'
+    }
+  ],
   echartLine: [
     { key: 'title', label: '标题', type: 'text' },
     { key: 'color', label: '主色', type: 'color' },

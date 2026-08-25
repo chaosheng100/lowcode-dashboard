@@ -7,7 +7,7 @@ import { createEventBus, dispatchLinks } from './LinkageEngine'
 import { api } from '../../mock'
 import { useApi } from '../../features/useApi'
 import type { ComponentInstance, Filter, LinkageEvent, RouteConfig, WidgetProps } from '../../data/types'
-import type { GlobalVarDTO } from '../../mock/types'
+import type { DatasetDTO, GlobalVarDTO } from '../../mock/types'
 
 const ANALYTICS_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
@@ -56,13 +56,17 @@ function LinkageFrame({
   filter,
   onPick,
   vars,
-  bus
+  bus,
+  fieldLabelMap,
+  preview
 }: {
   component: ComponentInstance
   filter: Filter | null
   onPick: (f: Filter) => void
   vars: Record<string, string>
   bus: ReturnType<typeof createEventBus>
+  fieldLabelMap: Record<string, string>
+  preview: boolean
 }) {
   const resolved = useMemo(() => ({ ...component, props: resolveVars(component.props, vars) }), [component, vars])
   const handlePick = (f: Filter) => {
@@ -82,7 +86,7 @@ function LinkageFrame({
         pointerEvents: 'auto'
       }}
     >
-      <WidgetRenderer component={resolved} filter={filter} onPick={handlePick} />
+      <WidgetRenderer component={resolved} filter={filter} onPick={handlePick} fieldLabelMap={fieldLabelMap} preview={preview} />
     </div>
   )
 }
@@ -98,12 +102,19 @@ export function RouteRenderer({ route }: { route: RouteConfig }) {
 
   // 加载全局变量（来自 /dev/variables 模块），供 ${G.x} 占位解析
   const { data: gvData } = useApi(() => api.listVars(), [])
+  const { data: datasetData } = useApi(() => api.listDatasets({ pageSize: 100 }), [])
   const vars = useMemo<Record<string, string>>(() => {
     const list = (gvData?.list ?? []) as GlobalVarDTO[]
     const m: Record<string, string> = {}
     for (const v of list) if (v.kind === 'variable') m[v.name] = v.value
     return m
   }, [gvData])
+  const fieldLabelMap = useMemo<Record<string, string>>(() => {
+    const list = (datasetData?.list ?? []) as DatasetDTO[]
+    const m: Record<string, string> = {}
+    for (const ds of list) for (const f of ds.fields ?? []) if (f.label) m[f.fieldKey] = f.label
+    return m
+  }, [datasetData])
 
   const scale = useFitScale(areaRef, route.page)
   const onPick = ({ field, value }: Filter) => {
@@ -161,7 +172,7 @@ export function RouteRenderer({ route }: { route: RouteConfig }) {
           >
             {route.page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(route.page)} />}
             {route.components.map((component) => (
-              <LinkageFrame key={component.id} component={component} filter={filter} onPick={onPick} vars={vars} bus={busRef.current!} />
+              <LinkageFrame key={component.id} component={component} filter={filter} onPick={onPick} vars={vars} bus={busRef.current!} fieldLabelMap={fieldLabelMap} preview />
             ))}
           </div>
         </div>

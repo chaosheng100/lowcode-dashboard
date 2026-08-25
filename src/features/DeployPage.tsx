@@ -22,7 +22,7 @@ import { MetricCard, MetricRow } from './common'
 import { screenApi } from '../api/screenApi'
 import { screenToRoute } from '../api/screenAdapter'
 import { buildStandaloneHtml, type StandalonePayload } from './standaloneBuilder'
-import type { DeployEnvDTO, DeployPackageDTO, DeployRecordDTO, DataSourceDTO, GlobalVarDTO } from '../mock/types'
+import type { DatasetDTO, DeployEnvDTO, DeployPackageDTO, DeployRecordDTO, DataSourceDTO, GlobalVarDTO } from '../mock/types'
 import type { GitSyncConfig, GitSyncRecord } from '../api/screenApi'
 
 function download(filename: string, content: string, type = 'application/json') {
@@ -51,12 +51,14 @@ export default function DeployPage() {
   const { data: recData, reload: reloadRec } = useApi(() => api.listDeployRecords(), [])
   const { data: dsData } = useApi(() => api.listDataSources({ pageSize: 100 }), [])
   const { data: gvData } = useApi(() => api.listVars(), [])
+  const { data: datasetData } = useApi(() => api.listDatasets({ pageSize: 100 }), [])
 
   const envs: DeployEnvDTO[] = envData?.list ?? []
   const pkgs: DeployPackageDTO[] = pkgData?.list ?? []
   const recs: DeployRecordDTO[] = recData?.list ?? []
   const dataSources: DataSourceDTO[] = dsData?.list ?? []
   const globalVars: GlobalVarDTO[] = gvData?.list ?? []
+  const datasets: DatasetDTO[] = datasetData?.list ?? []
 
   const envName = (id: string) => envs.find((e) => e.id === id)?.name ?? id
 
@@ -73,12 +75,15 @@ export default function DeployPage() {
     if (includeGlobalVars) for (const v of globalVars) if (v.kind === 'variable') gvMap[v.name] = v.value
     const dsMap: Record<string, { kind: string; endpoint: string }> = {}
     for (const ds of dataSources) dsMap[ds.id] = { kind: ds.kind, endpoint: bindings[ds.id] || ds.endpoint }
+    const datasetLabels: Record<string, string> = {}
+    for (const ds of datasets) for (const f of ds.fields ?? []) if (f.label) datasetLabels[f.fieldKey] = f.label
     const env = envs.find((e) => e.id === envId)
     return {
       title,
       screens,
       globalVars: gvMap,
       dataSources: dsMap,
+      datasetLabels,
       env: { name: env?.name || '默认环境', baseUrl: env?.baseUrl || '' }
     }
   }

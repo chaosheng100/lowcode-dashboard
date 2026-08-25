@@ -3,8 +3,7 @@ import { App, Button, Tabs } from 'antd'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { api } from '../../mock'
 import type { DatasetDTO, AssetDTO, ThemeDTO } from '../../mock/types'
-import type { DataPoint } from '../../data/types'
-import type { ComponentDataBinding } from '../../data/types'
+import type { ComponentDataBinding, DataPoint, WidgetProps } from '../../data/types'
 
 // 可绑定数据集的组件类型（基础"数据/图表"能力 → 画布数据）
 const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table']
@@ -69,22 +68,37 @@ export default function ResourcePanel() {
     const metricField = fields.find((f) => f.semanticType === 'metric')
     const xField = dimField?.fieldKey ?? fields[0]?.fieldKey ?? 'name'
     const yField = metricField?.fieldKey ?? fields[1]?.fieldKey ?? 'value'
+    const dimKeys = fields.filter((f) => f.semanticType === 'dimension').map((f) => f.fieldKey)
+    const metricKeys = fields.filter((f) => f.semanticType === 'metric').map((f) => f.fieldKey)
+    const tableKeys = [...dimKeys, ...metricKeys].slice(0, 8)
 
     setLoading(true)
     try {
       const r = await api.queryDataset(ds.id, { pageSize: 12 })
       const rows = Array.isArray(r.data?.list) ? r.data.list : []
-      const data: DataPoint[] = rows.map((row) => ({
-        name: String(row[xField] ?? ''),
-        value: Number(row[yField]) || 0
-      }))
+      const keys = Array.isArray(r.data?.columns) && r.data.columns.length ? r.data.columns : tableKeys
       const binding: ComponentDataBinding = { datasetId: ds.id, xField, yField, datasetName: ds.name }
-      updateProps(component.id, {
-        data,
+      const nextProps: Partial<WidgetProps> = {
         title: ds.name,
         dataSourceId: ds.id,
         dataSourceName: ds.name
-      })
+      }
+      if (component.type === 'table') {
+        nextProps.data = rows as Array<Record<string, unknown>>
+        nextProps.columns = (keys.length ? keys : tableKeys).map((key) => ({
+          key,
+          title: ds.fields?.find((f) => f.fieldKey === key)?.label ?? key,
+          name: ds.fields?.find((f) => f.fieldKey === key)?.label ?? key,
+          dataSetFieldKey: key,
+        }))
+      } else {
+        const data: DataPoint[] = rows.map((row) => ({
+          name: String(row[xField] ?? ''),
+          value: Number(row[yField]) || 0
+        }))
+        nextProps.data = data
+      }
+      updateProps(component.id, nextProps)
       updateComponentDataSource(component.id, binding)
       message.success(`已将「${ds.name}」绑定到 ${component.type} 组件`)
     } catch (e) {

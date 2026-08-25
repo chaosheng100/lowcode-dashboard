@@ -9,7 +9,8 @@ export default function BarChart({ component, filter, onPick }: WidgetViewProps)
   const titleH = 24
   const chartW = w - pad * 2
   const chartH = Math.max(0, h - pad * 2 - titleH)
-  const max = Math.max(1, ...data.map((d) => Number(d.value) || 0))
+  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const max = Math.max(1, ...rows.map((d) => Number(d.value) || 0))
   const slot = chartW / Math.max(data.length, 1)
   const barW = Math.min(slot * 0.6, 60)
 
@@ -21,7 +22,7 @@ export default function BarChart({ component, filter, onPick }: WidgetViewProps)
         </text>
       ) : null}
       <line x1={pad} y1={pad + titleH + chartH} x2={pad + chartW} y2={pad + titleH + chartH} stroke="#2a3340" />
-      {data.map((d, i) => {
+      {rows.map((d, i) => {
         const v = Number(d.value) || 0
         const bh = Math.max(0, (v / max) * chartH)
         const x = pad + i * slot + (slot - barW) / 2
@@ -40,15 +41,15 @@ export default function BarChart({ component, filter, onPick }: WidgetViewProps)
               opacity={filter && !active ? 0.35 : 1}
               onClick={
                 interactive && onPick
-                  ? () => onPick({ field: filterField ?? 'name', value: d.name })
+                  ? () => onPick({ field: filterField ?? 'name', value: d.name == null ? '' : String(d.name) })
                   : undefined
               }
             />
             <text x={x + barW / 2} y={y - 6} fill="#e6edf3" fontSize="11" textAnchor="middle">
-              {d.value}
+              {d.value == null ? '' : String(d.value)}
             </text>
             <text x={x + barW / 2} y={pad + titleH + chartH + 16} fill="#9aa7b4" fontSize="11" textAnchor="middle">
-              {d.name}
+              {d.name == null ? '' : String(d.name)}
             </text>
           </g>
         )

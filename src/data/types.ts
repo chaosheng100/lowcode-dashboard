@@ -63,7 +63,7 @@ export interface WidgetProps {
   fit?: 'cover' | 'contain' | 'fill'
   // 图表 / 指标 / 表格
   title?: string
-  data?: DataPoint[]
+  data?: DataPoint[] | Array<Record<string, unknown>>
   filterField?: string
   interactive?: boolean
   /** 绑定的数据集（数据源 → 画布）：由资源中心/属性面板设置 */
@@ -73,7 +73,18 @@ export interface WidgetProps {
   label?: string
   unit?: string
   // 表格
-  columns?: string[]
+  /** 表头/列配置：支持字符串列名，也支持 { key, title } 对象（key 对应数据行字段） */
+  columns?: Array<string | { key?: string; title?: string; label?: string; name?: string; dataSetFieldKey?: string }>
+  /** 隐藏列：按列 key（对象列）或列名（字符串列）过滤 */
+  hiddenColumns?: string[]
+  /** 运行态表格行自动滚动：编辑态不生效，预览/发布态开启 */
+  scroll?: boolean
+  /** 滚动速度 px/s */
+  scrollSpeed?: number
+  /** 可视区域显示行数 */
+  visibleRows?: number
+  /** 鼠标悬停暂停滚动 */
+  pauseOnHover?: boolean
   // 容器
   background?: string
   // ECharts 组件
@@ -363,6 +374,10 @@ export interface WidgetViewProps {
   component: ComponentInstance
   filter?: Filter | null
   onPick?: ((filter: Filter) => void) | null
+  /** 数据集字段业务名称映射：fieldKey -> label，表格表头联动用 */
+  fieldLabelMap?: Record<string, string>
+  /** 运行态标记：预览/发布为 true，编辑态不传，表格等动画组件据此区分 */
+  preview?: boolean
 }
 
 // ============================================================

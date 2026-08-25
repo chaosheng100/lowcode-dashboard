@@ -108,6 +108,12 @@ npm run proxy
 5. 检查移动端溢出、长文本截断、滚动容器、弹层遮挡。
 6. 运行 `npm run typecheck`；涉及构建产物运行 `npm run build`。
 
+## 测试与验证
+
+- 前端改动至少执行 `npm run typecheck`；需要验证构建产物时再执行 `npm run build`（按全局约束不主动打包）。
+- 涉及后端发布、回滚、运行时缓存、组件中心/AI 组件调整的改动，必须执行后端冒烟测试：Windows 用 `D:\Git\bin\bash.exe scripts/e2e-smoke.sh`，验收标准为 14 项通过、exit 0。
+- 后端冒烟前若默认审批策略为 `required: true`，先临时改为 `required: false`，跑完恢复原值；失败中道退出会遗留“冒烟测试大屏”与 `smoke-*` 项目，测试后必须清理。
+
 ## 工作规范
 
 - 不覆盖用户未提交改动。

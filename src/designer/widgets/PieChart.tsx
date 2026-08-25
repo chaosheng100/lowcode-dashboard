@@ -8,7 +8,8 @@ export default function PieChart({ component, filter, onPick }: WidgetViewProps)
   const cx = w / 2
   const cy = h / 2 + 8
   const r = Math.min(w, h) / 2 - 50
-  const total = data.reduce((s, d) => s + d.value, 0) || 1
+  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const total = rows.reduce((s, d) => s + (Number(d.value) || 0), 0) || 1
   const palette = ['#4f8cff', '#22d3ee', '#56d364', '#ffb454', '#ff5d5d', '#a78bfa']
 
   const polar = (cx: number, cy: number, r: number, angleDeg: number) => {
@@ -30,8 +31,8 @@ export default function PieChart({ component, filter, onPick }: WidgetViewProps)
           {title}
         </text>
       ) : null}
-      {data.map((d, i) => {
-        const sweep = (d.value / total) * 360
+      {rows.map((d, i) => {
+        const sweep = ((Number(d.value) || 0) / total) * 360
         const path = arcPath(cx, cy, r, angle, angle + sweep)
         const active = isActive(d, filter)
         const slice = (
@@ -43,7 +44,7 @@ export default function PieChart({ component, filter, onPick }: WidgetViewProps)
             opacity={filter && !active ? 0.3 : 1}
             onClick={
               interactive && onPick
-                ? () => onPick({ field: filterField ?? 'name', value: d.name })
+                ? () => onPick({ field: filterField ?? 'name', value: d.name == null ? '' : String(d.name) })
                 : undefined
             }
           />
@@ -51,11 +52,11 @@ export default function PieChart({ component, filter, onPick }: WidgetViewProps)
         angle += sweep
         return slice
       })}
-      {data.map((d, i) => (
+      {rows.map((d, i) => (
         <g key={'l' + i}>
           <rect x={12} y={cy + r + 12 + i * 16} width={10} height={10} fill={palette[i % palette.length]} />
           <text x={28} y={cy + r + 21 + i * 16} fill="#cdd9e5" fontSize="11">
-            {d.name} {Math.round((d.value / total) * 100)}%
+            {String(d.name)} {Math.round(((Number(d.value) || 0) / total) * 100)}%
           </text>
         </g>
       ))}

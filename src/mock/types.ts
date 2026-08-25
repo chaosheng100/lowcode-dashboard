@@ -636,6 +636,8 @@ export interface WidgetDefDTO {
   desc: string
   /** 组件资产类型：'echarts' 表示 AI 生成的可投放 ECharts 图表 */
   kind?: 'echarts' | string
+  /** 组件中心标记：true 表示该组件允许 AI 调整 */
+  widget?: boolean
   /** ECharts option JSON（echarts 资产专用） */
   optionJson?: string
   /** AI 生成的源码资产源码（html/react） */

@@ -470,6 +470,10 @@ html { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.24) transparent; 
 .w-table th { color: var(--sub); background: var(--panel2); }
 .w-table tr.clickable:hover { background: rgba(0, 113, 227, 0.06); cursor: pointer; }
 .w-table tr.active { background: rgba(0, 113, 227, 0.12); }
+.w-table-scroll { display: flex; flex-direction: column; overflow: hidden; }
+.w-table-scroll .w-table-head { flex: none; overflow: hidden; }
+.w-table-scroll .w-table-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.w-table-scroll .w-table-track { will-change: transform; }
 .w-container { width: 100%; height: 100%; border: 1px dashed rgba(0, 113, 227, 0.2); border-radius: var(--r-md); }
 .chart-svg { width: 100%; height: 100%; display: block; }
 .bar-rect { cursor: pointer; transition: opacity .15s; }

@@ -12,6 +12,7 @@
   var vars = DATA.globalVars || {};
   var screens = DATA.screens || [];
   var dsMap = DATA.dataSources || {};
+  var datasetLabels = DATA.datasetLabels || {};
   var env = DATA.env || {};
   var state = { filter: null, index: 0 };
 
@@ -183,31 +184,124 @@
       node.appendChild(label); node.appendChild(num);
       if (p.unit) node.appendChild(el('div', { style: 'font-size:12px;color:#7889a3' }, resolveVars(p.unit)));
     } else if (type === 'table') {
-      var cols = p.columns || (data[0] ? Object.keys(data[0]) : []);
-      var tbl = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
-      tbl += '<thead><tr>' + cols.map(function (c) { return '<th style="border:1px solid #1a2433;padding:5px 8px;color:#9aa7b4;background:#0f1a30;text-align:left;">' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      function tableColumnKey(c) {
+        if (c && typeof c === 'object') return String(c.key || c.field || c.dataIndex || '');
+        return '';
+      }
+      function tableHeaderText(c) {
+        if (typeof c === 'string') return c;
+        var o = c || {};
+        if (o.dataSetFieldKey && datasetLabels[o.dataSetFieldKey]) return datasetLabels[o.dataSetFieldKey];
+        return String(o.name || o.label || o.key || o.title || '');
+      }
+      function tableCell(row, c, i) {
+        var k = tableColumnKey(c);
+        var v = k ? row[k] : (i === 0 ? row.name : row.value);
+        return v == null ? '' : String(v);
+      }
+      var hidden = {};
+      (p.hiddenColumns || []).forEach(function (k) { hidden[k] = true; });
+      var cols = (p.columns || (data[0] ? Object.keys(data[0]) : [])).filter(function (c) {
+        if (typeof c === 'string') return !hidden[c];
+        return !hidden[String(c.key || c.dataSetFieldKey || '')];
+      });
+      if (!cols.length) cols = ['名称', '数值'];
       node._rows = data.map(function (row) {
-        return '<tr' + (p.interactive ? ' style="cursor:pointer"' : '') + '>' + cols.map(function (c) {
-          var v = row[c];
-          return '<td style="border:1px solid #1a2433;padding:5px 8px;">' + esc(v) + '</td>';
+        return '<tr' + (p.interactive ? ' style="cursor:pointer"' : '') + '>' + cols.map(function (c, j) {
+          return '<td style="border:1px solid #1a2433;padding:5px 8px;">' + esc(tableCell(row, c, j)) + '</td>';
         }).join('') + '</tr>';
       });
-      tbl += '</tbody></table>';
+      var headHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>' + cols.map(function (c) { return '<th style="border:1px solid #1a2433;padding:5px 8px;color:#9aa7b4;background:#0f1a30;text-align:left;">' + esc(tableHeaderText(c)) + '</th>'; }).join('') + '</tr></thead></table>';
+      var scrollEnabled = !!p.scroll;
+      var visibleRowsCount = Math.max(1, Math.round(Number(p.visibleRows) || 6));
+      var tableHtml;
+      if (scrollEnabled) {
+        tableHtml = '<div class="w-table-scroll" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">' +
+          '<div style="flex:none;overflow:hidden;">' + headHtml + '</div>' +
+          '<div class="w-table-body" style="position:relative;flex:1;min-height:0;overflow:hidden;">' +
+          '<div class="w-table-track" style="will-change:transform;">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>' +
+          node._rows.join('') + node._rows.join('') +
+          '</tbody></table></div></div></div>';
+      } else {
+        tableHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>' + cols.map(function (c) { return '<th style="border:1px solid #1a2433;padding:5px 8px;color:#9aa7b4;background:#0f1a30;text-align:left;">' + esc(tableHeaderText(c)) + '</th>'; }).join('') + '</tr></thead><tbody>' + node._rows.join('') + '</tbody></table>';
+      }
+      var tbl = tableHtml;
       node.innerHTML = tbl;
-      node.style.overflow = 'auto';
+      node.style.overflow = scrollEnabled ? 'hidden' : 'auto';
+      node._stopScroll = null;
+      var bodyEl = scrollEnabled ? node.querySelector('.w-table-body') : null;
+      var trackEl = scrollEnabled ? node.querySelector('.w-table-track') : null;
+      function startScroll() {
+        if (!scrollEnabled || !bodyEl || !trackEl || data.length <= visibleRowsCount) return;
+        var speed = Math.max(5, Number(p.scrollSpeed) || 30);
+        var hovered = false;
+        var offset = 0;
+        var last = performance.now();
+        bodyEl.onmouseenter = function () { hovered = true; };
+        bodyEl.onmouseleave = function () { hovered = false; };
+        function tick(now) {
+          var dt = Math.min(64, now - last);
+          last = now;
+          if (!hovered) {
+            offset += (speed * dt) / 1000;
+            var half = trackEl.offsetHeight / 2;
+            if (half > 0 && offset >= half) offset -= half;
+            trackEl.style.transform = 'translateY(' + (-offset) + 'px)';
+          }
+          node._raf = requestAnimationFrame(tick);
+        }
+        node._raf = requestAnimationFrame(tick);
+        node._stopScroll = function () {
+          if (node._raf) cancelAnimationFrame(node._raf);
+          node._raf = null;
+        };
+      }
+      function measureBody() {
+        if (!scrollEnabled || !bodyEl || !trackEl) return;
+        var firstRow = trackEl.querySelector('tbody tr');
+        var rowHeight = firstRow ? firstRow.offsetHeight : 28;
+        var totalHeight = trackEl.offsetHeight / 2;
+        var h = Math.min(Math.max(rowHeight * visibleRowsCount, rowHeight), totalHeight);
+        bodyEl.style.height = h + 'px';
+      }
+      function measureAndStart() {
+        if (!scrollEnabled) return;
+        measureBody();
+        startScroll();
+      }
+      // 节点可能尚未挂载进文档，先等下一帧完成布局后再测量可视区高度并启动滚动。
+      if (document.body.contains(node)) measureAndStart();
+      else requestAnimationFrame(function () { measureAndStart(); });
+      node._restartScroll = function () {
+        if (node._stopScroll) node._stopScroll();
+        measureBody();
+        startScroll();
+      };
       node._redraw = function (filter) {
         var rows = node._rows;
         if (filter && p.filterField && p.filterField !== 'name') {
           rows = rows.filter(function (_, i) { return true; }); // 表格按行过滤由字段名决定，简版保留全部
         }
-        node.querySelector('tbody').innerHTML = rows.join('');
+        var tb = node.querySelector('tbody');
+        if (tb) tb.innerHTML = rows.join('') + (scrollEnabled ? rows.join('') : '');
+        if (scrollEnabled && trackEl) {
+          var half = trackEl.offsetHeight / 2;
+          trackEl.style.transform = half > 0 ? 'translateY(0)' : '';
+          node._restartScroll();
+        }
         if (p.interactive) bindTableClicks();
       };
       function bindTableClicks() {
         if (!p.interactive) return;
         var trs = node.querySelectorAll('tbody tr');
         trs.forEach(function (tr, i) {
-          tr.onclick = function () { var pk = onPick(); if (pk) pk(p.filterField || cols[0], String(data[i] ? data[i][p.filterField || cols[0]] : '')); };
+          tr.onclick = function () {
+            var pk = onPick();
+            if (!pk) return;
+            var field = p.filterField || tableColumnKey(cols[0]) || cols[0] || 'name';
+            pk(field, String(data[i % data.length] ? data[i % data.length][field] : ''));
+          };
         });
       }
       bindTableClicks();

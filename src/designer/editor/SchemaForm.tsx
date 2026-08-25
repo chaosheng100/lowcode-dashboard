@@ -3,6 +3,19 @@ import type { WidgetProps } from '../../data/types'
 import type { ReactNode } from 'react'
 import { ColorPicker, Form, Input, InputNumber, Select, Switch } from 'antd'
 
+/** 将列配置对象数组转为可编辑 JSON；兼容字符串数组 */
+function columnsToJson(v: unknown): string {
+  if (!Array.isArray(v)) return ''
+  return JSON.stringify(v, null, 2)
+}
+
+/** 解析列配置 JSON；允许直接写 [{ key, title }] 或 ['区域', '销量'] */
+function parseColumns(raw: string): Array<string | { key?: string; title?: string }> {
+  const parsed = JSON.parse(raw) as unknown
+  if (!Array.isArray(parsed)) throw new Error('列配置必须是数组')
+  return parsed
+}
+
 /** 实时数据源动态选项（由 PropertyPanel 从 api.listDataSources 注入） */
 export interface LiveSourceOption {
   id: string
@@ -30,13 +43,14 @@ interface Props {
   liveSources?: LiveSourceOption[]
   twinSceneOptions?: TwinSceneOption[]
   iotDeviceOptions?: IoTDeviceOption[]
+  tableColumns?: Array<{ value: string; label: string }>
 }
 
 /**
  * Schema 驱动的属性表单（对齐 Avue AvueForm）。
  * 根据 propSchemas 自动渲染对应类型的输入控件，统一写回 updateComponentProps。
  */
-export default function SchemaForm({ schema, value, onChange, liveSources, twinSceneOptions, iotDeviceOptions }: Props) {
+export default function SchemaForm({ schema, value, onChange, liveSources, twinSceneOptions, iotDeviceOptions, tableColumns }: Props) {
   return (
     <>
       {schema.map((f) => {
@@ -61,9 +75,12 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
         }
 
         if (f.type === 'select') {
+          const isTableColumns = f.dynamicOptions === 'tableColumns'
           const opts =
             f.dynamicOptions === 'liveSources'
               ? (liveSources ?? []).map((d) => ({ value: `${d.kind}:${d.id}`, label: `${d.kind} · ${d.name}` }))
+              : isTableColumns
+              ? (tableColumns ?? [])
               : f.dynamicOptions === 'twinScenes'
               ? (twinSceneOptions ?? [])
               : f.dynamicOptions === 'iotDevices'
@@ -76,7 +93,7 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
             ...(f.dynamicOptions === 'iotDevices' ? [{ value: '', label: '— 不绑定设备 —' }] : []),
             ...(f.dynamicOptions === 'twinScenes' ? [{ value: 'main', label: '示范工厂（默认）' }] : []),
             ...opts,
-            ...(f.dynamicOptions === 'liveSources' && !opts.length
+            ...(!isTableColumns && f.dynamicOptions === 'liveSources' && !opts.length
               ? [
                   { value: 'sql:orders', label: 'SQL · 订单量轮询' },
                   { value: 'ws:metrics', label: 'WebSocket · 系统指标流' },
@@ -85,16 +102,43 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
               : []),
           ]
           return item(
-            <Select
-              style={{ width: '100%' }}
-              value={v != null ? String(v) : ''}
-              options={options}
-              onChange={(val) => onChange({ [f.key]: (val || undefined) as never } as Partial<WidgetProps>)}
-            />
+            isTableColumns ? (
+              <Select
+                mode="multiple"
+                style={{ width: '100%' }}
+                value={Array.isArray(v) ? v as string[] : []}
+                options={options}
+                placeholder="选择要隐藏的列"
+                onChange={(vals) => onChange({ [f.key]: vals } as Partial<WidgetProps>)}
+              />
+            ) : (
+              <Select
+                style={{ width: '100%' }}
+                value={v != null ? String(v) : ''}
+                options={options}
+                onChange={(val) => onChange({ [f.key]: (val || undefined) as never } as Partial<WidgetProps>)}
+              />
+            )
           )
         }
 
         if (f.type === 'textarea') {
+          if (f.key === 'columns') {
+            const raw = columnsToJson(v)
+            return item(
+              <Input.TextArea
+                style={{ minHeight: 160, fontFamily: 'monospace' }}
+                value={raw}
+                onChange={(e) => {
+                  try {
+                    onChange({ columns: parseColumns(e.target.value) } as Partial<WidgetProps>)
+                  } catch {
+                    // 编辑过程中允许临时非法 JSON，失焦/切换时再校验
+                  }
+                }}
+              />
+            )
+          }
           return item(
             <Input.TextArea
               style={{ minHeight: 200, fontFamily: 'monospace' }}

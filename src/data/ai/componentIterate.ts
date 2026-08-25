@@ -12,6 +12,7 @@ export type ComponentIterateTarget = Pick<
   | 'sourceCode'
   | 'optionJson'
   | 'kind'
+  | 'widget'
   | 'category'
   | 'renderer'
   | 'schema'
@@ -20,7 +21,7 @@ export type ComponentIterateTarget = Pick<
 
 /** 判断已登记组件是否为 AI 生成的可迭代资产（源码 / ECharts option） */
 export function isAIComponent(target: ComponentIterateTarget): boolean {
-  return Boolean(target.sourceCode || target.optionJson)
+  return Boolean(target.widget || target.sourceCode || target.optionJson)
 }
 
 /**

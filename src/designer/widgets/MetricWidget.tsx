@@ -7,8 +7,9 @@ import type { WidgetViewProps } from '../../data/types'
 // 绑定物联设备（iotDeviceId + iotMetric）后轮询设备最新采集值，覆盖静态 data。
 export default function MetricWidget({ component, filter }: WidgetViewProps) {
   const { label, data, filterField, unit, iotDeviceId, iotMetric, liveIntervalMs, preview } = component.props
-  const list = applyFilter(data, filter && filter.field === filterField ? filter : null)
-  const total = list.reduce((s, d) => s + (d.value || 0), 0)
+  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const list = applyFilter(rows, filter && filter.field === filterField ? filter : null)
+  const total = list.reduce((s, d) => s + (Number(d.value) || 0), 0)
 
   const [iotValue, setIotValue] = useState<number | null>(null)
   const [iotOnline, setIotOnline] = useState(false)
@@ -18,7 +19,7 @@ export default function MetricWidget({ component, filter }: WidgetViewProps) {
     if (!iotDeviceId || !iotMetric) { setIotValue(null); setIotOnline(false); return }
     // 预览态：使用静态 data 展示，不向后端发起实时请求
     if (preview) {
-      const v = (data ?? []).find((d) => d.name === iotMetric)?.value
+      const v = rows.find((d) => d.name === iotMetric)?.value
       setIotValue(typeof v === 'number' ? v : total)
       setIotOnline(true)
       return

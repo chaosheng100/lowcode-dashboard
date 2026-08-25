@@ -532,7 +532,7 @@ export default function ComponentLibrary() {
               }</span>
               {widget ? (
                 <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {(widget.sourceCode || widget.optionJson) && (
+                  {(widget.widget || widget.sourceCode || widget.optionJson) && (
                     <Button size="small" onClick={() => setAdjustTarget(widget)}>AI 调整</Button>
                   )}
                   <Button size="small" onClick={() => openVersions(widget)}>版本</Button>

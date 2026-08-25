@@ -10,6 +10,8 @@ export interface StandalonePayload {
   globalVars: Record<string, string>
   /** 数据源环境级绑定 id -> { kind, endpoint }（部署时覆盖默认 endpoint） */
   dataSources: Record<string, { kind: string; endpoint: string }>
+  /** 数据集字段业务名称映射：fieldKey -> label，独立运行态表格表头联动用 */
+  datasetLabels?: Record<string, string>
   /** 目标部署环境 */
   env: { name: string; baseUrl: string }
 }

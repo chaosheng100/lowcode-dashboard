@@ -35,7 +35,7 @@ const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
   reactComponent: ReactComponentWidget
 }
 
-export default function WidgetRenderer({ component, filter, onPick }: WidgetViewProps) {
+export default function WidgetRenderer({ component, filter, onPick, fieldLabelMap, preview }: WidgetViewProps) {
   const renderer = component.props.catalogRenderer || component.type
   const Cmp = map[renderer as WidgetType] || map[component.type]
   if (!Cmp) {
@@ -45,5 +45,5 @@ export default function WidgetRenderer({ component, filter, onPick }: WidgetView
       </div>
     )
   }
-  return <Cmp component={component} filter={filter} onPick={onPick} />
+  return <Cmp component={component} filter={filter} onPick={onPick} fieldLabelMap={fieldLabelMap} preview={preview} />
 }

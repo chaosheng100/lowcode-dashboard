@@ -111,7 +111,11 @@ export const widgetRegistry: WidgetRegistry = {
         { name: '西部', value: 150 }
       ],
       filterField: 'name',
-      interactive: true
+      interactive: true,
+      scroll: false,
+      scrollSpeed: 30,
+      visibleRows: 6,
+      pauseOnHover: true
     }
   },
   container: {

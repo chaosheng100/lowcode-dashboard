@@ -5,17 +5,21 @@ import WidgetRenderer from '../widgets/WidgetRenderer'
 import { useFitScale } from './useFitScale'
 import { drawAxisTicks, uniformStep } from './ruler'
 import { bgImageStyle } from './background'
+import { useApi } from '../../features/useApi'
+import { api } from '../../mock'
 import type { ComponentInstance, RouteConfig } from '../../data/types'
+import type { DatasetDTO } from '../../mock/types'
 
 /** 标尺带默认尺寸：左右带较宽（容纳竖向坐标数字如 1080），上下带较扁 */
 const RULER_X_DEFAULT = 46
 const RULER_Y_DEFAULT = 28
 
-function ComponentFrame({ component, scale, pageW, pageH }: {
+function ComponentFrame({ component, scale, pageW, pageH, fieldLabelMap }: {
   component: ComponentInstance
   scale: number
   pageW: number
   pageH: number
+  fieldLabelMap: Record<string, string>
 }) {
   const selectedId = useDesignerStore((s) => s.selectedId)
   const select = useDesignerStore((s) => s.select)
@@ -59,13 +63,18 @@ function ComponentFrame({ component, scale, pageW, pageH }: {
       }}
     >
       <div className="comp-drag-area">
-        <WidgetRenderer component={component} filter={null} onPick={null} />
+        <WidgetRenderer component={component} filter={null} onPick={null} fieldLabelMap={fieldLabelMap} />
       </div>
     </Rnd>
   )
 }
 
 export default function Canvas() {
+  const { data: datasetData } = useApi(() => api.listDatasets({ pageSize: 100 }), [])
+  const fieldLabelMap = (datasetData?.list ?? []).reduce<Record<string, string>>((map, ds: DatasetDTO) => {
+    for (const f of ds.fields ?? []) if (f.label) map[f.fieldKey] = f.label
+    return map
+  }, {})
   const route = useDesignerStore(
     (s) => s.routes.find((r) => r.id === s.selectedRouteId) || s.routes[0]
   )! as RouteConfig
@@ -253,7 +262,7 @@ export default function Canvas() {
             >
               {page.backgroundImage && <div className="canvas-bg-img" style={bgImageStyle(page)} />}
               {components.map((c) => (
-                <ComponentFrame key={c.id} component={c} scale={scale} pageW={pageW} pageH={pageH} />
+                <ComponentFrame key={c.id} component={c} scale={scale} pageW={pageW} pageH={pageH} fieldLabelMap={fieldLabelMap} />
               ))}
             </div>
           </div>

@@ -140,10 +140,10 @@ export default function EChartWidget({ component, filter, onPick }: WidgetViewPr
 
   // 数据优先级：实时源 > 绑定/手动数据；联动过滤只作用于静态数据
   const data = useMemo<DataPoint[]>(() => {
-    const base = liveData ?? p.data ?? []
+    const base = (liveData ?? p.data ?? []) as unknown as DataPoint[]
     if (!filter || liveData) return base
     const field = p.filterField || 'name'
-    if (field === 'name') return base.filter((d) => d.name === filter.value)
+    if (field === 'name') return base.filter((d) => String(d.name) === String(filter.value))
     return base
   }, [liveData, p.data, filter, p.filterField])
 

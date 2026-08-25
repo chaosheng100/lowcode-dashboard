@@ -3,7 +3,7 @@ import { App, Button, Form, Input, InputNumber, Select, Tabs, Upload } from 'ant
 import { UploadOutlined } from '@ant-design/icons'
 import { uploadImageAsset } from '../../api/governanceResourceApi'
 import { useDesignerStore } from '../../data/store/useDesignerStore'
-import type { ComponentInstance, RouteConfig, WidgetType } from '../../data/types'
+import type { ComponentInstance, RouteConfig, WidgetProps, WidgetType } from '../../data/types'
 import type { ComponentDataBinding } from '../../data/types'
 import { api } from '../../mock'
 import type { DatasetDTO, DataSourceDTO, TwinSceneDTO, IoTDeviceDTO } from '../../mock/types'
@@ -94,20 +94,44 @@ export default function PropertyPanel() {
     ['sql', 'websocket', 'mqtt', 'api', 'flow'].includes(d.kind)
   )
 
+  /** 数据集字段业务名；找不到时回退字段 key */
+  const fieldLabel = (datasetId: string, fieldKey: string): string => {
+    const ds = datasets.find((d) => d.id === datasetId)
+    return ds?.fields?.find((f) => f.fieldKey === fieldKey)?.label ?? fieldKey
+  }
+
   /** 执行数据集查询 + 语义字段映射 + 写入 dataSource */
-  const doBind = async (datasetId: string, xField: string, yField: string) => {
+  const doBind = async (datasetId: string, xField: string, yField: string, fieldKeys: string[] = []) => {
     if (!datasetId || !component) return
     const r = await api.queryDataset(datasetId, { pageSize: 12 })
     const rows = Array.isArray(r.data?.list) ? r.data.list : []
-    const data: DataPoint[] = rows.map((row) => ({
-      name: String((row as Record<string, unknown>)[xField] ?? ''),
-      value: Number((row as Record<string, unknown>)[yField]) || 0
-    }))
+    const keys = Array.isArray(r.data?.columns) && r.data.columns.length ? r.data.columns : fieldKeys
     const ds = datasets.find((d) => d.id === datasetId)
     const binding: ComponentDataBinding = { datasetId, xField, yField, datasetName: ds?.name }
-    updateProps(component.id, { data, title: ds?.name, dataSourceId: datasetId, dataSourceName: ds?.name })
+    const nextProps: Partial<WidgetProps> = {
+      title: ds?.name,
+      dataSourceId: datasetId,
+      dataSourceName: ds?.name
+    }
+    if (component.type === 'table') {
+      // 表格保留查询返回的完整行对象，全部字段都能展示
+      nextProps.data = rows as Array<Record<string, unknown>>
+      nextProps.columns = (keys.length ? keys : [xField, yField]).map((key) => ({
+        key,
+        title: fieldLabel(datasetId, key) || key,
+        name: fieldLabel(datasetId, key) || key,
+        dataSetFieldKey: key
+      }))
+    } else {
+      const data: DataPoint[] = rows.map((row) => ({
+        name: String((row as Record<string, unknown>)[xField] ?? ''),
+        value: Number((row as Record<string, unknown>)[yField]) || 0
+      }))
+      nextProps.data = data
+    }
+    updateProps(component.id, nextProps)
     updateComponentDataSource(component.id, binding)
-    setDataText(JSON.stringify(data, null, 2))
+    setDataText(JSON.stringify(nextProps.data, null, 2))
   }
 
   /** 选择数据集：自动推断维度/指标字段，查询并写入 */
@@ -120,9 +144,12 @@ export default function PropertyPanel() {
     const metricField = fields.find((f) => f.semanticType === 'metric')
     const xField = dimField?.fieldKey ?? fields[0]?.fieldKey ?? 'name'
     const yField = metricField?.fieldKey ?? fields[1]?.fieldKey ?? 'value'
+    const dimKeys = fields.filter((f) => f.semanticType === 'dimension').map((f) => f.fieldKey)
+    const metricKeys = fields.filter((f) => f.semanticType === 'metric').map((f) => f.fieldKey)
+    const tableKeys = [...dimKeys, ...metricKeys].slice(0, 8)
     setSelectedXField(xField)
     setSelectedYField(yField)
-    await doBind(datasetId, xField, yField)
+    await doBind(datasetId, xField, yField, tableKeys)
   }
 
   const uploadImage = async (file: File) => {
@@ -149,6 +176,12 @@ export default function PropertyPanel() {
   const styleSchema = catalogMeta ? toPropFields(catalogMeta.styleSchema) : styleSchemas[component.type]
   const dataSchema = catalogMeta ? toPropFields(catalogMeta.bindingSchema) : dataSchemas[component.type]
   const eventSchema = catalogMeta ? toPropFields(catalogMeta.eventSchema) : undefined
+  const tableColumnOptions = (Array.isArray(p.columns) ? p.columns : []).map((col) => {
+    if (typeof col === 'string') return { value: col, label: col }
+    const key = col.key ?? col.dataSetFieldKey ?? col.title ?? ''
+    const label = col.title ?? col.name ?? col.label ?? key
+    return { value: key, label: `${label}（${key}）` }
+  })
 
   const applyData = () => {
     try {
@@ -282,6 +315,7 @@ export default function PropertyPanel() {
               liveSources={liveSources}
               twinSceneOptions={twinSceneOptions}
               iotDeviceOptions={iotDeviceOptions}
+              tableColumns={tableColumnOptions}
               onChange={(patch) => {
                 // 物联设备级联：选设备后自动关联首个指标并同步指标卡标签/数据；
                 // 解绑设备时清空指标选择；切换指标时同步标签。
