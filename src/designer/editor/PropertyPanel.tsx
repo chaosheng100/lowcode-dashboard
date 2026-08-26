@@ -14,15 +14,14 @@ import SchemaForm from './SchemaForm'
 import { styleSchemas, dataSchemas, toPropFields } from './propSchemas'
 import { asArray, isString } from '../../data/utils/typeGuards'
 
-const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie', 'digitalTwin', 'twinAlarm', 'htmlComponent', 'reactComponent']
+const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'grid', 'table', 'echartLine', 'echartBar', 'echartPie', 'digitalTwin', 'twinAlarm']
 type ColumnConfig = NonNullable<WidgetProps['columns']>[number]
 /** 支持数据绑定的组件类型 */
 const dataTypes: WidgetType[] = [
-  'lineChart', 'barChart', 'pieChart', 'metric', 'table',
+  'lineChart', 'barChart', 'pieChart', 'metric', 'grid',
   'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar', 'echartCustom',
-  'htmlComponent', 'reactComponent'
 ]
-const tableLikeTypes: WidgetType[] = ['table', 'htmlComponent']
+const tableLikeTypes: WidgetType[] = ['grid', 'table']
 
 export default function PropertyPanel() {
   const { message } = App.useApp()
@@ -45,6 +44,7 @@ export default function PropertyPanel() {
   const [datasets, setDatasets] = useState<DatasetDTO[]>([])
   const [selectedXField, setSelectedXField] = useState('')
   const [selectedYField, setSelectedYField] = useState('')
+  const [selectedFields, setSelectedFields] = useState<string[]>([])
   const [dataSources, setDataSources] = useState<DataSourceDTO[]>([])
   const [twinSceneOptions, setTwinSceneOptions] = useState<TwinSceneOption[]>([])
   const [iotDeviceOptions, setIotDeviceOptions] = useState<IoTDeviceOption[]>([])
@@ -56,6 +56,21 @@ export default function PropertyPanel() {
       setDataText(JSON.stringify(component.props.data, null, 2))
     }
   }, [selectedId])
+
+  useEffect(() => {
+    if (!component || !component.dataSource?.datasetId) {
+      setSelectedFields([])
+      return
+    }
+    if (component.dataSource.fields?.length) {
+      setSelectedFields(component.dataSource.fields)
+      return
+    }
+    const colKeys = asArray<ColumnConfig>(component.props.columns)
+      .map((col) => (isString(col) ? col : String(col.key ?? col.dataSetFieldKey ?? col.title ?? '')))
+      .filter(Boolean)
+    setSelectedFields(colKeys)
+  }, [selectedId, component?.dataSource?.datasetId])
 
   useEffect(() => {
     let alive = true
@@ -114,21 +129,29 @@ export default function PropertyPanel() {
       const rows = asArray<Record<string, unknown>>(r.data?.list)
       const keys = asArray<string>(r.data?.columns).length ? asArray<string>(r.data?.columns) : fieldKeys
       const ds = datasets.find((d) => d.id === datasetId)
-      const nextBinding: ComponentDataBinding = { datasetId, xField, yField, datasetName: ds?.name }
+      const displayKeys = isTableLike && fieldKeys.length ? fieldKeys : keys
+      const nextBinding: ComponentDataBinding = {
+        datasetId,
+        xField,
+        yField,
+        datasetName: ds?.name,
+        ...(isTableLike && displayKeys.length ? { fields: displayKeys } : {})
+      }
       const nextProps: Partial<WidgetProps> = {
         title: ds?.name,
         dataSourceId: datasetId,
         dataSourceName: ds?.name
       }
       if (isTableLike) {
-        // 表格和 AI HTML 共用完整行契约，任意数据集字段都不会被压缩成 {name,value}
+        // 数据网格使用完整行契约，多列字段不会被压缩成 {name,value}
         nextProps.data = rows as Array<Record<string, unknown>>
-        nextProps.columns = (keys.length ? keys : [xField, yField]).map((key) => ({
+        nextProps.columns = (displayKeys.length ? displayKeys : [xField, yField]).map((key) => ({
           key,
           title: fieldLabel(datasetId, key) || key,
           name: fieldLabel(datasetId, key) || key,
           dataSetFieldKey: key
         }))
+        setSelectedFields(displayKeys.length ? displayKeys : keys)
       } else {
         const data: DataPoint[] = rows.map((row) => ({
           name: String((row as Record<string, unknown>)[xField] ?? ''),
@@ -140,7 +163,7 @@ export default function PropertyPanel() {
       updateComponentDataSource(component.id, nextBinding)
       setDataText(JSON.stringify(nextProps.data, null, 2))
     } catch (e) {
-      message.error('数据集绑定失败：' + (e as Error).message)
+      message.error('数据网格绑定失败：' + (e as Error).message)
     } finally {
       setBinding(false)
     }
@@ -377,24 +400,50 @@ export default function PropertyPanel() {
                 const fields = ds?.fields ?? []
                 const dimFields = fields.filter((f) => f.semanticType === 'dimension')
                 const metricFields = fields.filter((f) => f.semanticType === 'metric')
+                const isTableLike = tableLikeTypes.includes(component.type)
                 return (
                   <>
-                    <Form.Item label="维度字段（横轴）" colon={false} style={{ marginBottom: 11 }}>
-                      <Select
-                        style={{ width: '100%' }}
-                        value={selectedXField || undefined}
-                        onChange={async (v) => { setSelectedXField(v); await doBind(p.dataSourceId!, v, selectedYField) }}
-                        options={dimFields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
-                      />
-                    </Form.Item>
-                    <Form.Item label="指标字段（纵轴）" colon={false} style={{ marginBottom: 11 }}>
-                      <Select
-                        style={{ width: '100%' }}
-                        value={selectedYField || undefined}
-                        onChange={async (v) => { setSelectedYField(v); await doBind(p.dataSourceId!, selectedXField, v) }}
-                        options={metricFields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
-                      />
-                    </Form.Item>
+                    {isTableLike ? (
+                      <Form.Item label="展示字段" colon={false} style={{ marginBottom: 11 }}>
+                        <Select
+                          mode="multiple"
+                          style={{ width: '100%' }}
+                          value={selectedFields}
+                          placeholder="选择展示字段"
+                          onChange={async (v) => {
+                            const next = v as string[]
+                            setSelectedFields(next)
+                            await doBind(p.dataSourceId!, selectedXField, selectedYField, next)
+                          }}
+                          options={fields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
+                        />
+                      </Form.Item>
+                    ) : (
+                      <>
+                        <Form.Item label="维度字段（横轴）" colon={false} style={{ marginBottom: 11 }}>
+                          <Select
+                            style={{ width: '100%' }}
+                            value={selectedXField || undefined}
+                            onChange={async (v) => {
+                              setSelectedXField(v)
+                              await doBind(p.dataSourceId!, v, selectedYField, selectedFields)
+                            }}
+                            options={dimFields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
+                          />
+                        </Form.Item>
+                        <Form.Item label="指标字段（纵轴）" colon={false} style={{ marginBottom: 11 }}>
+                          <Select
+                            style={{ width: '100%' }}
+                            value={selectedYField || undefined}
+                            onChange={async (v) => {
+                              setSelectedYField(v)
+                              await doBind(p.dataSourceId!, selectedXField, v, selectedFields)
+                            }}
+                            options={metricFields.map((f) => ({ value: f.fieldKey, label: `${f.label} (${f.fieldKey})` }))}
+                          />
+                        </Form.Item>
+                      </>
+                    )}
                   </>
                 )
               })()}

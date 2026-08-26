@@ -297,12 +297,16 @@ export default function AIAssistantPage() {
         ? `${p}
 
 数据契约要求：
-1. 使用 window.__DASHBOARD__.data 渲染完整行数组，使用 window.__DASHBOARD__.columns 渲染列。
-2. 首次渲染后监听 dashboard:update 事件并重绘。
-3. 普通表格可输出 <table data-dashboard-table></table>，由宿主自动填充；也可调用 window.__DASHBOARD__.renderTable()。
-4. 行点击可通过 window.__DASHBOARD__.pick({ field, value }) 发送联动。
-5. 不要硬编码业务数据，不要在 iframe 内请求数据集 API。`
-        : p
+1. 生成独立视觉组件；不要读取或依赖 window.__DASHBOARD__、dashboard:update、renderTable 或 pick。
+2. 不要输出 <table data-dashboard-table></table> 这类数据网格骨架。
+3. 不绑定数据集，不要调用 API、SQL 或携带 Token。
+4. 视觉示例使用中性占位内容，不要生成真实业务数据表。`
+        : `${p}
+
+组件契约要求：
+1. 生成独立视觉组件；不要读取或依赖数据集、dashboard:update、renderTable、pick、SQL 或 Token。
+2. 不要绑定 dataSource，也不要请求任何业务接口。
+3. 视觉示例使用中性占位内容，不要生成真实业务数据表。`
       const r = await api.aiGenerate(requestPrompt, compType, {
         onDelta: (t) => {
           compAccRef.current += t
@@ -455,30 +459,11 @@ export default function AIAssistantPage() {
     } else {
       const rendererType = compType === 'html' ? 'htmlComponent' : 'reactComponent'
       const defaultStyle = { x: 80, y: 80, w: 420, h: 280 }
-      const isHtml = rendererType === 'htmlComponent'
-      const htmlColumns = [
-        { key: 'name', title: '名称', dataSetFieldKey: 'name' },
-        { key: 'value', title: '数值', dataSetFieldKey: 'value' },
-      ]
-      const htmlRows = [
-        { name: '华东', value: 320 },
-        { name: '华北', value: 210 },
-        { name: '华南', value: 260 },
-        { name: '西部', value: 150 },
-      ]
       const defaultProps = {
         title: snippetName(),
         sourceCode: compCode,
         sandboxMode: 'sandbox',
-        interactive: true,
-        filterField: 'name',
-        data: isHtml ? htmlRows : [
-          { name: '华东', value: 320 },
-          { name: '华北', value: 210 },
-          { name: '华南', value: 260 },
-          { name: '西部', value: 150 },
-        ],
-        ...(isHtml ? { columns: htmlColumns } : {}),
+        interactive: false,
       }
       const componentMeta = {
         type,
@@ -492,12 +477,7 @@ export default function AIAssistantPage() {
           title: { type: 'string' as const, default: snippetName(), label: '标题', ui: 'text' as const, group: 'data' as const },
           sourceCode: { type: 'string' as const, default: compCode, label: compType === 'html' ? 'HTML 源码' : 'TSX 源码', ui: 'textarea' as const, group: 'data' as const },
           sandboxMode: { type: 'string' as const, default: 'sandbox', label: '运行模式', ui: 'select' as const, options: [{ value: 'sandbox', label: '沙箱（隔离）' }, { value: 'trusted', label: '信任（直接渲染）' }], group: 'data' as const },
-          data: { type: 'array' as const, default: defaultProps.data },
-          ...(isHtml ? {
-            columns: { type: 'array' as const, default: htmlColumns, label: '列配置', ui: 'textarea' as const, group: 'data' as const },
-          } : {}),
-          filterField: { type: 'string' as const, default: 'name', label: '联动字段', ui: 'text' as const, group: 'event' as const },
-          interactive: { type: 'boolean' as const, default: true, label: '点击联动', ui: 'boolean' as const, group: 'event' as const },
+          interactive: { type: 'boolean' as const, default: false, label: '点击联动', ui: 'boolean' as const, group: 'event' as const },
           liveSourceId: { type: 'string' as const, label: '实时数据源', ui: 'select' as const, dynamicOptions: 'liveSources', group: 'data' as const },
           liveIntervalMs: { type: 'number' as const, default: 2000, label: '刷新间隔 (ms)', ui: 'number' as const, min: 300, step: 100, group: 'data' as const },
         },
@@ -507,12 +487,8 @@ export default function AIAssistantPage() {
           { key: 'sandboxMode', label: '运行模式', type: 'string' as const, ui: 'select' as const, options: [{ value: 'sandbox', label: '沙箱（隔离）' }, { value: 'trusted', label: '信任（直接渲染）' }] },
           { key: 'liveSourceId', label: '实时数据源', type: 'string' as const, ui: 'select' as const, dynamicOptions: 'liveSources' },
           { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number' as const, ui: 'number' as const, min: 300, step: 100 },
-          ...(isHtml ? [
-            { key: 'columns', label: '列配置', type: 'array' as const, ui: 'textarea' as const },
-          ] : []),
         ],
         eventSchema: [
-          { key: 'filterField', label: '联动字段', type: 'string' as const, ui: 'text' as const },
           { key: 'interactive', label: '点击联动', type: 'boolean' as const, ui: 'boolean' as const },
         ],
         schemaVersion: 3,
@@ -524,9 +500,7 @@ export default function AIAssistantPage() {
           runtime: rendererType === 'htmlComponent' ? 'sandbox-iframe' : 'safe-tsx-subset',
           bridge: rendererType === 'htmlComponent' ? 'postMessage' : 'props',
           sourceCode: compCode,
-          dataContract: isHtml
-            ? ['columns', 'data', 'rows', 'filter', 'liveSourceId', 'liveIntervalMs']
-            : ['data', 'filter', 'liveSourceId', 'liveIntervalMs'],
+          dataContract: [],
         },
       }
       await api.saveComponent(componentMeta)
@@ -539,14 +513,7 @@ export default function AIAssistantPage() {
         renderer: rendererType,
         sourceCode: compCode,
         sandboxMode: 'sandbox',
-        dataSchema: isHtml
-          ? {
-              type: 'table',
-              rowShape: 'record',
-              columns: htmlColumns,
-              sampleRows: htmlRows,
-            }
-          : { generated: true, source: compType },
+        dataSchema: { generated: true, standaloneVisual: true, datasetBinding: false },
         schema: {
           type: rendererType,
           sourceCode: compCode,

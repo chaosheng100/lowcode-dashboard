@@ -40,11 +40,28 @@ function normalizeComponents(value: unknown): ComponentInstance[] {
   return list.map((entry, idx) => {
     const item = isObject(entry) ? entry as Partial<ComponentInstance> : {}
     const style = isObject(item.style) ? item.style as Partial<ComponentInstance['style']> : {}
+    // 历史 Schema 的 table 一律迁移为新的 grid；AI 源码组件保持独立视觉定位。
+    const type: ComponentInstance['type'] =
+      item.type === 'table' ? 'grid' : item.type || 'text'
+    const sourceProps = { ...(item.props || {}) } as Record<string, unknown>
+    const isSourceComponent = type === 'htmlComponent' || type === 'reactComponent'
+    if (isSourceComponent) {
+      delete sourceProps.dataSourceId
+      delete sourceProps.dataSourceName
+      delete sourceProps.columns
+      delete sourceProps.data
+      delete sourceProps.liveSourceId
+      delete sourceProps.liveIntervalMs
+    }
     return {
       ...item,
       id: item.id || `comp-${idx}`,
+      type,
       style: { ...STYLE_DEFAULTS, ...style },
-      props: item.props || {},
+      props: sourceProps,
+      ...(isSourceComponent
+        ? { dataSource: undefined }
+        : (item.dataSource ? { dataSource: item.dataSource } : {})),
     } as ComponentInstance
   })
 }

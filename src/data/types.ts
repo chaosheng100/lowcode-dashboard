@@ -14,6 +14,8 @@ export type WidgetType =
   | 'barChart'
   | 'pieChart'
   | 'metric'
+  | 'grid'
+  /** 兼容历史 Schema；加载时迁移为 grid */
   | 'table'
   | 'container'
   // ECharts 真实图表组件（画布内嵌 echarts 实例）
@@ -189,6 +191,8 @@ export interface ComponentDataBinding {
   yField?: string
   /** 多指标（多折线/多柱图等） */
   yFields?: string[]
+  /** 表格/HTML 展示列（顺序即列顺序） */
+  fields?: string[]
   /** 筛选条件 */
   filters?: Array<{ field: string; op: string; value: unknown }>
   /** 聚合方式，覆盖数据集默认聚合 */

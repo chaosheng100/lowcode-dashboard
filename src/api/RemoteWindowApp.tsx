@@ -16,8 +16,6 @@ import Editor from '../designer/editor/Editor'
 import Renderer from '../designer/runtime/Renderer'
 import { captureThumbnail } from '../data/utils/thumb'
 import { resolveDataSource, resolveTableDataset } from '../designer/runtime/DataEngine'
-import { api } from '../mock'
-import { asArray } from '../data/utils/typeGuards'
 import { screenApi } from './screenApi'
 import { routeToConfig, screenToRoute } from './screenAdapter'
 
@@ -162,17 +160,20 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
       const newComps = await Promise.all(
         r.components.map(async (c) => {
           const ds = c.props.dataSourceId || c.dataSource?.datasetId
+          // AI 源码组件是独立视觉组件；旧 Schema 里的残留绑定不再触发数据集查询。
+          const refreshRenderer = c.props.catalogRenderer || c.type
+          if (
+            refreshRenderer === 'htmlComponent' ||
+            refreshRenderer === 'reactComponent'
+          ) {
+            return c
+          }
           if (!ds) return c
           try {
-            // 表格组件需要完整行对象；resolveDataSource 会映射成 {name,value} 导致列对不上而清空
-            if ((c.props.catalogRenderer || c.type) === 'table') {
-              const res = await api.queryDataset(ds, { pageSize: 12 })
-              const rows = asArray<Record<string, unknown>>(res.data?.list)
-              if (!rows.length) return c
-              return { ...c, props: { ...c.props, data: rows } }
-            }
-            if ((c.props.catalogRenderer || c.type) === 'htmlComponent') {
-              const table = await resolveTableDataset(ds)
+            // 表格/HTML/React 共用完整行 + 规范化列契约
+            const renderer = c.props.catalogRenderer || c.type
+            if (renderer === 'grid' || renderer === 'table') {
+              const table = await resolveTableDataset(ds, { fields: c.dataSource?.fields })
               if (!table.rows.length) return c
               return {
                 ...c,

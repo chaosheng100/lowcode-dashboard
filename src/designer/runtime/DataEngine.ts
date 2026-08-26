@@ -70,16 +70,19 @@ async function loadDatasetFieldLabels(id: string): Promise<Record<string, string
  */
 export async function resolveTableDataset(
   id: string,
-  options?: { fieldLabels?: Record<string, string> }
+  options?: { fieldLabels?: Record<string, string>; fields?: string[] }
 ): Promise<TableDataset> {
   if (!id) return { columns: [], rows: [] }
   if (staticDatasets[id]) {
     const rows = staticDatasets[id].map((item) => ({ ...item })) as Array<Record<string, unknown>>
+    const keys = ['name', 'value']
+    const requestedKeys = (options?.fields ?? []).filter((key) => keys.includes(key))
     return {
-      columns: [
-        { key: 'name', title: '名称', dataSetFieldKey: 'name' },
-        { key: 'value', title: '数值', dataSetFieldKey: 'value' },
-      ],
+      columns: (requestedKeys.length ? requestedKeys : keys).map((key) => ({
+        key,
+        title: key === 'name' ? '名称' : '数值',
+        dataSetFieldKey: key,
+      })),
       rows,
     }
   }
@@ -96,8 +99,10 @@ export async function resolveTableDataset(
     const keys = queryColumns.length
       ? queryColumns
       : Object.keys(rows[0] ?? {})
+    const requestedKeys = (options?.fields ?? []).filter((key) => keys.includes(key))
+    const selectedKeys = requestedKeys.length ? requestedKeys : keys
     return {
-      columns: keys.map((key) => ({
+      columns: selectedKeys.map((key) => ({
         key,
         title: labels[key] || key,
         dataSetFieldKey: key,

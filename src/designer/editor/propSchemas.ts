@@ -110,6 +110,20 @@ export const styleSchemas: Partial<Record<WidgetType, PropField[]>> = {
 }
 
 /** 数据/图表类字段（渲染在「数据」Tab） */
+const gridDataSchema: PropField[] = [
+  { key: 'title', label: '标题', type: 'text' },
+  { key: 'hiddenColumns', label: '隐藏列', type: 'select', dynamicOptions: 'tableColumns' },
+  { key: 'scroll', label: '自动滚动', type: 'boolean' },
+  { key: 'scrollSpeed', label: '滚动速度 (px/s)', type: 'number', min: 5, step: 1, show: (p) => !!p.scroll },
+  { key: 'visibleRows', label: '可见行数', type: 'number', min: 1, step: 1, show: (p) => !!p.scroll },
+  { key: 'pauseOnHover', label: '悬停暂停', type: 'boolean', show: (p) => !!p.scroll },
+  {
+    key: 'columns',
+    label: '列配置 (JSON: [{ "key": "region", "title": "区域" }])',
+    type: 'textarea'
+  }
+]
+
 export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
   lineChart: [
     { key: 'title', label: '标题', type: 'text' },
@@ -127,19 +141,8 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
     { key: 'iotMetric', label: '设备指标', type: 'select', dynamicOptions: 'iotMetrics', show: (p) => !!p.iotDeviceId },
     { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 500, step: 100, show: (p) => !!p.iotDeviceId }
   ],
-  table: [
-    { key: 'title', label: '标题', type: 'text' },
-    { key: 'hiddenColumns', label: '隐藏列', type: 'select', dynamicOptions: 'tableColumns' },
-    { key: 'scroll', label: '自动滚动', type: 'boolean' },
-    { key: 'scrollSpeed', label: '滚动速度 (px/s)', type: 'number', min: 5, step: 1, show: (p) => !!p.scroll },
-    { key: 'visibleRows', label: '可见行数', type: 'number', min: 1, step: 1, show: (p) => !!p.scroll },
-    { key: 'pauseOnHover', label: '悬停暂停', type: 'boolean', show: (p) => !!p.scroll },
-    {
-      key: 'columns',
-      label: '列配置 (JSON: [{ "key": "region", "title": "区域" }])',
-      type: 'textarea'
-    }
-  ],
+  grid: gridDataSchema,
+  table: gridDataSchema,
   echartLine: [
     { key: 'title', label: '标题', type: 'text' },
     { key: 'color', label: '主色', type: 'color' },
@@ -187,7 +190,6 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
   ],
   htmlComponent: [
     { key: 'sourceCode', label: 'HTML 源码', type: 'textarea' },
-    { key: 'columns', label: '列配置 (JSON: [{ "key": "region", "title": "区域" }])', type: 'textarea' },
     {
       key: 'sandboxMode', label: '运行模式', type: 'select',
       options: [
@@ -195,8 +197,6 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
         { value: 'trusted', label: '信任（直接渲染）' }
       ]
     },
-    { key: 'liveSourceId', label: '实时数据源', type: 'select', dynamicOptions: 'liveSources' },
-    { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 300, step: 100, show: (p) => !!p.liveSourceId }
   ],
   reactComponent: [
     { key: 'sourceCode', label: 'TSX 源码', type: 'textarea' },
@@ -207,7 +207,5 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
         { value: 'trusted', label: '信任（直接渲染）' }
       ]
     },
-    { key: 'liveSourceId', label: '实时数据源', type: 'select', dynamicOptions: 'liveSources' },
-    { key: 'liveIntervalMs', label: '刷新间隔 (ms)', type: 'number', min: 300, step: 100, show: (p) => !!p.liveSourceId }
   ]
 }

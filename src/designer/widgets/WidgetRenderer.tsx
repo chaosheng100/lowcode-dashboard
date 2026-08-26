@@ -21,6 +21,7 @@ const map: Record<WidgetType, ComponentType<WidgetViewProps>> = {
   barChart: BarChart,
   pieChart: PieChart,
   metric: MetricWidget,
+  grid: TableWidget,
   table: TableWidget,
   container: ContainerWidget,
   echartLine: EChartWidget,

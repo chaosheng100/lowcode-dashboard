@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Filter, WidgetViewProps } from '../../data/types'
 import { subscribeLive, type LivePoint } from '../../data/live/liveClient'
 import { applyRowFilter, resolveTemplate } from './filterUtils'
@@ -38,6 +38,9 @@ window.addEventListener('message', function (event) {
   if ('live' in msg) window.__DASHBOARD__.live = msg.live;
   if (typeof msg.reload === 'function') msg.reload();
   window.dispatchEvent(new CustomEvent('dashboard:update', { detail: msg }));
+});
+window.addEventListener('dashboard:update', function () {
+  if (window.__DASHBOARD__.bound) renderTable();
 });
 function normalizeTableColumns(columns) {
   return (columns || []).map(function (column) {
@@ -235,24 +238,14 @@ function buildDocument(
 
 /** AI 助手预览必须与设计器运行态使用同一份数据桥契约。 */
 export function buildHtmlPreviewDocument(sourceCode: string): string {
-  const rows = [
-    { name: '华东', value: 320 },
-    { name: '华北', value: 210 },
-    { name: '华南', value: 260 },
-    { name: '西部', value: 150 },
-  ] as Array<Record<string, unknown>>
-  const columns: HtmlBridgeColumn[] = [
-    { key: 'name', title: '名称', dataSetFieldKey: 'name' },
-    { key: 'value', title: '数值', dataSetFieldKey: 'value' },
-  ]
   return buildDocument(
     sourceCode,
-    rows,
+    [],
     null,
     [],
-    columns,
-    { filterField: 'name' },
-    true,
+    [],
+    {},
+    false,
     true,
     nextHtmlDocId++,
   )
@@ -266,6 +259,7 @@ export default function HtmlComponentWidget({ component, filter, onPick, preview
   cbRef.current = { onPick, filterField: p.filterField || 'name', interactive: p.interactive !== false }
   const [live, setLive] = useState<LivePoint[]>([])
   const [contentSize, setContentSize] = useState<HtmlContentSize | null>(null)
+  const [showSizeFallback, setShowSizeFallback] = useState(false)
 
   useEffect(() => {
     if (!p.liveSourceId) {
@@ -306,6 +300,29 @@ export default function HtmlComponentWidget({ component, filter, onPick, preview
     }),
     [p.filterField, p.dataSourceId, p.liveSourceId, p.catalogName]
   )
+
+  const filteredRows = useMemo(
+    () => applyRowFilter(rows, filter ?? null),
+    [rows, filter]
+  )
+  const dashboardPayload = useMemo(
+    () => ({
+      columns,
+      data: filteredRows,
+      rows: filteredRows,
+      filter: filter ?? null,
+      live,
+    }),
+    [columns, filteredRows, filter, live]
+  )
+  const dashboardPayloadKey = JSON.stringify([
+    dashboardPayload.columns,
+    dashboardPayload.rows,
+    dashboardPayload.filter,
+    dashboardPayload.live,
+  ])
+  const varsKey = JSON.stringify(vars)
+
   const docInfo = useMemo(
     () => {
       const id = nextHtmlDocId++
@@ -324,10 +341,26 @@ export default function HtmlComponentWidget({ component, filter, onPick, preview
         ),
       }
     },
-    [p.sourceCode, rows, filter, live, columns, vars, p.dataSourceId, component.dataSource?.datasetId, p.interactive]
+    // 行/列/筛选/实时数据走 dashboard:update 增量桥，避免运行态轮询反复重载 iframe。
+    [p.sourceCode, varsKey, p.dataSourceId, component.dataSource?.datasetId, p.interactive]
   )
   const doc = docInfo.html
   const docId = docInfo.id
+  const latestPayloadRef = useRef(dashboardPayload)
+  latestPayloadRef.current = dashboardPayload
+
+  const pushDashboardUpdate = useCallback(() => {
+    const frameWindow = frameRef.current?.contentWindow
+    if (!frameWindow) return
+    frameWindow.postMessage(
+      { type: 'dashboard:update', ...latestPayloadRef.current },
+      '*'
+    )
+  }, [])
+
+  const handleFrameLoad = useCallback(() => {
+    pushDashboardUpdate()
+  }, [pushDashboardUpdate])
 
   useEffect(() => {
     setContentSize(null)
@@ -372,9 +405,21 @@ export default function HtmlComponentWidget({ component, filter, onPick, preview
     return () => window.removeEventListener('message', onMessage)
   }, [doc, docId])
 
+  useEffect(() => {
+    pushDashboardUpdate()
+  }, [dashboardPayloadKey, pushDashboardUpdate])
+
+  useEffect(() => {
+    setShowSizeFallback(false)
+    const timer = setTimeout(() => setShowSizeFallback(true), 350)
+    return () => clearTimeout(timer)
+  }, [docId])
+
   const frameWidth = Math.max(style.w, contentSize?.width ?? style.w)
   const frameHeight = Math.max(style.h, contentSize?.height ?? style.h)
   const scale = Math.min(style.w / frameWidth, style.h / frameHeight)
+  // 首帧测量前隐藏；等最终缩放比例确定后再显示，消除加载期的一次视觉跳动。
+  const isSizeReady = contentSize?.docId === docId || showSizeFallback
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
@@ -382,6 +427,7 @@ export default function HtmlComponentWidget({ component, filter, onPick, preview
         ref={frameRef}
         title={p.title || 'AI HTML 组件'}
         srcDoc={doc}
+        onLoad={handleFrameLoad}
         sandbox={p.sandboxMode === 'trusted'
           ? 'allow-scripts allow-same-origin allow-forms'
           : 'allow-scripts'}
@@ -394,6 +440,8 @@ export default function HtmlComponentWidget({ component, filter, onPick, preview
           border: 0,
           background: 'transparent',
           transform: `translate(-50%, -50%) scale(${scale})`,
+          opacity: isSizeReady ? 1 : 0,
+          transition: 'opacity 160ms cubic-bezier(0.25, 1, 0.3, 1)',
           pointerEvents: preview ? 'auto' : 'none',
         }}
       />

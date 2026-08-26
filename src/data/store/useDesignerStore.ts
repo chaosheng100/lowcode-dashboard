@@ -96,7 +96,13 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     try {
       const res = await import('../../mock/api').then((m) => m.api.listComponents())
       if (res.code === 0) {
-        set({ catalog: asArray(res.data), catalogLoading: false })
+        // 后端滚动升级期间可能仍存在旧 table 元数据；前端目录只暴露 grid。
+        const metas = (asArray(res.data) as Array<Record<string, any>>).map((meta) =>
+          meta.type === 'table'
+            ? { ...meta, type: 'grid', renderer: 'grid' }
+            : meta
+        ) as typeof res.data
+        set({ catalog: metas, catalogLoading: false })
       } else {
         set({ catalogError: res.message || '组件目录加载失败', catalogLoading: false })
       }

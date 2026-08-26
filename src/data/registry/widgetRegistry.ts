@@ -96,8 +96,8 @@ export const widgetRegistry: WidgetRegistry = {
       unit: '件'
     }
   },
-  table: {
-    name: '表格',
+  grid: {
+    name: '数据网格',
     icon: createElement(TableOutlined),
     category: '指标',
     defaultStyle: { x: 1060, y: 60, w: 460, h: 240 },
@@ -116,6 +116,19 @@ export const widgetRegistry: WidgetRegistry = {
       scrollSpeed: 30,
       visibleRows: 6,
       pauseOnHover: true
+    }
+  },
+  table: {
+    name: '数据网格（兼容）',
+    icon: createElement(TableOutlined),
+    category: '指标',
+    defaultStyle: { x: 1060, y: 60, w: 460, h: 240 },
+    defaultProps: {
+      title: '明细',
+      columns: ['区域', '销量'],
+      data: [],
+      filterField: 'name',
+      interactive: true,
     }
   },
   container: {
@@ -243,10 +256,9 @@ export const widgetRegistry: WidgetRegistry = {
     defaultStyle: { x: 80, y: 80, w: 420, h: 280 },
     defaultProps: {
       title: 'AI HTML 组件',
-      sourceCode: '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-family:system-ui;background:linear-gradient(135deg,#f5f5f7,#e8e8ed);color:#1d1d1f;border-radius:12px">\n  <div style="text-align:center">\n    <div style="font-size:22px;font-weight:600">AI HTML 组件</div>\n    <div style="margin-top:8px;font-size:13px;color:#6e6e73">window.__DASHBOARD__.data 已注入</div>\n  </div>\n</div>',
+      sourceCode: '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-family:system-ui;background:linear-gradient(135deg,#f5f5f7,#e8e8ed);color:#1d1d1f;border-radius:12px">\n  <div style="text-align:center">\n    <div style="font-size:22px;font-weight:600">AI HTML 组件</div>\n    <div style="margin-top:8px;font-size:13px;color:#6e6e73">独立视觉组件</div>\n  </div>\n</div>',
       sandboxMode: 'sandbox',
-      interactive: true,
-      filterField: 'name'
+      interactive: false
     }
   },
   reactComponent: {
@@ -256,10 +268,9 @@ export const widgetRegistry: WidgetRegistry = {
     defaultStyle: { x: 540, y: 80, w: 420, h: 280 },
     defaultProps: {
       title: 'AI React 组件',
-      sourceCode: "export default function AICard({ data, filter, pick }) {\n  const total = data.reduce((s, d) => s + Number(d.value || 0), 0)\n  return (\n    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', borderRadius: 12, fontFamily: 'system-ui', color: '#1d1d1f' }}>\n      <div style={{ textAlign: 'center' }}>\n        <div style={{ fontSize: 22, fontWeight: 600 }}>AI React 组件</div>\n        <div style={{ marginTop: 8, fontSize: 13, color: '#6e6e73' }}>数据 {data.length} 项 · 合计 {total}</div>\n        <button onClick={() => pick({ field: 'name', value: data[0]?.name || 'A' })} style={{ marginTop: 12, padding: '6px 14px', borderRadius: 8, border: 0, background: '#0071e3', color: '#fff', cursor: 'pointer' }}>联动点击</button>\n      </div>\n    </div>\n  )\n}",
+      sourceCode: "export default function AICard() {\n  return (\n    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', borderRadius: 12, fontFamily: 'system-ui', color: '#1d1d1f' }}>\n      <div style={{ textAlign: 'center' }}>\n        <div style={{ fontSize: 22, fontWeight: 600 }}>AI React 组件</div>\n        <div style={{ marginTop: 8, fontSize: 13, color: '#6e6e73' }}>独立视觉组件</div>\n      </div>\n    </div>\n  )\n}",
       sandboxMode: 'sandbox',
-      interactive: true,
-      filterField: 'name'
+      interactive: false
     }
   }
 }

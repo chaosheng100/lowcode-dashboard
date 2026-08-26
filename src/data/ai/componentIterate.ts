@@ -46,7 +46,13 @@ export function componentIterationPrompt(
     schema,
     dataSchema: target.dataSchema ?? undefined,
   }
-  const head = `你是低代码大屏设计器的组件工程师。请基于下面已有的「${target.name}」组件（type: ${target.type}）进行调整：${instruction}\n要求：只修改该组件本身，保持原有数据契约与对外接口不变（如 window.__DASHBOARD__、props、联动字段），输出完整可运行的代码，不要省略任何部分。\n\n组件 Schema 契约（调整时必须保持兼容，不得破坏字段结构与默认值）：\n${JSON.stringify(contract, null, 2)}`
+  const isSourceVisual =
+    target.renderer === 'htmlComponent' || target.renderer === 'reactComponent'
+  const head = `你是低代码大屏设计器的组件工程师。请基于下面已有的「${target.name}」组件（type: ${target.type}）进行调整：${instruction}\n要求：只修改该组件本身，${
+    isSourceVisual
+      ? '保持独立视觉组件定位；不要读取或依赖 window.__DASHBOARD__、dashboard:update、renderTable、pick 或数据集接口；不要新增 dataSource/数据集绑定。'
+      : '保持原有数据契约与对外接口不变。'
+  } 输出完整可运行的代码，不要省略任何部分。\n\n组件 Schema 契约（调整时必须保持兼容，不得破坏字段结构与默认值）：\n${JSON.stringify(contract, null, 2)}`
 
   if (target.optionJson) {
     return `${head}

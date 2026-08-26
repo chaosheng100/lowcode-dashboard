@@ -29,7 +29,8 @@ const DESCRIPTIONS: Record<WidgetType, string> = {
   barChart: '轻量分类数据对比',
   pieChart: '轻量占比构成分析',
   metric: '关键业务指标展示',
-  table: '结构化明细数据展示',
+  grid: '结构化多列数据网格，支持数据集绑定与滚动展示',
+  table: '历史表格 Schema；加载后自动迁移为数据网格',
   container: '组件分组与布局容器',
   echartLine: '可交互的实时趋势图表',
   echartBar: '可交互的分类对比图表',
@@ -39,20 +40,22 @@ const DESCRIPTIONS: Record<WidgetType, string> = {
   echartCustom: '基于 ECharts Option 的自定义图表',
   digitalTwin: '嵌入大屏的三维数字孪生场景，支持与大屏图表双向联动',
   twinAlarm: '孪生仿真预测性维护告警清单，点击告警反向定位三维实体',
-  htmlComponent: 'AI 生成的 HTML 组件，沙箱渲染并支持大屏数据与联动',
-  reactComponent: 'AI 生成的 React/TSX 组件，安全子集渲染并支持大屏数据与联动'
+  htmlComponent: 'AI 生成的独立视觉 HTML，沙箱渲染，不绑定数据集',
+  reactComponent: 'AI 生成的独立视觉 React 子集组件，不绑定数据集'
 }
 
 export const standardComponentAssets: ComponentAssetDefinition[] = (
   Object.entries(widgetRegistry) as Array<[WidgetType, (typeof widgetRegistry)[WidgetType]]>
-).map(([type, definition]) => ({
-  key: `standard:${type}`,
-  name: definition.name,
-  category: definition.category,
-  description: DESCRIPTIONS[type],
-  type,
-  businessType: type === 'digitalTwin' || type === 'twinAlarm' ? 'twin' : 'general'
-}))
+)
+  .filter(([type]) => type !== 'table')
+  .map(([type, definition]) => ({
+    key: `standard:${type}`,
+    name: definition.name,
+    category: definition.category,
+    description: DESCRIPTIONS[type],
+    type,
+    businessType: type === 'digitalTwin' || type === 'twinAlarm' ? 'twin' : 'general'
+  }))
 
 /** 组件中心已注册资产（AI 生成的 ECharts / 源码组件）→ 组件库资产定义（与组件库页共用） */
 export function registeredAssetsFromWidgets(list: WidgetDefDTO[]): ComponentAssetDefinition[] {

@@ -42,6 +42,7 @@ function stripFences(code: string): string {
 interface SafeVars {
   data: unknown[]
   rows: Array<Record<string, unknown>>
+  columns: Array<{ key: string; title: string; dataSetFieldKey: string }>
   filter: Record<string, unknown> | null
   live: unknown[]
   vars: Record<string, unknown>
@@ -209,10 +210,10 @@ function evalStyle(expr: string): CSSProperties | undefined {
 function runHandler(expr: string, vars: SafeVars): void {
   try {
     const fn = new Function(
-      'pick', 'filter', 'data', 'rows', 'live', 'vars',
+      'pick', 'filter', 'data', 'rows', 'columns', 'live', 'vars',
       `"use strict"; return (${expr})`
     )
-    fn(vars.pick, vars.filter, vars.data, vars.rows, vars.live, vars.vars)
+    fn(vars.pick, vars.filter, vars.data, vars.rows, vars.columns, vars.live, vars.vars)
   } catch {
     /* 事件表达式失败时静默忽略 */
   }
@@ -301,9 +302,9 @@ function renderJSX(source: string, vars: SafeVars): ReactNode {
   for (const m of prelude.matchAll(/\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+)/g)) {
     try {
       const value = new Function(
-        'data', 'filter', 'rows', 'live', 'pick', 'navigate', 'vars',
+        'columns', 'data', 'filter', 'rows', 'live', 'pick', 'navigate', 'vars',
         `"use strict"; return (${m[2]})`
-      )(vars.data, vars.filter, vars.rows, vars.live, vars.pick, vars.navigate, vars.vars)
+      )(vars.columns, vars.data, vars.filter, vars.rows, vars.live, vars.pick, vars.navigate, vars.vars)
       locals.set(m[1], value)
     } catch {
       /* 局部表达式失败时跳过 */
@@ -345,6 +346,23 @@ export default function ReactComponentWidget({ component, filter, onPick }: Widg
     () => FORBIDDEN_PATTERNS.find((re) => re.test(source)),
     [source]
   )
+  const columns = useMemo(
+    () =>
+      asArray<string | Record<string, unknown>>(p.columns)
+        .map((column) => {
+          if (typeof column === 'string') {
+            return { key: column, title: column, dataSetFieldKey: column }
+          }
+          const key = String(column.key || column.dataSetFieldKey || column.title || '')
+          return {
+            key,
+            title: String(column.title || column.name || column.label || key),
+            dataSetFieldKey: String(column.dataSetFieldKey || key),
+          }
+        })
+        .filter((column) => column.key),
+    [p.columns]
+  )
   const vars = useMemo(
     () => ({
       data: p.data ?? [],
@@ -352,6 +370,7 @@ export default function ReactComponentWidget({ component, filter, onPick }: Widg
         asArray<Record<string, unknown>>(p.data),
         filter ?? null
       ),
+      columns,
       filter: (filter ?? null) as Record<string, unknown> | null,
       live,
       vars: {
@@ -372,7 +391,7 @@ export default function ReactComponentWidget({ component, filter, onPick }: Widg
         window.location.hash = `#/?path=${encodeURIComponent(path)}`
       },
     }),
-    [p.data, p.interactive, p.filterField, p.dataSourceId, p.liveSourceId, p.catalogName, live, onPick, filter]
+    [p.data, p.interactive, p.filterField, p.dataSourceId, p.liveSourceId, p.catalogName, live, onPick, filter, columns]
   )
 
   const node = useMemo(() => {
