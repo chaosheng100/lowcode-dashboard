@@ -12,8 +12,10 @@ import type { TwinSceneOption, IoTDeviceOption } from './SchemaForm'
 import CanvasPanel from './CanvasPanel'
 import SchemaForm from './SchemaForm'
 import { styleSchemas, dataSchemas, toPropFields } from './propSchemas'
+import { asArray, isString } from '../../data/utils/typeGuards'
 
 const interactiveTypes: WidgetType[] = ['barChart', 'pieChart', 'table', 'echartLine', 'echartBar', 'echartPie', 'digitalTwin', 'twinAlarm', 'htmlComponent', 'reactComponent']
+type ColumnConfig = NonNullable<WidgetProps['columns']>[number]
 /** 支持数据绑定的组件类型 */
 const dataTypes: WidgetType[] = [
   'lineChart', 'barChart', 'pieChart', 'metric', 'table',
@@ -104,8 +106,8 @@ export default function PropertyPanel() {
   const doBind = async (datasetId: string, xField: string, yField: string, fieldKeys: string[] = []) => {
     if (!datasetId || !component) return
     const r = await api.queryDataset(datasetId, { pageSize: 12 })
-    const rows = Array.isArray(r.data?.list) ? r.data.list : []
-    const keys = Array.isArray(r.data?.columns) && r.data.columns.length ? r.data.columns : fieldKeys
+    const rows = asArray<Record<string, unknown>>(r.data?.list)
+    const keys = asArray<string>(r.data?.columns).length ? asArray<string>(r.data?.columns) : fieldKeys
     const ds = datasets.find((d) => d.id === datasetId)
     const binding: ComponentDataBinding = { datasetId, xField, yField, datasetName: ds?.name }
     const nextProps: Partial<WidgetProps> = {
@@ -176,8 +178,8 @@ export default function PropertyPanel() {
   const styleSchema = catalogMeta ? toPropFields(catalogMeta.styleSchema) : styleSchemas[component.type]
   const dataSchema = catalogMeta ? toPropFields(catalogMeta.bindingSchema) : dataSchemas[component.type]
   const eventSchema = catalogMeta ? toPropFields(catalogMeta.eventSchema) : undefined
-  const tableColumnOptions = (Array.isArray(p.columns) ? p.columns : []).map((col) => {
-    if (typeof col === 'string') return { value: col, label: col }
+  const tableColumnOptions = asArray<ColumnConfig>(p.columns).map((col) => {
+    if (isString(col)) return { value: col, label: col }
     const key = col.key ?? col.dataSetFieldKey ?? col.title ?? ''
     const label = col.title ?? col.name ?? col.label ?? key
     return { value: key, label: `${label}（${key}）` }

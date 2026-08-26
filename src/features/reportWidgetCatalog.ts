@@ -1,6 +1,7 @@
 ﻿import type { ComponentInstance, RouteConfig } from "../data/types"
 import { mergeManagedComponents, type ComponentAssetDefinition } from "../data/registry/componentAssetRegistry"
 import type { ReportDTO } from "../mock/types"
+import { isObject } from "../data/utils/typeGuards"
 
 export type ReportWidgetKind = "summary" | "table"
 
@@ -61,7 +62,7 @@ export function syncReportToDashboard(
   kinds: ReportWidgetKind[] = reportComponentAssets.map((a) => a.kind)
 ): Partial<RouteConfig> {
   const managed = kinds.map((k) => createReportComponent(report, k))
-  const previousReports = typeof route.state.reportIds === "object" && route.state.reportIds
+  const previousReports = isObject(route.state.reportIds)
     ? route.state.reportIds as Record<string, unknown>
     : {}
   return {
@@ -72,7 +73,7 @@ export function syncReportToDashboard(
 }
 
 export function unlinkReportFromDashboard(route: RouteConfig, reportId: string): Partial<RouteConfig> {
-  const previousReports = typeof route.state.reportIds === "object" && route.state.reportIds
+  const previousReports = isObject(route.state.reportIds)
     ? route.state.reportIds as Record<string, unknown>
     : {}
   const reportIds = { ...previousReports }

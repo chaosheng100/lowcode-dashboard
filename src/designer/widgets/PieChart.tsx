@@ -1,5 +1,6 @@
 import { isActive } from './filterUtils'
 import type { WidgetViewProps } from '../../data/types'
+import { asArray } from '../../data/utils/typeGuards'
 
 export default function PieChart({ component, filter, onPick }: WidgetViewProps) {
   const { data = [], title, filterField, interactive } = component.props
@@ -8,7 +9,7 @@ export default function PieChart({ component, filter, onPick }: WidgetViewProps)
   const cx = w / 2
   const cy = h / 2 + 8
   const r = Math.min(w, h) / 2 - 50
-  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const rows = asArray<Record<string, unknown>>(data)
   const total = rows.reduce((s, d) => s + (Number(d.value) || 0), 0) || 1
   const palette = ['#4f8cff', '#22d3ee', '#56d364', '#ffb454', '#ff5d5d', '#a78bfa']
 

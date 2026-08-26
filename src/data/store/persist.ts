@@ -1,5 +1,6 @@
 import { useDesignerStore } from './useDesignerStore'
 import type { DashboardProject } from '../types'
+import { isArray } from '../utils/typeGuards'
 
 /**
  * 实时保存（localStorage 持久化，同源窗口共享）。
@@ -31,7 +32,7 @@ export function loadPersisted(): DashboardProject | null {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
     const p = JSON.parse(raw)
-    if (p && Array.isArray(p.routes) && p.routes.length) return p as DashboardProject
+    if (p && isArray(p.routes) && p.routes.length) return p as DashboardProject
   } catch {
     /* 损坏则忽略 */
   }

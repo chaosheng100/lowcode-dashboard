@@ -1,6 +1,7 @@
 import type { RouteConfig } from '../data/types'
 import { createDemoScene } from './sceneFactory'
 import type { TwinScene } from './twinTypes'
+import { isArray, isObject } from '../data/utils/typeGuards'
 
 /**
  * 从大屏路由 state 读取孪生场景快照，兼容新版完整场景与旧版元数据。
@@ -12,10 +13,10 @@ export function readRouteTwinScene(
 ): TwinScene | undefined {
   const snap = route?.state?.twinScenes as Record<string, unknown> | undefined
   const item = snap?.[sceneId]
-  if (!item || typeof item !== 'object') return undefined
+  if (!isObject(item)) return undefined
   const candidate = item as { scene?: TwinScene; entities?: TwinScene['entities'] }
   if (candidate.scene?.entities) return candidate.scene
-  if (Array.isArray(candidate.entities)) return candidate as unknown as TwinScene
+  if (isArray(candidate.entities)) return candidate as unknown as TwinScene
   return undefined
 }
 

@@ -11,6 +11,7 @@ import type { ApiResp } from '../mock/types'
 import { getToken } from '../auth/store'
 import { forceLogin } from '../auth/session'
 import { API_BASE_URL } from './config'
+import { isNumber, isObject } from '../data/utils/typeGuards'
 
 const BASE_URL = API_BASE_URL
 
@@ -66,10 +67,10 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     if (isJson) {
       const data = JSON.parse(res.data || 'null')
       // 后端统一包装 { code, data, message }
-      if (data && typeof data === 'object' && 'code' in data) {
+      if (isObject(data) && 'code' in data) {
         // 401/403：登录态失效，统一清理并回登录页
         if (data.code === 401 || data.code === 403) forceLogin()
-        return data as ApiResp<T>
+        return data as unknown as ApiResp<T>
       }
       // 兼容未包装的响应
       return { code: 0, data, message: 'ok' }
@@ -88,7 +89,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
           data = null
         }
       }
-      if (data && typeof (data as ApiResp<T>).code === 'number') {
+      if (data && isNumber((data as ApiResp<T>).code)) {
         // 401/403：登录态失效，统一清理并回登录页
         if ((data as ApiResp<T>).code === 401 || (data as ApiResp<T>).code === 403) forceLogin()
         return data as ApiResp<T>

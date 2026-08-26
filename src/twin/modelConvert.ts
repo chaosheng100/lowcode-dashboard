@@ -5,6 +5,7 @@ import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { ifcToGlb } from './ifcConvert'
 import { buildScene, toGLB } from 'openskp'
+import { isArray } from '../data/utils/typeGuards'
 
 export const CONVERTIBLE_EXTS = ['.obj', '.fbx', '.dae', '.ifc', '.skp']
 
@@ -151,7 +152,7 @@ export async function convertToGlb(file: File): Promise<{ blob: Blob; fileName: 
   root.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!mesh.isMesh) return
-    const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
+    const mat = isArray(mesh.material) ? mesh.material[0] : mesh.material
     if (mat && mat.type === 'MeshPhongMaterial') {
       const phong = mat as THREE.MeshPhongMaterial
       mesh.material = new THREE.MeshStandardMaterial({

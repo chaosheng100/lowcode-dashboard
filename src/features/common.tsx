@@ -1,6 +1,7 @@
 import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, CSSProperties } from 'react'
 import { Children, isValidElement } from 'react'
 import { Card, Empty as AntEmpty, Form, Input as AntInput, Modal as AntModal, Select as AntSelect, Statistic, Tag as AntTag } from 'antd'
+import { isString } from '../data/utils/typeGuards'
 
 /** 页面级页头：主标题 + 副标题 + 右侧操作区（统一 .fp-head/.fp-title/.fp-sub 结构） */
 export function PageHeader({
@@ -172,7 +173,7 @@ export function Select({ value, onChange, children, placeholder, disabled, style
   const options = Children.toArray(children).flatMap((child) => {
     if (!isValidElement(child)) return []
     const p = child.props as { value?: string | number; disabled?: boolean; children?: ReactNode }
-    const v = p.value ?? (typeof p.children === 'string' ? p.children : '')
+    const v = p.value ?? (isString(p.children) ? p.children : '')
     return [{ value: String(v), label: p.children as ReactNode, disabled: p.disabled }]
   })
   return (

@@ -1,6 +1,7 @@
 import type { TwinEntity, TwinEntityState, TwinBoundOverrides, TelemetrySample } from './twinTypes'
 import type { TwinSource } from './sources/TwinSource'
 import { subscribeLive } from '../data/live/liveClient'
+import { isNumber, isString } from '../data/utils/typeGuards'
 
 export type { TelemetrySample } from './twinTypes'
 
@@ -21,8 +22,8 @@ function clamp(v: number, min: number, max: number): number {
 const KNOWN_STATES: TwinEntityState[] = ['normal', 'running', 'idle', 'fault', 'offline']
 
 function toNumber(v: unknown): number | undefined {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined
-  if (typeof v === 'string' && v.trim() !== '') {
+  if (isNumber(v)) return Number.isFinite(v) ? v : undefined
+  if (isString(v) && v.trim() !== '') {
     const n = Number(v)
     return Number.isFinite(n) ? n : undefined
   }
@@ -30,7 +31,7 @@ function toNumber(v: unknown): number | undefined {
 }
 
 function isHexColor(v: unknown): v is string {
-  return typeof v === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.trim())
+  return isString(v) && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.trim())
 }
 
 export interface EntityBoundUpdate {
@@ -53,11 +54,11 @@ export function resolveEntityBinding(e: TwinEntity, row: Record<string, unknown>
     } else if (target === 'color') {
       if (isHexColor(v)) overrides.color = v.trim()
     } else if (target === 'state') {
-      if (typeof v === 'string' && KNOWN_STATES.includes(v as TwinEntityState)) {
+      if (isString(v) && KNOWN_STATES.includes(v as TwinEntityState)) {
         overrides.state = v as TwinEntityState
       }
     } else if (target === 'animation') {
-      if (typeof v === 'string') overrides.animation = v.trim() === '' ? null : v.trim()
+      if (isString(v)) overrides.animation = v.trim() === '' ? null : v.trim()
     }
   }
   const out: EntityBoundUpdate = {}

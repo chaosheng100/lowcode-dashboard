@@ -10,6 +10,7 @@ import { Empty, Field, Input, Modal, Textarea } from './common'
 import { useApi } from './useApi'
 import { screenApi } from '../api/screenApi'
 import { screenToRoute } from '../api/screenAdapter'
+import { asArray, isObject } from '../data/utils/typeGuards'
 import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from '../api/screenRoutes'
 import { syncIoTDeviceToDashboard, unlinkIoTFromDashboard } from './iotWidgetCatalog'
 
@@ -28,7 +29,7 @@ interface IoTDashboardBinding {
 
 function dashboardBindings(route: RouteConfig): IoTDashboardBinding[] {
   const value = route.state.iotBindings
-  return Array.isArray(value) ? value.filter((item): item is IoTDashboardBinding => Boolean(item && typeof item === 'object' && 'deviceId' in item)) : []
+  return asArray(value).filter((item): item is IoTDashboardBinding => isObject(item) && 'deviceId' in item)
 }
 
 function evaluateAlarm(rule: IoTAlarmRuleDTO, value: number | undefined) {

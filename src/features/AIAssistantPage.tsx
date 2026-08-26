@@ -8,6 +8,7 @@ import type { AIBotDTO, AISessionItem, CodeLang, WidgetDefDTO } from '../mock/ty
 import { extractEchartsOption } from './aiEcharts'
 import { useDesignerStore } from '../data/store/useDesignerStore'
 import { componentIterationPrompt } from '../data/ai/componentIterate'
+import { isArray, isFunction, isObject } from '../data/utils/typeGuards'
 
 const CARD = {
   background: '#ffffff',
@@ -30,7 +31,7 @@ function extractEChartsOption(code: string): string | null {
   const tryObject = (raw: string): string | null => {
     try {
       const value = new Function(`"use strict"; return (${raw})`)()
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (isObject(value)) {
         return JSON.stringify(value)
       }
     } catch {
@@ -87,7 +88,7 @@ function extractEChartsOption(code: string): string | null {
   if (jsonParse) {
     try {
       const value = JSON.parse(jsonParse[2])
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (isObject(value)) {
         return JSON.stringify(value)
       }
     } catch {
@@ -108,12 +109,12 @@ function extractOptionFromFrame(frame: HTMLIFrameElement | null): string | null 
       | undefined
     const el = win.document.getElementById('chart')
     const inst =
-      typeof echarts?.getInstanceByDom === 'function' ? echarts.getInstanceByDom(el) : undefined
+      isFunction(echarts?.getInstanceByDom) ? echarts.getInstanceByDom(el) : undefined
     const option =
       anyWin.option ??
       inst?.getOption?.() ??
       (anyWin.chart as { getOption?: () => unknown } | undefined)?.getOption?.()
-    if (option && typeof option === 'object' && !Array.isArray(option)) {
+    if (isObject(option)) {
       return JSON.stringify(option)
     }
   } catch {
@@ -535,7 +536,7 @@ export default function AIAssistantPage() {
   /** 加载已登记组件（用于「更新已登记组件」下拉） */
   const loadRegisteredWidgets = async () => {
     const r = await api.listWidgets({ pageSize: 50 })
-    if (r.code === 0 && Array.isArray(r.data?.list)) {
+    if (r.code === 0 && isArray(r.data?.list)) {
       setRegisteredWidgets(r.data.list)
       setUpdateTarget((cur) =>
         r.data.list.some((w) => w.type === cur) ? cur : '',

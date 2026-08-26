@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Filter, WidgetViewProps } from '../../data/types'
 import { subscribeLive, type LivePoint } from '../../data/live/liveClient'
 import { applyRowFilter, resolveTemplate } from './filterUtils'
+import { asArray } from '../../data/utils/typeGuards'
 
 /**
  * HtmlComponentWidget：把 AI 生成的 HTML 片段/文档放进沙箱 iframe。
@@ -91,7 +92,7 @@ export default function HtmlComponentWidget({ component, filter, onPick }: Widge
   }, [p.liveSourceId, p.liveIntervalMs])
 
   const rows = useMemo<Array<Record<string, unknown>>>(
-    () => (Array.isArray(p.data) ? p.data as unknown as Array<Record<string, unknown>> : []),
+    () => asArray<Record<string, unknown>>(p.data),
     [p.data]
   )
   const vars = useMemo<Record<string, unknown>>(

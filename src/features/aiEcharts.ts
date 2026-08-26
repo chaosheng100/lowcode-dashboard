@@ -1,3 +1,5 @@
+import { isObject } from '../data/utils/typeGuards'
+
 /** 从 AI 生成的 ECharts 代码中提取 option 对象 */
 export function extractEchartsOption(code: string): Record<string, unknown> | null {
   if (!code) return null
@@ -14,7 +16,7 @@ export function extractEchartsOption(code: string): Record<string, unknown> | nu
       // 只允许纯对象字面量，避免执行任意 AI 代码
       const fn = new Function(`return (${block})`) as () => unknown
       const value = fn()
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (isObject(value)) {
         return value as Record<string, unknown>
       }
     } catch {

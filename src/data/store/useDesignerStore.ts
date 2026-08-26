@@ -20,6 +20,7 @@ import {
   createIoTComponent,
   type IoTWidgetKind
 } from '../../features/iotWidgetCatalog'
+import { asArray, isArray, isObject } from '../utils/typeGuards'
 import { dtoToScene } from '../../twin/dtoAdapter'
 
 const clone = (o: unknown): unknown => JSON.parse(JSON.stringify(o))
@@ -95,7 +96,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
     try {
       const res = await import('../../mock/api').then((m) => m.api.listComponents())
       if (res.code === 0) {
-        set({ catalog: Array.isArray(res.data) ? res.data : [], catalogLoading: false })
+        set({ catalog: asArray(res.data), catalogLoading: false })
       } else {
         set({ catalogError: res.message || '组件目录加载失败', catalogLoading: false })
       }
@@ -113,7 +114,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       set({ widgetsLoading: true })
       try {
         const res = await apiMod.listWidgets({ pageSize: 50 })
-        if (res.code === 0 && Array.isArray(res.data?.list)) {
+        if (res.code === 0 && isArray(res.data?.list)) {
           set({ registeredWidgets: res.data.list })
         }
       } catch {
@@ -126,7 +127,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       set({ twinMetaLoading: true })
       try {
         const res = await apiMod.listTwinScenes({ pageSize: 100 })
-        if (res.code === 0 && Array.isArray(res.data?.list)) {
+        if (res.code === 0 && isArray(res.data?.list)) {
           const snapshots: Record<string, unknown> = {}
           for (const scene of res.data.list) {
             snapshots[scene.id] = scene
@@ -143,7 +144,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       set({ iotMetaLoading: true })
       try {
         const res = await apiMod.listIoTDevices({ pageSize: 100 })
-        if (res.code === 0 && Array.isArray(res.data?.list)) {
+        if (res.code === 0 && isArray(res.data?.list)) {
           set({ iotDevicesMeta: res.data.list })
         }
       } catch {
@@ -259,7 +260,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       style: stylePatch ? { ...managed.style, ...stylePatch } : managed.style
     }
     const sourceId = comp.props.catalogSourceId
-    const previousScenes = typeof route.state.twinScenes === 'object' && route.state.twinScenes
+    const previousScenes = isObject(route.state.twinScenes)
       ? route.state.twinScenes as Record<string, unknown>
       : {}
     set((st) => ({
@@ -311,7 +312,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => ({
       style: stylePatch ? { ...managed.style, ...stylePatch } : managed.style
     }
     const sourceId = comp.props.catalogSourceId
-    const previousBindings = Array.isArray(route.state.iotBindings)
+    const previousBindings = isArray(route.state.iotBindings)
       ? route.state.iotBindings as Array<Record<string, unknown>>
       : []
     const binding = {

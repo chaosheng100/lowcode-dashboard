@@ -6,6 +6,7 @@ import { getRouteCapability } from '../data/capabilities'
 import type { DataSourceDTO, DsKind, SqlVendor, ParseMode } from '../mock/types'
 import { Modal, Field, Input, Select, Tag, Textarea, PageHeader } from './common'
 import { querySqlViaProxy, proxyHealth } from '../data/live/liveClient'
+import { isArray } from '../data/utils/typeGuards'
 
 const KIND_LABEL: Record<DsKind, string> = {
   static: '静态数据', api: 'API 接口', sql: 'SQL 数据库', websocket: 'WebSocket',
@@ -210,7 +211,7 @@ export default function DataSourcePage() {
                   title: c,
                   key: c,
                   render: (_v: unknown, row: Record<string, unknown> | unknown[]) => {
-                    const cell = Array.isArray(row) ? row[j] : row[c]
+                    const cell = isArray(row) ? row[j] : row[c]
                     return <span className="muted">{String(cell ?? '')}</span>
                   }
                 }))}

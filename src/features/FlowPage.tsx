@@ -5,6 +5,7 @@ import { api } from '../mock'
 import { useApi } from './useApi'
 import type { AgentFlowDTO, AgentFlowNode, FlowRunResult } from '../mock/types'
 import { PageHeader } from './common'
+import { isString } from '../data/utils/typeGuards'
 
 const NODE_TYPES = ['echo', 'chat', 'generate', 'review', 'datasetMeta', 'componentSearch']
 const NODE_LABEL: Record<string, string> = {
@@ -78,7 +79,7 @@ export default function FlowPage() {
     const nodes = form.nodes.map((n) => {
       let args: Record<string, unknown> = {}
       try {
-        args = n.args && typeof n.args === 'string'
+        args = isString(n.args)
           ? JSON.parse(n.args as unknown as string)
           : (n.args ?? {})
       } catch {
@@ -193,7 +194,7 @@ export default function FlowPage() {
               <Input
                 style={{ width: 300 }}
                 placeholder='参数 JSON，如 {"lang":"ts","datasetId":"xxx"}'
-                value={typeof n.args === 'string' ? (n.args as unknown as string) : JSON.stringify(n.args ?? {})}
+                value={isString(n.args) ? n.args : JSON.stringify(n.args ?? {})}
                 onChange={(e) => patchNode(n.id, { args: e.target.value })}
               />
               <Button type="text" danger icon={<DeleteOutlined />} onClick={() => removeNode(n.id)} />

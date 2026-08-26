@@ -8,6 +8,7 @@ import { api } from '../../mock'
 import { useApi } from '../../features/useApi'
 import type { ComponentInstance, Filter, LinkageEvent, RouteConfig, WidgetProps } from '../../data/types'
 import type { DatasetDTO, GlobalVarDTO } from '../../mock/types'
+import { isString } from '../../data/utils/typeGuards'
 
 const ANALYTICS_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
@@ -32,14 +33,14 @@ function trackEvent(event: Record<string, unknown>) {
 function resolveVars(props: WidgetProps, vars: Record<string, string>): WidgetProps {
   if (!vars || Object.keys(vars).length === 0) return props
   const apply = (v: unknown): unknown => {
-    if (typeof v !== 'string') return v
+    if (!isString(v)) return v
     return v.replace(/\$\{G\.([A-Za-z0-9_]+)\}/g, (_, k) => (k in vars ? vars[k] : '${G.' + k + '}'))
   }
   const next: WidgetProps = { ...props }
   for (const key of Object.keys(props) as (keyof WidgetProps)[]) {
     // 仅替换字符串型属性（content/title/label/src 等）
     const val = props[key]
-    if (typeof val === 'string') (next as Record<string, unknown>)[key] = apply(val)
+    if (isString(val)) (next as Record<string, unknown>)[key] = apply(val)
   }
   return next
 }

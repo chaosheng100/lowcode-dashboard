@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Modal, Switch } from 'antd'
 import { mockFetch } from '../mock'
 import type { ApiResp } from '../mock'
+import { isArray, isObject } from '../data/utils/typeGuards'
 
 interface Endpoint {
   label: string
@@ -154,5 +155,5 @@ export default function MockDemo({ onClose }: { onClose: () => void }) {
 }
 
 function isPageResult(d: unknown): d is { list: unknown[]; total: number } {
-  return !!d && typeof d === 'object' && Array.isArray((d as any).list) && 'total' in (d as any)
+  return isObject(d) && isArray((d as any).list) && 'total' in (d as any)
 }

@@ -9,6 +9,7 @@ import { screenApi } from "../api/screenApi"
 import { screenToRoute } from "../api/screenAdapter"
 import { loadScreenRoute, patchScreenRoute, saveScreenRoute } from "../api/screenRoutes"
 import { Input, MetricRow, Stat } from "./common"
+import { asArray } from "../data/utils/typeGuards"
 
 type View =
   | { mode: "list" }
@@ -59,7 +60,7 @@ export default function CarouselPage() {
     }
     for (const route of dashboardList) {
       const carouselIds = refMap.get(route.id) ?? []
-      const current = Array.isArray(route.state.carouselIds) ? route.state.carouselIds : []
+      const current = asArray(route.state.carouselIds)
       if (JSON.stringify([...carouselIds].sort()) !== JSON.stringify([...current].sort())) {
         const currentRoute = await loadScreenRoute(route.id)
         if (!currentRoute) continue

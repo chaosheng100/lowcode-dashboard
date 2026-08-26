@@ -1,4 +1,5 @@
 import type { Link, LinkageEvent, LinkTarget } from '../../data/types'
+import { isString } from '../../data/utils/typeGuards'
 
 /**
  * 联动引擎（Linkage Engine）
@@ -45,7 +46,7 @@ function resolveParams(params: Record<string, unknown> | undefined, payload: unk
   const p = payload as Record<string, unknown>
   return Object.fromEntries(
     Object.entries(params).map(([k, v]) => {
-      if (typeof v === 'string' && v.startsWith('{{$event.')) {
+      if (isString(v) && v.startsWith('{{$event.')) {
         const key = v.slice(9, -2)
         return [k, p[key]]
       }

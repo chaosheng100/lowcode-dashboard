@@ -1,8 +1,10 @@
 import type { WidgetViewProps } from '../../data/types'
+import { asArray } from '../../data/utils/typeGuards'
 
 export default function LineChart({ component }: WidgetViewProps) {
   const { data = [], color = '#4f8cff', title } = component.props
-  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+
+  const rows = asArray<Record<string, unknown>>(data)
   const w = component.style.w
   const h = component.style.h
   const pad = 36

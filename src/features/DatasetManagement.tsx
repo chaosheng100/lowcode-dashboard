@@ -5,18 +5,19 @@ import { api } from '../mock'
 import type { DatasetDTO, DatasetField, DatasetRow, PageResult } from '../mock'
 import { useApi, useDebounced } from './useApi'
 import { Empty, Modal, Field, Select, Textarea , PageHeader } from './common'
+import { isArray, isBoolean, isNumber, isObject, isString } from '../data/utils/typeGuards'
 
 // ---------------- 字段语义工具（自动推断） ----------------
 
 function inferFieldType(v: unknown): DatasetField['fieldType'] {
-  if (typeof v === 'number') return 'number'
-  if (typeof v === 'boolean') return 'boolean'
-  if (typeof v === 'string' && !isNaN(Date.parse(v))) return 'date'
+  if (isNumber(v)) return 'number'
+  if (isBoolean(v)) return 'boolean'
+  if (isString(v) && !isNaN(Date.parse(v))) return 'date'
   return 'string'
 }
 
 function inferSemanticType(key: string, v: unknown): 'dimension' | 'metric' {
-  if (typeof v === 'number') return 'metric'
+  if (isNumber(v)) return 'metric'
   if (/^(is|has|flag)/i.test(key)) return 'dimension'
   if (/(date|time|year|month|day|region|area|name|type|category|status|channel|平台|区域|地区|月份|日期|名称|类别|渠道|状态)/i.test(key)) return 'dimension'
   return 'metric'
@@ -28,7 +29,7 @@ function parseRows(text: string): DatasetRow[] | null {
   if (!trimmed) return []
   try {
     const v = JSON.parse(trimmed)
-    return Array.isArray(v) ? (v as DatasetRow[]) : null
+    return isArray(v) ? (v as DatasetRow[]) : null
   } catch {
     return null
   }
@@ -58,33 +59,33 @@ function inferFields(rows: DatasetRow[]): DatasetField[] {
 /** 从数据集 config 中提取静态数据行 */
 function extractStaticRows(config: unknown): unknown[] {
   if (!config) return []
-  if (typeof config === 'string') {
+  if (isString(config)) {
     try {
       const c = JSON.parse(config)
-      return Array.isArray(c.data) ? c.data : Array.isArray(c.rows) ? c.rows : []
+      return isArray(c.data) ? c.data : isArray(c.rows) ? c.rows : []
     } catch {
       return []
     }
   }
   const c = config as Record<string, unknown>
-  return Array.isArray(c.data)
+  return isArray(c.data)
     ? (c.data as unknown[])
-    : Array.isArray(c.rows)
+    : isArray(c.rows)
       ? (c.rows as unknown[])
       : []
 }
 
 /** 将 config 统一解析为对象，供编辑回填与保存合并使用 */
 function parseConfig(config: unknown): Record<string, unknown> {
-  if (typeof config === 'string') {
+  if (isString(config)) {
     try {
       const c = JSON.parse(config)
-      return c && typeof c === 'object' ? (c as Record<string, unknown>) : {}
+      return isObject(c) ? c : {}
     } catch {
       return {}
     }
   }
-  return config && typeof config === 'object'
+  return isObject(config)
     ? (config as Record<string, unknown>)
     : {}
 }
@@ -152,7 +153,7 @@ export default function DatasetManagement() {
         const cfg = parseConfig(r.data.config)
         setEditor({ ...r.data, type: r.data.type ?? 'static', config: cfg })
         setStaticText(JSON.stringify(extractStaticRows(r.data.config), null, 2))
-        setSqlText(typeof cfg.sql === 'string' ? cfg.sql : '')
+        setSqlText(isString(cfg.sql) ? cfg.sql : '')
       } else {
         setStaticText('')
         setSqlText('')

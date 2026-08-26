@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { applyFilter } from './filterUtils'
 import { api } from '../../mock'
 import type { WidgetViewProps } from '../../data/types'
+import { asArray, isNumber } from '../../data/utils/typeGuards'
 
 // 指标卡：联动时只展示筛选维度对应的值，否则汇总全部。
 // 绑定物联设备（iotDeviceId + iotMetric）后轮询设备最新采集值，覆盖静态 data。
 export default function MetricWidget({ component, filter }: WidgetViewProps) {
   const { label, data, filterField, unit, iotDeviceId, iotMetric, liveIntervalMs, preview } = component.props
-  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const rows = asArray<Record<string, unknown>>(data)
   const list = applyFilter(rows, filter && filter.field === filterField ? filter : null)
   const total = list.reduce((s, d) => s + (Number(d.value) || 0), 0)
 
@@ -20,7 +21,7 @@ export default function MetricWidget({ component, filter }: WidgetViewProps) {
     // 预览态：使用静态 data 展示，不向后端发起实时请求
     if (preview) {
       const v = rows.find((d) => d.name === iotMetric)?.value
-      setIotValue(typeof v === 'number' ? v : total)
+      setIotValue(isNumber(v) ? v : total)
       setIotOnline(true)
       return
     }
@@ -29,7 +30,7 @@ export default function MetricWidget({ component, filter }: WidgetViewProps) {
       const r = await api.getIoTDevice(iotDeviceId)
       if (!alive) return
       const value = r.code === 0 && r.data ? r.data.metrics[iotMetric] : undefined
-      if (typeof value === 'number') { setIotValue(value); setIotOnline(true) }
+      if (isNumber(value)) { setIotValue(value); setIotOnline(true) }
       else setIotOnline(false)
     }
     pull()

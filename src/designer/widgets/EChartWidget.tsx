@@ -3,6 +3,7 @@ import type { EChartsCoreOption } from 'echarts'
 import ReactECharts from 'echarts-for-react'
 import type { WidgetViewProps, DataPoint } from '../../data/types'
 import { subscribeLive } from '../../data/live/liveClient'
+import { isArray, isNonEmptyString } from '../../data/utils/typeGuards'
 
 // ============================================================
 // EChartWidget：画布内嵌真实 ECharts 实例的组件族。
@@ -95,7 +96,7 @@ function buildOption(type: string, p: WidgetViewProps['component']['props'], dat
       // echartCustom：解析用户 option JSON，失败给出占位
       try {
         const base = JSON.parse(p.optionJson || '{}') as EChartsCoreOption
-        if (data.length && Array.isArray((base as any).series)) {
+        if (data.length && isArray((base as any).series)) {
           const series = (base as any).series.map((s: any) => {
             const type = s?.type
             if (type === 'pie' || type === 'funnel') {
@@ -106,13 +107,13 @@ function buildOption(type: string, p: WidgetViewProps['component']['props'], dat
             }
             return s
           })
-          const axisList = Array.isArray((base as any).xAxis) ? (base as any).xAxis : [(base as any).xAxis]
+          const axisList = isArray((base as any).xAxis) ? (base as any).xAxis : [(base as any).xAxis]
           const xAxis = axisList.map((axis: any) =>
             axis && axis.type === 'category'
               ? { ...axis, data: data.map((d) => d.name) }
               : axis
           )
-          return { ...base, series, xAxis: Array.isArray((base as any).xAxis) ? xAxis : xAxis[0] }
+          return { ...base, series, xAxis: isArray((base as any).xAxis) ? xAxis : xAxis[0] }
         }
         return base
       } catch {
@@ -154,7 +155,7 @@ export default function EChartWidget({ component, filter, onPick }: WidgetViewPr
   const onEvents = useMemo(
     () => ({
       click: (params: { name?: unknown }) => {
-        if (p.interactive && onPick && typeof params.name === 'string' && params.name) {
+        if (p.interactive && onPick && isNonEmptyString(params.name)) {
           onPick({ field: p.filterField || 'name', value: params.name })
         }
       },

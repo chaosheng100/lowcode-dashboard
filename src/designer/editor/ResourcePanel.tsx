@@ -4,6 +4,7 @@ import { useDesignerStore } from '../../data/store/useDesignerStore'
 import { api } from '../../mock'
 import type { DatasetDTO, AssetDTO, ThemeDTO } from '../../mock/types'
 import type { ComponentDataBinding, DataPoint, WidgetProps } from '../../data/types'
+import { asArray } from '../../data/utils/typeGuards'
 
 // 可绑定数据集的组件类型（基础"数据/图表"能力 → 画布数据）
 const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table']
@@ -75,8 +76,8 @@ export default function ResourcePanel() {
     setLoading(true)
     try {
       const r = await api.queryDataset(ds.id, { pageSize: 12 })
-      const rows = Array.isArray(r.data?.list) ? r.data.list : []
-      const keys = Array.isArray(r.data?.columns) && r.data.columns.length ? r.data.columns : tableKeys
+      const rows = asArray<Record<string, unknown>>(r.data?.list)
+      const keys = asArray<string>(r.data?.columns).length ? asArray<string>(r.data?.columns) : tableKeys
       const binding: ComponentDataBinding = { datasetId: ds.id, xField, yField, datasetName: ds.name }
       const nextProps: Partial<WidgetProps> = {
         title: ds.name,

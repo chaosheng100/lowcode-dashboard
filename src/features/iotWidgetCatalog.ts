@@ -6,6 +6,7 @@
 import type { ComponentInstance, RouteConfig } from '../data/types'
 import { mergeManagedComponents, type ComponentAssetDefinition } from '../data/registry/componentAssetRegistry'
 import type { IoTDeviceDTO, IoTDeviceStatus } from '../mock/types'
+import { asArray } from '../data/utils/typeGuards'
 
 export type IoTWidgetKind = 'summary' | 'metrics' | 'alarm'
 
@@ -174,9 +175,7 @@ export function syncIoTDeviceToDashboard(
       : c
   })
 
-  const previousBindings = Array.isArray(route.state.iotBindings)
-    ? (route.state.iotBindings as IoTBindingSnapshot[])
-    : []
+  const previousBindings = asArray<IoTBindingSnapshot>(route.state.iotBindings)
   const nextBindings = previousBindings.some((b) => b.deviceId === device.id)
     ? previousBindings.map((b) =>
         b.deviceId === device.id ? deviceSnapshot(device, syncedAt) : b
@@ -198,9 +197,7 @@ export function unlinkIoTFromDashboard(
   route: RouteConfig,
   deviceId: string
 ): Partial<RouteConfig> {
-  const previousBindings = Array.isArray(route.state.iotBindings)
-    ? (route.state.iotBindings as IoTBindingSnapshot[])
-    : []
+  const previousBindings = asArray<IoTBindingSnapshot>(route.state.iotBindings)
   return {
     components: route.components.filter(
       (c) => c.props.iotDeviceId !== deviceId

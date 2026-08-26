@@ -2,17 +2,18 @@ import type { PropField } from './propSchemas'
 import type { WidgetProps } from '../../data/types'
 import type { ReactNode } from 'react'
 import { ColorPicker, Form, Input, InputNumber, Select, Switch } from 'antd'
+import { asArray, isArray } from '../../data/utils/typeGuards'
 
 /** 将列配置对象数组转为可编辑 JSON；兼容字符串数组 */
 function columnsToJson(v: unknown): string {
-  if (!Array.isArray(v)) return ''
+  if (!isArray(v)) return ''
   return JSON.stringify(v, null, 2)
 }
 
 /** 解析列配置 JSON；允许直接写 [{ key, title }] 或 ['区域', '销量'] */
 function parseColumns(raw: string): Array<string | { key?: string; title?: string }> {
   const parsed = JSON.parse(raw) as unknown
-  if (!Array.isArray(parsed)) throw new Error('列配置必须是数组')
+  if (!isArray<string | { key?: string; title?: string }>(parsed)) throw new Error('列配置必须是数组')
   return parsed
 }
 
@@ -106,7 +107,7 @@ export default function SchemaForm({ schema, value, onChange, liveSources, twinS
               <Select
                 mode="multiple"
                 style={{ width: '100%' }}
-                value={Array.isArray(v) ? v as string[] : []}
+                value={asArray<string>(v)}
                 options={options}
                 placeholder="选择要隐藏的列"
                 onChange={(vals) => onChange({ [f.key]: vals } as Partial<WidgetProps>)}

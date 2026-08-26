@@ -53,6 +53,7 @@ import type {
   ScreenItem,
 } from './screenApi'
 import './ScreenListPage.css'
+import { isArray, isNonEmptyString } from '../data/utils/typeGuards'
 
 function fmt(iso: string): string {
   const d = new Date(iso)
@@ -474,8 +475,8 @@ export default function ScreenListPage() {
           <div className="screen-grid">
             {paged.map((s) => {
               const cfg = (s.config as unknown as Record<string, unknown>) || {}
-              const thumb = typeof cfg.thumbnail === 'string' && cfg.thumbnail ? cfg.thumbnail : undefined
-              const compCount = Array.isArray(cfg.components) ? cfg.components.length : 0
+              const thumb = isNonEmptyString(cfg.thumbnail) ? cfg.thumbnail : undefined
+              const compCount = isArray(cfg.components) ? cfg.components.length : 0
               return (
                 <Card
                   key={s.id}

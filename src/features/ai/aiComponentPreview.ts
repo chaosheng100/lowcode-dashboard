@@ -2,6 +2,7 @@
 // AI 组件预览共享工具：HTML / React / ECharts 产物的安全预览
 // AI 助手页与组件库页（AI 调整）共用。
 // ============================================================
+import { isFunction, isObject } from '../../data/utils/typeGuards'
 
 /** 去掉 markdown 围栏，取干净代码 */
 export function stripCodeFence(code: string): string {
@@ -76,7 +77,7 @@ export function extractEchartsOption(code: string): string | null {
   const tryObject = (raw: string): string | null => {
     try {
       const value = new Function(`"use strict"; return (${raw})`)()
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (isObject(value)) {
         return JSON.stringify(value)
       }
     } catch {
@@ -133,7 +134,7 @@ export function extractEchartsOption(code: string): string | null {
   if (jsonParse) {
     try {
       const value = JSON.parse(jsonParse[2])
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (isObject(value)) {
         return JSON.stringify(value)
       }
     } catch {
@@ -154,12 +155,12 @@ export function extractOptionFromFrame(frame: HTMLIFrameElement | null): string 
       | undefined
     const el = win.document.getElementById('chart')
     const inst =
-      typeof echarts?.getInstanceByDom === 'function' ? echarts.getInstanceByDom(el) : undefined
+      isFunction(echarts?.getInstanceByDom) ? echarts.getInstanceByDom(el) : undefined
     const option =
       anyWin.option ??
       inst?.getOption?.() ??
       (anyWin.chart as { getOption?: () => unknown } | undefined)?.getOption?.()
-    if (option && typeof option === 'object' && !Array.isArray(option)) {
+    if (isObject(option)) {
       return JSON.stringify(option)
     }
   } catch {

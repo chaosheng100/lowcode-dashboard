@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useAuthStore } from './store'
+import { isArray } from '../data/utils/typeGuards'
 
 interface Props {
   /** 需要的权限码（resource:action），支持通配符 * 与 super_admin */
@@ -20,12 +21,12 @@ export default function Can({ perm, role, fallback = null, children }: Props) {
   const hasRole = useAuthStore((s) => s.hasRole)
 
   if (perm) {
-    const list = Array.isArray(perm) ? perm : [perm]
+    const list = isArray(perm) ? perm : [perm]
     const ok = list.some((p) => hasPerm(p))
     if (!ok) return <>{fallback}</>
   }
   if (role) {
-    const list = Array.isArray(role) ? role : [role]
+    const list = isArray(role) ? role : [role]
     const ok = list.some((r) => hasRole(r))
     if (!ok) return <>{fallback}</>
   }

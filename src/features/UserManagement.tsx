@@ -6,6 +6,7 @@ import type { PageResult, RbacRoleDTO, RbacUserDTO } from '../mock/types'
 import { useApi, useDebounced } from './useApi'
 import { useAuthStore } from '../auth/store'
 import { Modal, Field, PageHeader, Tag } from './common'
+import { asArray } from '../data/utils/typeGuards'
 
 const STATUS_TEXT: Record<string, string> = { active: '启用', disabled: '停用' }
 
@@ -205,7 +206,7 @@ export default function UserManagement() {
         <Drawer open width={560} title={`用户详情 · ${String(detail.name || '')}`} onClose={() => setDetail(null)}>
           <div className="muted2" style={{ marginBottom: 12 }}>{String(detail.email || '')} · {detail.status === 'active' ? '启用' : '停用'}</div>
           <div style={{ marginBottom: 8 }}><b>有效权限</b></div>
-          <div className="muted2" style={{ marginBottom: 14 }}>{(Array.isArray(detail.roles) ? detail.roles : []).map((r: any) => r.code).join('、') || '无角色'}</div>
+          <div className="muted2" style={{ marginBottom: 14 }}>{asArray(detail.roles).map((r: any) => r.code).join('、') || '无角色'}</div>
           <div style={{ marginBottom: 8 }}><b>会话</b></div>
           <div className="muted2" style={{ marginBottom: 14 }}>{(detail.sessions?.length ?? 0)} 个会话，最近活跃 {(detail.sessions?.[0]?.lastSeenAt ? new Date(detail.sessions[0].lastSeenAt).toLocaleString() : '—')}</div>
           <div style={{ marginBottom: 8 }}><b>最近审计</b></div>

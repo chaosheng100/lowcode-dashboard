@@ -12,6 +12,7 @@
 // ============================================================
 import type { ComponentInstance, PageConfig, RouteConfig } from '../data/types'
 import type { ScreenConfig, ScreenItem } from './screenApi'
+import { asArray, isObject } from '../data/utils/typeGuards'
 
 const PAGE_DEFAULTS: PageConfig = {
   width: 1920,
@@ -28,17 +29,17 @@ const PAGE_DEFAULTS: PageConfig = {
 const STYLE_DEFAULTS = { x: 60, y: 60, w: 400, h: 240 }
 
 function normalizePage(value: unknown): PageConfig {
-  const raw = (value && typeof value === 'object' ? value : {}) as Partial<PageConfig>
+  const raw = isObject(value) ? value as Partial<PageConfig> : {}
   const width = Number.isFinite(raw.width) ? raw.width! : PAGE_DEFAULTS.width
   const height = Number.isFinite(raw.height) ? raw.height! : PAGE_DEFAULTS.height
   return { ...PAGE_DEFAULTS, ...raw, width, height }
 }
 
 function normalizeComponents(value: unknown): ComponentInstance[] {
-  const list = Array.isArray(value) ? value : []
+  const list = asArray(value)
   return list.map((entry, idx) => {
-    const item = (entry && typeof entry === 'object' ? entry : {}) as Partial<ComponentInstance>
-    const style = (item.style && typeof item.style === 'object' ? item.style : {}) as Partial<ComponentInstance['style']>
+    const item = isObject(entry) ? entry as Partial<ComponentInstance> : {}
+    const style = isObject(item.style) ? item.style as Partial<ComponentInstance['style']> : {}
     return {
       ...item,
       id: item.id || `comp-${idx}`,

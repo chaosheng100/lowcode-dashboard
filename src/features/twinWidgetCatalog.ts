@@ -2,6 +2,7 @@ import type { ComponentInstance, RouteConfig } from '../data/types'
 import { mergeManagedComponents, type ComponentAssetDefinition } from '../data/registry/componentAssetRegistry'
 import type { TwinGeometryType, TwinSceneDTO, TwinSceneStatus } from '../mock/types'
 import { dtoToScene } from '../twin/dtoAdapter'
+import { isObject, isString } from '../data/utils/typeGuards'
 
 export type TwinWidgetKind = 'summary' | 'models' | 'geometry' | 'scene'
 
@@ -144,11 +145,11 @@ export function syncTwinWidgetsToDashboard(
         return { ...component, props: { ...component.props, catalogSourceId: sourceId } }
       }
       // 清理该场景历史投放留下的旧组件（摘要/模型数/分布），本次投放结果只保留 kinds 中的组件。
-      if (typeof sourceId === 'string' && sourceId.startsWith(`twin:${scene.id}:`)) return null
+      if (isString(sourceId) && sourceId.startsWith(`twin:${scene.id}:`)) return null
       return component
     })
     .filter((c): c is ComponentInstance => c !== null)
-  const previousScenes = typeof route.state.twinScenes === 'object' && route.state.twinScenes
+  const previousScenes = isObject(route.state.twinScenes)
     ? route.state.twinScenes as Record<string, unknown>
     : {}
   return {
@@ -163,7 +164,7 @@ export function syncTwinWidgetsToDashboard(
 }
 
 export function unlinkTwinFromDashboard(route: RouteConfig, sceneId: string): Partial<RouteConfig> {
-  const previousScenes = typeof route.state.twinScenes === 'object' && route.state.twinScenes
+  const previousScenes = isObject(route.state.twinScenes)
     ? route.state.twinScenes as Record<string, unknown>
     : {}
   const twinScenes = { ...previousScenes }

@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { TilesRenderer } from '3d-tiles-renderer'
+import { isArray } from '../data/utils/typeGuards'
 import type {
   TwinScene,
   TwinEntity,
@@ -54,7 +55,7 @@ function cloneGltfScene(src: THREE.Object3D): THREE.Group {
   group.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!mesh.isMesh) return
-    if (Array.isArray(mesh.material)) {
+    if (isArray(mesh.material)) {
       mesh.material = mesh.material.map((m) => m.clone())
     } else {
       mesh.material = mesh.material.clone()
@@ -68,7 +69,7 @@ function collectMaterials(obj: THREE.Object3D): THREE.Material[] {
   obj.traverse((o) => {
     const mesh = o as THREE.Mesh
     if (!mesh.isMesh) return
-    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    const list = isArray(mesh.material) ? mesh.material : [mesh.material]
     for (const m of list) if (!mats.includes(m)) mats.push(m)
   })
   return mats
@@ -772,7 +773,7 @@ export class TwinRenderer {
     this.dirLight.intensity = l === 'day' ? 2.0 : 1.1
     ;(this.ground.material as THREE.MeshStandardMaterial).color.set(l === 'day' ? 0x7f8a78 : 0x16202f)
     const gridMats = this.grid.material as THREE.Material | THREE.Material[]
-    if (Array.isArray(gridMats)) {
+    if (isArray(gridMats)) {
       if (gridMats[0]) (gridMats[0] as THREE.LineBasicMaterial).color.set(l === 'day' ? 0x8a9580 : 0x2a3850)
       if (gridMats[1]) (gridMats[1] as THREE.LineBasicMaterial).color.set(l === 'day' ? 0x6f7a6c : 0x1a2438)
     }
@@ -904,7 +905,7 @@ export class TwinRenderer {
           const mesh = o as THREE.Mesh
           if (!mesh.isMesh) return
           mesh.geometry?.dispose()
-          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+          const mats = isArray(mesh.material) ? mesh.material : [mesh.material]
           mats.forEach((m) => m.dispose())
         })
       }).catch(() => undefined)

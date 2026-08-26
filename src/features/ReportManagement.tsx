@@ -11,6 +11,7 @@ import ReportDesignPage from "./ReportDesignPage"
 import { openPreviewWindow } from "../designer/window"
 import { syncReportToDashboard, unlinkReportFromDashboard } from "./reportWidgetCatalog"
 import { Field, MetricCard, MetricRow, Modal } from "./common"
+import { asArray } from "../data/utils/typeGuards"
 
 // 后端通用目录服务返回的记录可能缺字段（例如 r-1 测试数据缺 delivery/format/name），
 // 这里做防御性归一化，避免列表/编辑/预览渲染时因 undefined 崩溃。
@@ -20,10 +21,10 @@ function normalizeReport(r: ReportDTO): ReportDTO {
     name: r.name ?? "未命名报表",
     sourceId: r.sourceId ?? "",
     sourceName: r.sourceName ?? "",
-    format: Array.isArray(r.format) ? r.format : ["xlsx"],
+    format: asArray(r.format).length ? asArray(r.format) : ["xlsx"],
     schedule: r.schedule ?? "手动",
     status: r.status ?? "paused",
-    delivery: Array.isArray(r.delivery) ? r.delivery : [],
+    delivery: asArray(r.delivery),
     lastRunAt: r.lastRunAt ?? "",
     lastRunStatus: r.lastRunStatus ?? "never",
     dashboardId: r.dashboardId ?? "",

@@ -3,6 +3,7 @@ import { createElement, type CSSProperties, type ReactNode } from 'react'
 import type { WidgetViewProps } from '../../data/types'
 import { subscribeLive, type LivePoint } from '../../data/live/liveClient'
 import { applyRowFilter, resolveTemplate } from './filterUtils'
+import { asArray, isArray, isObject } from '../../data/utils/typeGuards'
 
 /**
  * ReactComponentWidget：AI 生成的 TSX 组件经过白名单安全转换后渲染。
@@ -164,7 +165,7 @@ function evalPath(expr: string, vars: Record<string, unknown>): unknown {
     if (index) {
       const raw = index[0].slice(1, -1).trim()
       const key = raw.startsWith("'") || raw.startsWith('"') ? raw.slice(1, -1) : Number(raw)
-      value = Array.isArray(value) || typeof value === 'object'
+      value = isArray(value) || isObject(value)
         ? (value as Record<string, unknown>)[key as unknown as string]
         : undefined
       rest = rest.slice(index[0].length)
@@ -197,7 +198,7 @@ function readTextWithExpr(source: string, start: number, vars: Record<string, un
 function evalStyle(expr: string): CSSProperties | undefined {
   try {
     const value = new Function(`"use strict"; return (${expr})`)()
-    return value && typeof value === 'object' && !Array.isArray(value)
+    return isObject(value)
       ? (value as CSSProperties)
       : undefined
   } catch {
@@ -348,7 +349,7 @@ export default function ReactComponentWidget({ component, filter, onPick }: Widg
     () => ({
       data: p.data ?? [],
       rows: applyRowFilter(
-        (Array.isArray(p.data) ? p.data : []) as unknown as Array<Record<string, unknown>>,
+        asArray<Record<string, unknown>>(p.data),
         filter ?? null
       ),
       filter: (filter ?? null) as Record<string, unknown> | null,

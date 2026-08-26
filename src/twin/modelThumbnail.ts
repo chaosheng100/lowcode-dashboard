@@ -1,13 +1,14 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { isArray } from '../data/utils/typeGuards'
 
 function disposeObject(root: THREE.Object3D): void {
   root.traverse((obj) => {
     const mesh = obj as THREE.Mesh
     if (mesh.geometry) mesh.geometry.dispose()
     const mat = mesh.material
-    if (Array.isArray(mat)) mat.forEach((m) => m.dispose())
+    if (isArray(mat)) mat.forEach((m) => m.dispose())
     else if (mat) mat.dispose()
   })
 }

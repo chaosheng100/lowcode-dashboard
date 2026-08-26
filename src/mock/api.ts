@@ -8,6 +8,7 @@ import { forceLogin } from '../auth/session'
 import { apiClient } from '../api/client'
 import type { ApiResp } from './types'
 import { createParser } from 'eventsource-parser'
+import { isNumber, isObject, isString } from '../data/utils/typeGuards'
 import type {
   PageQuery,
   PageResult,
@@ -135,7 +136,7 @@ async function postSSE(path: string, body: unknown, cb?: SseCallbacks): Promise<
         try {
           const p = JSON.parse(json)
           if (p.type === 'delta') {
-            if (cb?.onDelta && typeof p.text === 'string') cb.onDelta(p.text)
+            if (cb?.onDelta && isString(p.text)) cb.onDelta(p.text)
           } else if (p.type === 'done') donePayload = p
           else if (p.type === 'error') {
             errorMsg = p.message
@@ -506,7 +507,7 @@ export const api = {
       })
       .then((res) => {
         const data = res.data
-        if (data && typeof data === 'object' && 'code' in data) {
+        if (isObject(data) && 'code' in data) {
           const json = data as unknown as ApiResp<TwinModelDTO>
           if (json.code === 401 || json.code === 403) forceLogin()
           return json
@@ -517,7 +518,7 @@ export const api = {
         const status = e.response?.status
         const json = e.response?.data
         if (status === 401 || status === 403 || json?.code === 401 || json?.code === 403) forceLogin()
-        if (json && typeof json.code === 'number') return json
+        if (json && isNumber(json.code)) return json
         return {
           code: status ?? -1,
           message: status ? '上传失败' : '网络错误，上传失败',

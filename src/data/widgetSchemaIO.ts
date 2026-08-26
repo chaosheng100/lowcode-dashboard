@@ -4,6 +4,7 @@
 // 导入：解析并校验 JSON schema → 应用到指定已注册组件（保存即记版）。
 // ============================================================
 import type { WidgetDefDTO } from '../mock/types'
+import { isNonEmptyString, isObject } from './utils/typeGuards'
 
 export interface WidgetSchemaFile {
   /** 导出格式版本 */
@@ -50,20 +51,20 @@ export function parseWidgetSchemaFile(raw: string): { file?: WidgetSchemaFile; e
   } catch {
     return { error: 'JSON 解析失败，请检查文件内容' }
   }
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+  if (!isObject(obj)) {
     return { error: '文件内容必须是 JSON 对象' }
   }
   const f = obj as Partial<WidgetSchemaFile>
   if (f.schemaVersion !== 1) {
     return { error: '不支持的 schema 版本，仅支持 schemaVersion: 1' }
   }
-  if (!f.type || typeof f.type !== 'string') {
+  if (!isNonEmptyString(f.type)) {
     return { error: '缺少组件类型（type）字段' }
   }
-  if (!f.name || typeof f.name !== 'string') {
+  if (!isNonEmptyString(f.name)) {
     return { error: '缺少组件名称（name）字段' }
   }
-  if (!f.category || typeof f.category !== 'string') {
+  if (!isNonEmptyString(f.category)) {
     return { error: '缺少组件分类（category）字段' }
   }
   if (!f.sourceCode && !f.optionJson) {

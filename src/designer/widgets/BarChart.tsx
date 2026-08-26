@@ -1,5 +1,6 @@
 import { isActive } from './filterUtils'
 import type { WidgetViewProps } from '../../data/types'
+import { asArray } from '../../data/utils/typeGuards'
 
 export default function BarChart({ component, filter, onPick }: WidgetViewProps) {
   const { data = [], color = '#22d3ee', title, filterField, interactive } = component.props
@@ -9,7 +10,7 @@ export default function BarChart({ component, filter, onPick }: WidgetViewProps)
   const titleH = 24
   const chartW = w - pad * 2
   const chartH = Math.max(0, h - pad * 2 - titleH)
-  const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
+  const rows = asArray<Record<string, unknown>>(data)
   const max = Math.max(1, ...rows.map((d) => Number(d.value) || 0))
   const slot = chartW / Math.max(data.length, 1)
   const barW = Math.min(slot * 0.6, 60)

@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { isActive } from './filterUtils'
 import type { WidgetViewProps } from '../../data/types'
+import { asArray, isArray, isNumber, isObject, isString } from '../../data/utils/typeGuards'
 
 type ColumnConfig = string | { key?: string; title?: string; label?: string; name?: string; dataSetFieldKey?: string }
 
 // 表头/列可能是字符串数组，也可能是 { name, key } 对象数组（如 AI 生成的 schema），统一取可读文本
 function cellText(c: unknown): string {
-  if (typeof c === 'string') return c
-  if (c && typeof c === 'object') {
+  if (isString(c)) return c
+  if (isObject(c)) {
     const o = c as Record<string, unknown>
     return String(o.name ?? o.label ?? o.key ?? o.title ?? '')
   }
@@ -16,12 +17,12 @@ function cellText(c: unknown): string {
 
 export default function TableWidget({ component, filter, onPick, fieldLabelMap, preview }: WidgetViewProps) {
   const { title, columns, data, filterField, interactive, hiddenColumns, scroll, scrollSpeed, visibleRows, pauseOnHover } = component.props
-  const rows: Array<Record<string, unknown>> = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
-  const rawCols: ColumnConfig[] = Array.isArray(columns) && columns.length ? columns : ['名称', '数值']
+  const rows = asArray<Record<string, unknown>>(data)
+  const rawCols: ColumnConfig[] = isArray(columns) && columns.length ? columns : ['名称', '数值']
   const hiddenSet = new Set(hiddenColumns ?? [])
   // 全部列都被隐藏时保留默认列，避免出现空表头
   const visibleCols: ColumnConfig[] = rawCols.filter((col) => {
-    if (typeof col === 'string') return !hiddenSet.has(col)
+    if (isString(col)) return !hiddenSet.has(col)
     return !hiddenSet.has(String(col.key ?? col.dataSetFieldKey ?? ''))
   })
   const fallbackCols: ColumnConfig[] = visibleCols.length ? visibleCols : ['名称', '数值']
@@ -34,10 +35,10 @@ export default function TableWidget({ component, filter, onPick, fieldLabelMap, 
   const [bodyHeight, setBodyHeight] = useState<number | undefined>()
 
   const columnKey = (col: ColumnConfig): string =>
-    typeof col === 'string' ? col : String(col.key ?? col.dataSetFieldKey ?? '')
+    isString(col) ? col : String(col.key ?? col.dataSetFieldKey ?? '')
 
   const headerText = (col: ColumnConfig) => {
-    if (typeof col === 'string') return col
+    if (isString(col)) return col
     if (col.dataSetFieldKey && fieldLabelMap?.[col.dataSetFieldKey]) {
       return fieldLabelMap[col.dataSetFieldKey]
     }
@@ -47,7 +48,7 @@ export default function TableWidget({ component, filter, onPick, fieldLabelMap, 
   const renderCell = (row: Record<string, unknown>, col: ColumnConfig, index: number) => {
     const key = columnKey(col)
     const value = key ? row[key] : index === 0 ? row.name : row.value
-    if (typeof value === 'number') return value.toLocaleString()
+    if (isNumber(value)) return value.toLocaleString()
     return value == null ? '' : String(value)
   }
 

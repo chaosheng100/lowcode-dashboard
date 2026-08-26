@@ -6,6 +6,7 @@
 // ============================================================
 import { create } from 'zustand'
 import type { AIDesignSchema, AIDesignIntent, AIDesignReview, AIDesignData } from '../../data/types'
+import { isObject } from '../../data/utils/typeGuards'
 
 /** 单个生成版本节点 */
 export interface GenVersion {
@@ -47,8 +48,8 @@ function loadHistory(): Record<string, GenVersion[]> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return {}
-    const obj = JSON.parse(raw)
-    return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : {}
+    const obj = JSON.parse(raw) as unknown
+    return isObject(obj) ? (obj as Record<string, GenVersion[]>) : {}
   } catch {
     return {}
   }
