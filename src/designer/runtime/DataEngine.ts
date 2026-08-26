@@ -35,6 +35,80 @@ export interface DataSourceBinding {
   yField?: string
 }
 
+export interface TableDatasetColumn {
+  key: string
+  title: string
+  dataSetFieldKey: string
+}
+
+export interface TableDataset {
+  columns: TableDatasetColumn[]
+  rows: Array<Record<string, unknown>>
+}
+
+const datasetFieldLabels = new Map<string, Record<string, string>>()
+
+async function loadDatasetFieldLabels(id: string): Promise<Record<string, string>> {
+  const cached = datasetFieldLabels.get(id)
+  if (cached) return cached
+  try {
+    const r = await api.getDataset(id)
+    const labels: Record<string, string> = {}
+    for (const field of r.data?.fields ?? []) {
+      if (field.fieldKey) labels[field.fieldKey] = field.label || field.fieldKey
+    }
+    datasetFieldLabels.set(id, labels)
+    return labels
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * 解析数据集 → 标准 table 契约。AI HTML 与 table 组件共用这套结构，
+ * 避免任意业务字段被压缩成 {name,value} 后丢失。
+ */
+export async function resolveTableDataset(
+  id: string,
+  options?: { fieldLabels?: Record<string, string> }
+): Promise<TableDataset> {
+  if (!id) return { columns: [], rows: [] }
+  if (staticDatasets[id]) {
+    const rows = staticDatasets[id].map((item) => ({ ...item })) as Array<Record<string, unknown>>
+    return {
+      columns: [
+        { key: 'name', title: '名称', dataSetFieldKey: 'name' },
+        { key: 'value', title: '数值', dataSetFieldKey: 'value' },
+      ],
+      rows,
+    }
+  }
+
+  try {
+    const [fieldLabels, r] = await Promise.all([
+      loadDatasetFieldLabels(id),
+      api.queryDataset(id, { pageSize: 50 }),
+    ])
+    const labels = { ...fieldLabels, ...options?.fieldLabels }
+    if (r.code !== 0 || !r.data) return { columns: [], rows: [] }
+    const rows = (r.data.list ?? []) as Array<Record<string, unknown>>
+    const queryColumns = Array.isArray(r.data.columns) ? r.data.columns : []
+    const keys = queryColumns.length
+      ? queryColumns
+      : Object.keys(rows[0] ?? {})
+    return {
+      columns: keys.map((key) => ({
+        key,
+        title: labels[key] || key,
+        dataSetFieldKey: key,
+      })),
+      rows,
+    }
+  } catch {
+    return { columns: [], rows: [] }
+  }
+}
+
 export async function resolveDataSource(
   id: string,
   binding?: DataSourceBinding | null

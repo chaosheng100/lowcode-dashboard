@@ -1,3 +1,4 @@
+import { datasetAggOptions, datasetTypes, extractStaticRows, inferFields, parseConfig, parseRows , datasetTypeOptions} from './datasetUtils'
 import { useState } from 'react'
 import { Alert, App, Button, Input, Table, type TableProps } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
@@ -5,104 +6,7 @@ import { api } from '../mock'
 import type { DatasetDTO, DatasetField, DatasetRow, PageResult } from '../mock'
 import { useApi, useDebounced } from './useApi'
 import { Empty, Modal, Field, Select, Textarea , PageHeader } from './common'
-import { isArray, isBoolean, isNumber, isObject, isString } from '../data/utils/typeGuards'
-
-// ---------------- 字段语义工具（自动推断） ----------------
-
-function inferFieldType(v: unknown): DatasetField['fieldType'] {
-  if (isNumber(v)) return 'number'
-  if (isBoolean(v)) return 'boolean'
-  if (isString(v) && !isNaN(Date.parse(v))) return 'date'
-  return 'string'
-}
-
-function inferSemanticType(key: string, v: unknown): 'dimension' | 'metric' {
-  if (isNumber(v)) return 'metric'
-  if (/^(is|has|flag)/i.test(key)) return 'dimension'
-  if (/(date|time|year|month|day|region|area|name|type|category|status|channel|平台|区域|地区|月份|日期|名称|类别|渠道|状态)/i.test(key)) return 'dimension'
-  return 'metric'
-}
-
-/** 解析静态数据（JSON 数组） */
-function parseRows(text: string): DatasetRow[] | null {
-  const trimmed = text.trim()
-  if (!trimmed) return []
-  try {
-    const v = JSON.parse(trimmed)
-    return isArray(v) ? (v as DatasetRow[]) : null
-  } catch {
-    return null
-  }
-}
-
-/** 从样例行自动推断字段语义元信息 */
-function inferFields(rows: DatasetRow[]): DatasetField[] {
-  if (!rows.length) return []
-  const keys = Object.keys(rows[0])
-  return keys.map((k) => {
-    const vals = rows.map((r) => r[k]).filter((v) => v != null)
-    const first = vals[0]
-    const fieldType = inferFieldType(first)
-    const semanticType = inferSemanticType(k, first)
-    return {
-      fieldKey: k,
-      label: k,
-      fieldType,
-      semanticType,
-      aggregation: semanticType === 'metric' ? 'sum' : 'none',
-      sampleValues: vals.slice(0, 3),
-      sortOrder: 0,
-    }
-  })
-}
-
-/** 从数据集 config 中提取静态数据行 */
-function extractStaticRows(config: unknown): unknown[] {
-  if (!config) return []
-  if (isString(config)) {
-    try {
-      const c = JSON.parse(config)
-      return isArray(c.data) ? c.data : isArray(c.rows) ? c.rows : []
-    } catch {
-      return []
-    }
-  }
-  const c = config as Record<string, unknown>
-  return isArray(c.data)
-    ? (c.data as unknown[])
-    : isArray(c.rows)
-      ? (c.rows as unknown[])
-      : []
-}
-
-/** 将 config 统一解析为对象，供编辑回填与保存合并使用 */
-function parseConfig(config: unknown): Record<string, unknown> {
-  if (isString(config)) {
-    try {
-      const c = JSON.parse(config)
-      return isObject(c) ? c : {}
-    } catch {
-      return {}
-    }
-  }
-  return isObject(config)
-    ? (config as Record<string, unknown>)
-    : {}
-}
-
-const AGG_OPTIONS = ['sum', 'avg', 'count', 'max', 'min', 'none']
-const TYPE_OPTIONS: Array<{ value: DatasetField['fieldType']; label: string }> = [
-  { value: 'string', label: '文本' },
-  { value: 'number', label: '数值' },
-  { value: 'date', label: '日期' },
-  { value: 'boolean', label: '布尔' },
-]
-const DATASET_TYPES: Array<{ value: DatasetDTO['type']; label: string }> = [
-  { value: 'static', label: '静态数据' },
-  { value: 'sql', label: 'SQL 查询' },
-  { value: 'api', label: 'API 接口' },
-  { value: 'csv', label: 'CSV 文件' },
-]
+import { isString } from '../data/utils/typeGuards'
 
 export default function DatasetManagement() {
   const { message } = App.useApp()
@@ -372,7 +276,7 @@ export default function DatasetManagement() {
       title: '聚合', dataIndex: 'aggregation', key: 'aggregation', width: 90,
       render: (_, f) => (
         <Select value={f.aggregation ?? 'none'} onChange={(e) => patchField(f.fieldKey, { aggregation: e.target.value })}>
-          {AGG_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+          {datasetAggOptions.map((a) => <option key={a} value={a}>{a}</option>)}
         </Select>
       ),
     },
@@ -380,7 +284,7 @@ export default function DatasetManagement() {
       title: '类型', dataIndex: 'fieldType', key: 'fieldType', width: 80,
       render: (_, f) => (
         <Select value={f.fieldType} onChange={(e) => patchField(f.fieldKey, { fieldType: e.target.value as DatasetField['fieldType'] })}>
-          {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          {datasetTypeOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </Select>
       ),
     },
@@ -466,7 +370,7 @@ export default function DatasetManagement() {
           <Field label="描述"><Input value={editor.description ?? ''} onChange={(e) => setEditor({ ...editor, description: e.target.value })} /></Field>
           <Field label="类型">
             <Select value={editor.type ?? 'static'} onChange={(e) => setEditor({ ...editor, type: e.target.value as DatasetDTO['type'] })}>
-              {DATASET_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {datasetTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </Select>
           </Field>
           <Field label="数据源">

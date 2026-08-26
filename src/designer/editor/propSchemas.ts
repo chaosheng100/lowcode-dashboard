@@ -187,6 +187,7 @@ export const dataSchemas: Partial<Record<WidgetType, PropField[]>> = {
   ],
   htmlComponent: [
     { key: 'sourceCode', label: 'HTML 源码', type: 'textarea' },
+    { key: 'columns', label: '列配置 (JSON: [{ "key": "region", "title": "区域" }])', type: 'textarea' },
     {
       key: 'sandboxMode', label: '运行模式', type: 'select',
       options: [

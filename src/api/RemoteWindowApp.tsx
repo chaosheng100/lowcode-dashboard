@@ -15,7 +15,9 @@ import { useDesignerStore } from '../data/store/useDesignerStore'
 import Editor from '../designer/editor/Editor'
 import Renderer from '../designer/runtime/Renderer'
 import { captureThumbnail } from '../data/utils/thumb'
-import { resolveDataSource } from '../designer/runtime/DataEngine'
+import { resolveDataSource, resolveTableDataset } from '../designer/runtime/DataEngine'
+import { api } from '../mock'
+import { asArray } from '../data/utils/typeGuards'
 import { screenApi } from './screenApi'
 import { routeToConfig, screenToRoute } from './screenAdapter'
 
@@ -162,6 +164,25 @@ export default function RemoteWindowApp({ mode, screenId }: Props) {
           const ds = c.props.dataSourceId || c.dataSource?.datasetId
           if (!ds) return c
           try {
+            // 表格组件需要完整行对象；resolveDataSource 会映射成 {name,value} 导致列对不上而清空
+            if ((c.props.catalogRenderer || c.type) === 'table') {
+              const res = await api.queryDataset(ds, { pageSize: 12 })
+              const rows = asArray<Record<string, unknown>>(res.data?.list)
+              if (!rows.length) return c
+              return { ...c, props: { ...c.props, data: rows } }
+            }
+            if ((c.props.catalogRenderer || c.type) === 'htmlComponent') {
+              const table = await resolveTableDataset(ds)
+              if (!table.rows.length) return c
+              return {
+                ...c,
+                props: {
+                  ...c.props,
+                  data: table.rows,
+                  columns: table.columns,
+                },
+              }
+            }
             const data = await resolveDataSource(ds, c.dataSource)
             if (!data.length) return c
             return { ...c, props: { ...c.props, data } }

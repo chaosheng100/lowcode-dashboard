@@ -22,6 +22,7 @@ const dataTypes: WidgetType[] = [
   'echartLine', 'echartBar', 'echartPie', 'echartGauge', 'echartRadar', 'echartCustom',
   'htmlComponent', 'reactComponent'
 ]
+const tableLikeTypes: WidgetType[] = ['table', 'htmlComponent']
 
 export default function PropertyPanel() {
   const { message } = App.useApp()
@@ -48,6 +49,7 @@ export default function PropertyPanel() {
   const [twinSceneOptions, setTwinSceneOptions] = useState<TwinSceneOption[]>([])
   const [iotDeviceOptions, setIotDeviceOptions] = useState<IoTDeviceOption[]>([])
   const [imageUploading, setImageUploading] = useState(false)
+  const [binding, setBinding] = useState(false)
 
   useEffect(() => {
     if (component && component.props.data) {
@@ -105,35 +107,43 @@ export default function PropertyPanel() {
   /** 执行数据集查询 + 语义字段映射 + 写入 dataSource */
   const doBind = async (datasetId: string, xField: string, yField: string, fieldKeys: string[] = []) => {
     if (!datasetId || !component) return
-    const r = await api.queryDataset(datasetId, { pageSize: 12 })
-    const rows = asArray<Record<string, unknown>>(r.data?.list)
-    const keys = asArray<string>(r.data?.columns).length ? asArray<string>(r.data?.columns) : fieldKeys
-    const ds = datasets.find((d) => d.id === datasetId)
-    const binding: ComponentDataBinding = { datasetId, xField, yField, datasetName: ds?.name }
-    const nextProps: Partial<WidgetProps> = {
-      title: ds?.name,
-      dataSourceId: datasetId,
-      dataSourceName: ds?.name
+    setBinding(true)
+    try {
+      const isTableLike = tableLikeTypes.includes(component.type)
+      const r = await api.queryDataset(datasetId, { pageSize: isTableLike ? 50 : 12 })
+      const rows = asArray<Record<string, unknown>>(r.data?.list)
+      const keys = asArray<string>(r.data?.columns).length ? asArray<string>(r.data?.columns) : fieldKeys
+      const ds = datasets.find((d) => d.id === datasetId)
+      const nextBinding: ComponentDataBinding = { datasetId, xField, yField, datasetName: ds?.name }
+      const nextProps: Partial<WidgetProps> = {
+        title: ds?.name,
+        dataSourceId: datasetId,
+        dataSourceName: ds?.name
+      }
+      if (isTableLike) {
+        // 表格和 AI HTML 共用完整行契约，任意数据集字段都不会被压缩成 {name,value}
+        nextProps.data = rows as Array<Record<string, unknown>>
+        nextProps.columns = (keys.length ? keys : [xField, yField]).map((key) => ({
+          key,
+          title: fieldLabel(datasetId, key) || key,
+          name: fieldLabel(datasetId, key) || key,
+          dataSetFieldKey: key
+        }))
+      } else {
+        const data: DataPoint[] = rows.map((row) => ({
+          name: String((row as Record<string, unknown>)[xField] ?? ''),
+          value: Number((row as Record<string, unknown>)[yField]) || 0
+        }))
+        nextProps.data = data
+      }
+      updateProps(component.id, nextProps)
+      updateComponentDataSource(component.id, nextBinding)
+      setDataText(JSON.stringify(nextProps.data, null, 2))
+    } catch (e) {
+      message.error('数据集绑定失败：' + (e as Error).message)
+    } finally {
+      setBinding(false)
     }
-    if (component.type === 'table') {
-      // 表格保留查询返回的完整行对象，全部字段都能展示
-      nextProps.data = rows as Array<Record<string, unknown>>
-      nextProps.columns = (keys.length ? keys : [xField, yField]).map((key) => ({
-        key,
-        title: fieldLabel(datasetId, key) || key,
-        name: fieldLabel(datasetId, key) || key,
-        dataSetFieldKey: key
-      }))
-    } else {
-      const data: DataPoint[] = rows.map((row) => ({
-        name: String((row as Record<string, unknown>)[xField] ?? ''),
-        value: Number((row as Record<string, unknown>)[yField]) || 0
-      }))
-      nextProps.data = data
-    }
-    updateProps(component.id, nextProps)
-    updateComponentDataSource(component.id, binding)
-    setDataText(JSON.stringify(nextProps.data, null, 2))
   }
 
   /** 选择数据集：自动推断维度/指标字段，查询并写入 */
@@ -353,6 +363,7 @@ export default function PropertyPanel() {
               <Form.Item label="数据集绑定（数据源 → 画布）" colon={false} style={{ marginBottom: 11 }}>
                 <Select
                   style={{ width: '100%' }}
+                  loading={binding}
                   value={p.dataSourceId || ''}
                   onChange={(v) => selectDataset(v)}
                   options={[
@@ -387,7 +398,7 @@ export default function PropertyPanel() {
                   </>
                 )
               })()}
-              <Form.Item label="数据 (JSON: [{ name, value }])" colon={false} style={{ marginBottom: 11 }}>
+              <Form.Item label="数据 (JSON 行数组)" colon={false} style={{ marginBottom: 11 }}>
                 <Input.TextArea
                   style={{ minHeight: 160, fontFamily: 'monospace' }}
                   value={dataText}

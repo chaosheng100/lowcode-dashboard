@@ -7,7 +7,7 @@ import type { ComponentDataBinding, DataPoint, WidgetProps } from '../../data/ty
 import { asArray } from '../../data/utils/typeGuards'
 
 // 可绑定数据集的组件类型（基础"数据/图表"能力 → 画布数据）
-const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table']
+const DATA_WIDGETS = ['lineChart', 'barChart', 'pieChart', 'metric', 'table', 'htmlComponent']
 
 /**
  * 资源中心：把基础数据路由沉淀的能力转化为画布编辑能力。
@@ -59,8 +59,9 @@ export default function ResourcePanel() {
   }, [tab, message])
 
   const bindDataset = async (ds: DatasetDTO) => {
+    const isTableLike = component?.type === 'table' || component?.type === 'htmlComponent'
     if (!component || !DATA_WIDGETS.includes(component.type)) {
-      message.warning('请先在画布中选中一个图表 / 指标卡 / 表格组件')
+      message.warning('请先在画布中选中一个图表 / 指标卡 / 表格 / AI HTML 组件')
       return
     }
     // 语义字段映射：从数据集 fields 自动选维度/指标
@@ -75,7 +76,7 @@ export default function ResourcePanel() {
 
     setLoading(true)
     try {
-      const r = await api.queryDataset(ds.id, { pageSize: 12 })
+      const r = await api.queryDataset(ds.id, { pageSize: isTableLike ? 50 : 12 })
       const rows = asArray<Record<string, unknown>>(r.data?.list)
       const keys = asArray<string>(r.data?.columns).length ? asArray<string>(r.data?.columns) : tableKeys
       const binding: ComponentDataBinding = { datasetId: ds.id, xField, yField, datasetName: ds.name }
@@ -84,7 +85,7 @@ export default function ResourcePanel() {
         dataSourceId: ds.id,
         dataSourceName: ds.name
       }
-      if (component.type === 'table') {
+      if (isTableLike) {
         nextProps.data = rows as Array<Record<string, unknown>>
         nextProps.columns = (keys.length ? keys : tableKeys).map((key) => ({
           key,

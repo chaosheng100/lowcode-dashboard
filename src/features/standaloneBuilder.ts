@@ -1,3 +1,4 @@
+import runtimeChartsSrc from './standaloneRuntimeCharts.js?raw'
 import runtimeSrc from './standaloneRuntime.js?raw'
 import type { RouteConfig } from '../data/types'
 
@@ -66,6 +67,7 @@ export function buildStandaloneHtml(payload: StandalonePayload): string {
 <script>
   window.__DATA__ = ${dataJson};
   document.getElementById('env').textContent = (window.__DATA__.env && window.__DATA__.env.name ? window.__DATA__.env.name : '默认环境');
+${runtimeChartsSrc}
 ${runtimeSrc}
 </script>
 </body>
